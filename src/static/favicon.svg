@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <rect width="24" height="24" rx="5" fill="#6366f1"/>
-  <text x="12" y="17" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">♬</text>
+  <circle cx="12" cy="12" r="12" fill="#6366f1"/>
+  <path d="M9 6.75a.75.75 0 0 1 .59-.733l6-1.286A.75.75 0 0 1 16.5 5.46v8.79a2.25 2.25 0 1 1-1.5-2.122V8.68l-4.5.964v6.856a2.25 2.25 0 1 1-1.5-2.122V6.75z" fill="white"/>
 </svg>
