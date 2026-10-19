@@ -93,7 +93,6 @@ If you find this project useful, you can support its development:
 
 ## License
 
-Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
-See [LICENSE](LICENSE) for the full text.
+Licensed under the MIT License. See [LICENSE](LICENSE) for the full text.
 
 Copyright (C) 2026 Aierizer Dániel
