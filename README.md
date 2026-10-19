@@ -85,6 +85,10 @@ Frontend modules under `src/js/` have their own coverage-gated suite:
 npm run test:js
 ```
 
+## Roadmap
+
+Planned features and improvements are tracked in [ROADMAP.md](ROADMAP.md).
+
 ## Support
 
 If you find this project useful, you can support its development:
