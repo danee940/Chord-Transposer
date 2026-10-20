@@ -429,7 +429,7 @@ describe("initPaste", () => {
     const input = document.getElementById("text_input");
     input.focus = vi.fn();
     document.getElementById("text_sample").dispatchEvent(new Event("click"));
-    expect(input.value).toContain("autumn leaves");
+    expect(input.value).toContain("Amazing grace");
     document.getElementById("text_clear").dispatchEvent(new Event("click"));
     expect(input.value).toBe("");
   });

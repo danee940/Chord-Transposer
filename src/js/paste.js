@@ -77,10 +77,10 @@ export function initPaste() {
   applyPreselect(textCurrentKey, panelPaste.dataset.preselectFrom);
   applyPreselect(textTargetKey, panelPaste.dataset.preselectTo);
   const SAMPLE_CHORDS =
-    "Am7          D7           Gmaj7\n" +
-    "The falling leaves drift by the window\n\n" +
-    "Cmaj7           F#m7b5       B7\n" +
-    "The autumn leaves of red and gold";
+    " G      G7         C         G\n" +
+    "Amazing grace, how sweet the sound\n" +
+    "     G       Em          D7\n" +
+    "That saved a wretch like me";
 
   let transposeMode = "key";
   let semitones = 0;
