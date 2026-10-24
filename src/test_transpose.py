@@ -1324,3 +1324,118 @@ class TestNashvilleNumber:
         result, tonic = t.text_to_nashville("H Cis", "H")
         assert result.split()[0] == "1"
         assert tonic == "H"
+
+
+# ---------------------------------------------------------------------------
+# detect_key
+# ---------------------------------------------------------------------------
+class TestChordQuality:
+    @pytest.mark.parametrize(
+        "remainder,expected",
+        [
+            ("", "major"),
+            ("maj7", "major"),
+            ("M7", "major"),
+            ("m", "minor"),
+            ("m7", "minor"),
+            ("min", "minor"),
+            ("-7", "minor"),
+            ("dim", "dim"),
+            ("°7", "dim"),
+            ("ø7", "dim"),
+            ("7", "dom7"),
+            ("9", "dom7"),
+            ("13", "dom7"),
+            ("sus4", "other"),
+            ("6", "other"),
+            ("m7/G", "minor"),
+            ("7/B", "dom7"),
+        ],
+    )
+    def test_classifies(self, remainder, expected):
+        assert t._chord_quality(remainder) == expected
+
+
+class TestDetectKey:
+    def test_major_cadence(self):
+        result = t.detect_key("C F G C")
+        assert result["key"] == "C"
+        assert result["alternate"] is None
+        assert result["ambiguous"] is False
+        assert result["chords"] == 4
+        assert result["distinct"] == 3
+
+    def test_minor_with_harmonic_dominant(self):
+        assert t.detect_key("Am Dm E7 Am")["key"] == "Am"
+
+    def test_relative_pair_is_ambiguous(self):
+        result = t.detect_key("Am F C G\nAm F C G\nAm")
+        assert result["key"] == "Am"
+        assert result["alternate"] == "C"
+        assert result["ambiguous"] is True
+
+    def test_dominant_seventh_disambiguates_relative_major(self):
+        result = t.detect_key("G C D7 G\nEm C D7 G")
+        assert result["key"] == "G"
+        assert result["ambiguous"] is False
+
+    def test_too_few_chords_returns_none(self):
+        result = t.detect_key("G")
+        assert result == {
+            "key": None,
+            "alternate": None,
+            "ambiguous": False,
+            "chords": 1,
+            "distinct": 1,
+        }
+
+    def test_single_repeated_root_returns_none(self):
+        assert t.detect_key("C C C C")["key"] is None
+
+    def test_lyrics_only_returns_none(self):
+        assert t.detect_key("just some lyrics here")["key"] is None
+
+    def test_empty_text_returns_none(self):
+        assert t.detect_key("")["key"] is None
+
+    def test_chordpro_input(self):
+        result = t.detect_key("[C]Amazing [F]grace how [G7]sweet the [C]sound")
+        assert result["key"] == "C"
+        assert result["chords"] == 4
+
+    def test_chordpro_ignores_directive_brackets(self):
+        result = t.detect_key("[Verse]\n[C]la [F]la [G]la [C]la")
+        assert result["chords"] == 4
+
+    def test_german_sheet_spells_german_label(self):
+        result = t.detect_key("E A H7 E\nA E H7 E")
+        assert result["key"] == "E"
+
+    def test_german_h_major_detected(self):
+        result = t.detect_key("H E Fis7 H\nE H Fis7 H")
+        assert result["key"] == "H"
+
+    def test_lowercase_roots_read_as_minor_in_mixed_case(self):
+        assert t.detect_key("e a H7 e")["key"] == "Em"
+        assert t.detect_key("a d E7 a")["key"] == "Am"
+
+    def test_all_lowercase_sheet_reads_as_major(self):
+        assert t.detect_key("c f g c\nf c g c")["key"] == "C"
+
+    def test_flat_key_spelling(self):
+        assert t.detect_key("Bb Eb F Bb")["key"] == "Bb"
+
+    def test_sharp_minor_spelling(self):
+        assert t.detect_key("F#m D A E\nF#m D E F#m")["key"] == "F#m"
+
+    def test_slash_bass_ignored(self):
+        assert t.detect_key("C/E F G/B C")["key"] == "C"
+
+    def test_labels_and_lyrics_ignored(self):
+        assert t.detect_key("VERSE:\nC F (G) C\nla la la lyrics")["key"] == "C"
+
+    def test_modal_sheet_flags_ambiguity(self):
+        result = t.detect_key("D C G D")
+        assert result["key"] == "D"
+        assert result["alternate"] == "G"
+        assert result["ambiguous"] is True

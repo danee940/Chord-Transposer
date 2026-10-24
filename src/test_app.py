@@ -664,3 +664,63 @@ def test_binder_success_merges_pages(client, monkeypatch):
     assert response.mimetype == "application/pdf"
     assert len(PdfReader(BytesIO(response.data)).pages) == 2
     assert "chord_binder_D.pdf" in response.headers["Content-Disposition"]
+
+
+def test_detect_key_missing_file(client):
+    response = client.post("/detect-key", data={}, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert "choose a .docx" in response.get_json()["error"]
+
+
+def test_detect_key_wrong_extension(client):
+    data = _upload(b"C G Am F", filename="song.txt")
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert "Only .docx" in response.get_json()["error"]
+
+
+def test_detect_key_empty_file(client):
+    data = _upload(b"", filename="empty.docx")
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert "empty" in response.get_json()["error"]
+
+
+def test_detect_key_too_large(client):
+    data = _upload(b"x" * (10 * 1024 * 1024 + 1))
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert "too large" in response.get_json()["error"]
+
+
+def test_detect_key_invalid_docx(client):
+    data = _upload(b"this is not a real docx", filename="bad.docx")
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert "valid .docx" in response.get_json()["error"]
+
+
+def test_detect_key_success(client):
+    document = Document()
+    document.add_paragraph("C F G7 C")
+    document.add_paragraph("These are the lyrics")
+    buffer = BytesIO()
+    document.save(buffer)
+    data = _upload(buffer.getvalue())
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["key"] == "C"
+    assert result["ambiguous"] is False
+    assert result["chords"] == 4
+
+
+def test_detect_key_too_few_chords(client):
+    document = Document()
+    document.add_paragraph("Only lyrics in this one")
+    buffer = BytesIO()
+    document.save(buffer)
+    data = _upload(buffer.getvalue())
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert response.get_json()["key"] is None

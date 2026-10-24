@@ -29,6 +29,10 @@ function buildDom(attrs = {}) {
       <div id="controls-key"></div>
       <div id="controls-semitone"></div>
       <label for="text_current_key"></label>
+      <span id="text_detected_wrap" class="hidden">
+        <span id="text_detected_label"></span>
+        <button id="text_detected_alt" class="hidden"></button>
+      </span>
       <div id="chordpro-format-toggle"></div>
       <button id="format_chordpro"></button>
       <button id="format_plain"></button>
@@ -232,6 +236,7 @@ describe("initPaste", () => {
     bad.value = "??";
     currentKey.appendChild(bad);
     currentKey.value = "??";
+    currentKey.dispatchEvent(new Event("change"));
     document.getElementById("text_target_key").value = "D";
     type("C G Am F");
     vi.advanceTimersByTime(300);
@@ -468,10 +473,67 @@ describe("initPaste", () => {
     bad.value = "??";
     currentKey.appendChild(bad);
     currentKey.value = "??";
+    currentKey.dispatchEvent(new Event("change"));
     document.getElementById("text_target_key").value = "D";
     type("C G Am F");
     vi.advanceTimersByTime(300);
     expect(status()).toContain("not a valid key");
+  });
+
+  it("preselects the detected key and shows the badge", () => {
+    initPaste();
+    document.getElementById("text_current_key").value = "D";
+    type("G C D7 G\nEm C D7 G");
+    vi.advanceTimersByTime(300);
+    expect(document.getElementById("text_current_key").value).toBe("G");
+    expect(document.getElementById("text_detected_label").textContent).toBe("Detected: G");
+    expect(document.getElementById("text_detected_wrap").classList.contains("hidden")).toBe(false);
+  });
+
+  it("does not override a key the user picked", () => {
+    initPaste();
+    const currentKey = document.getElementById("text_current_key");
+    currentKey.value = "D";
+    currentKey.dispatchEvent(new Event("change"));
+    type("G C D7 G\nEm C D7 G");
+    vi.advanceTimersByTime(300);
+    expect(currentKey.value).toBe("D");
+    expect(document.getElementById("text_detected_label").textContent).toBe("Detected: G");
+  });
+
+  it("locks detection when a landing page preselects the key", () => {
+    buildDom({ preselectFrom: "D" });
+    initPaste();
+    type("G C D7 G\nEm C D7 G");
+    vi.advanceTimersByTime(300);
+    expect(document.getElementById("text_current_key").value).toBe("D");
+    expect(document.getElementById("text_detected_label").textContent).toBe("Detected: G");
+  });
+
+  it("switches to the ambiguous alternate and retransposes", () => {
+    initPaste();
+    const currentKey = document.getElementById("text_current_key");
+    const alt = document.getElementById("text_detected_alt");
+    const amOption = document.createElement("option");
+    amOption.value = "Am";
+    currentKey.appendChild(amOption);
+    document.getElementById("text_target_key").value = "D";
+    type("Am F C G\nAm F C G\nAm");
+    vi.advanceTimersByTime(300);
+    expect(currentKey.value).toBe("Am");
+    expect(alt.textContent).toBe("or C?");
+    alt.dispatchEvent(new Event("click"));
+    expect(currentKey.value).toBe("C");
+    expect(status()).toContain("C →");
+  });
+
+  it("detects the sample key and hides the badge on clear", () => {
+    initPaste();
+    document.getElementById("text_sample").dispatchEvent(new Event("click"));
+    expect(document.getElementById("text_current_key").value).toBe("G");
+    expect(document.getElementById("text_detected_label").textContent).toBe("Detected: G");
+    document.getElementById("text_clear").dispatchEvent(new Event("click"));
+    expect(document.getElementById("text_detected_wrap").classList.contains("hidden")).toBe(true);
   });
 
   it("copies output to the clipboard", async () => {
@@ -510,13 +572,76 @@ describe("initPaste preferences", () => {
     document.body.innerHTML = "";
   });
 
-  function stubPrefs(prefs) {
+  function stubPrefs(prefs, setItem = () => {}) {
     vi.stubGlobal("localStorage", {
       getItem: () => JSON.stringify(prefs),
-      setItem: () => {},
+      setItem,
       removeItem: () => {},
     });
   }
+
+  function savedKeys(setItem) {
+    const last = setItem.mock.calls.at(-1);
+    return JSON.parse(last[1]);
+  }
+
+  it("detects the key of text already in the box on load", () => {
+    buildDom();
+    stubPrefs({ currentKey: "C" });
+    document.getElementById("text_input").value = "G C D7 G\nEm C D7 G";
+    initPaste();
+    expect(document.getElementById("text_current_key").value).toBe("G");
+    expect(document.getElementById("text_detected_label").textContent).toBe("Detected: G");
+  });
+
+  it("keeps a restored key when the box is empty on load", () => {
+    buildDom();
+    stubPrefs({ currentKey: "G" });
+    initPaste();
+    expect(document.getElementById("text_current_key").value).toBe("G");
+    expect(document.getElementById("text_detected_wrap").classList.contains("hidden")).toBe(true);
+  });
+
+  it("never writes a detected key to preferences", () => {
+    buildDom();
+    const setItem = vi.fn();
+    stubPrefs({ currentKey: "C", targetKey: "D" }, setItem);
+    initPaste();
+    type("G C D7 G\nEm C D7 G");
+    vi.advanceTimersByTime(300);
+    expect(document.getElementById("text_current_key").value).toBe("G");
+    document.getElementById("notation_flat").dispatchEvent(new Event("click"));
+    expect(savedKeys(setItem).currentKey).toBe("C");
+  });
+
+  it("writes a key the user picked", () => {
+    buildDom();
+    const setItem = vi.fn();
+    stubPrefs({ currentKey: "C", targetKey: "D" }, setItem);
+    initPaste();
+    type("G C D7 G\nEm C D7 G");
+    vi.advanceTimersByTime(300);
+    const currentKey = document.getElementById("text_current_key");
+    currentKey.value = "D";
+    currentKey.dispatchEvent(new Event("change"));
+    expect(savedKeys(setItem).currentKey).toBe("D");
+  });
+
+  it("writes the key chosen from the ambiguous alternate", () => {
+    buildDom();
+    const setItem = vi.fn();
+    stubPrefs({ currentKey: "C", targetKey: "D" }, setItem);
+    const currentKey = document.getElementById("text_current_key");
+    const amOption = document.createElement("option");
+    amOption.value = "Am";
+    currentKey.appendChild(amOption);
+    initPaste();
+    type("Am F C G\nAm F C G\nAm");
+    vi.advanceTimersByTime(300);
+    expect(currentKey.value).toBe("Am");
+    document.getElementById("text_detected_alt").dispatchEvent(new Event("click"));
+    expect(savedKeys(setItem).currentKey).toBe("C");
+  });
 
   it("restores saved preferences on load", () => {
     buildDom();

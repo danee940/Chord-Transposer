@@ -26,7 +26,15 @@
 
     <div class="mt-4 flex items-end gap-2">
       <div class="flex-1">
-        <label for="current_key" class="mb-1.5 block text-sm text-muted-light dark:text-muted">Current key</label>
+        <div class="mb-1.5 flex items-center justify-between gap-2">
+          <label for="current_key" class="block text-sm text-muted-light dark:text-muted">Current key</label>
+          <span id="upload_detected_wrap" class="hidden items-center gap-1 text-xs text-muted-light dark:text-muted"
+            aria-live="polite">
+            <span id="upload_detected_label"></span>
+            <button type="button" id="upload_detected_alt"
+              class="hidden rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-medium text-slate-700 transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200 dark:hover:text-slate-100"></button>
+          </span>
+        </div>
         <select id="current_key" name="current_key" required
           class="w-full rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
           {% for key in keys %}<option value="{{ key }}">{{ key }}</option>{% endfor %}

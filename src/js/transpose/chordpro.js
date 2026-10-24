@@ -10,7 +10,7 @@ import { chooseSpelling } from "./notation.js";
 
 const CHORDPRO_BRACKET_RE = /\[([^\]]+)\]/g;
 
-function bracketTokens(text) {
+export function bracketTokens(text) {
   return [...text.matchAll(CHORDPRO_BRACKET_RE)].map((match) => match[1]);
 }
 

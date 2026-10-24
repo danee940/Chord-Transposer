@@ -1,3 +1,4 @@
+import { createDetectionBadge } from "./detect-badge.js";
 import { BASE_CLASSES, ERROR_CLASSES, OK_CLASSES, makeCell, makeHeaderCell } from "./dom.js";
 import {
   InvalidKeyError,
@@ -18,6 +19,9 @@ export function initUpload() {
   const currentKey = document.getElementById("current_key");
   const targetKey = document.getElementById("target_key");
   const swap = document.getElementById("swap");
+  const detectedWrap = document.getElementById("upload_detected_wrap");
+  const detectedLabel = document.getElementById("upload_detected_label");
+  const detectedAlt = document.getElementById("upload_detected_alt");
 
   const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
   const MAX_BINDER_FILES = 20;
@@ -115,6 +119,30 @@ export function initUpload() {
     message.appendChild(pre);
   }
 
+  const detection = createDetectionBadge({
+    wrap: detectedWrap,
+    label: detectedLabel,
+    altButton: detectedAlt,
+    select: currentKey,
+    onAltPick: runPreview,
+  });
+
+  let fileSelectionId = 0;
+
+  async function detectDocxKey(file, selectionId) {
+    const data = new FormData();
+    data.append("file", file);
+    try {
+      const response = await fetch("/detect-key", { method: "POST", body: data });
+      if (!response.ok) return;
+      const result = await response.json();
+      if (selectionId !== fileSelectionId) return;
+      detection.apply(result);
+    } catch {
+      return;
+    }
+  }
+
   function runPreview() {
     if (textPreviewSource === null) return;
     if (currentKey.value === targetKey.value) {
@@ -134,6 +162,9 @@ export function initUpload() {
   fileInput.addEventListener("change", () => {
     hideMessage();
     textPreviewSource = null;
+    fileSelectionId += 1;
+    const selectionId = fileSelectionId;
+    detection.reset();
     const files = selectedFiles();
     if (files.length === 0) {
       updateDropzone(null);
@@ -149,9 +180,13 @@ export function initUpload() {
     updateDropzone(files);
     if (files.length === 1 && isTextName(files[0].name)) {
       files[0].text().then((content) => {
+        if (selectionId !== fileSelectionId) return;
         textPreviewSource = content;
+        detection.detect(content);
         runPreview();
       });
+    } else if (files.length === 1 && isDocxName(files[0].name)) {
+      detectDocxKey(files[0], selectionId);
     }
   });
 
@@ -177,13 +212,17 @@ export function initUpload() {
   });
 
   swap.addEventListener("click", () => {
+    detection.markUserPick();
     const from = currentKey.value;
     currentKey.value = targetKey.value;
     targetKey.value = from;
     runPreview();
   });
 
-  currentKey.addEventListener("change", runPreview);
+  currentKey.addEventListener("change", () => {
+    detection.markUserPick();
+    runPreview();
+  });
   targetKey.addEventListener("change", runPreview);
 
   function showTransposeResult(from, to, changesRaw) {

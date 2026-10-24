@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import cases from "../../testdata/transpose_cases.json";
 import {
   chordProToPlain,
+  detectKey,
   isChordProText,
   textToNashville,
   transposeChordProText,
@@ -53,6 +54,9 @@ function runCase({ mode, input, params }) {
   }
   if (mode === "is-chordpro") {
     return { result: isChordProText(input) };
+  }
+  if (mode === "detect-key") {
+    return detectKey(input);
   }
   if (mode === "nashville") {
     const { text, tonic } = textToNashville(input, params.tonic_key);

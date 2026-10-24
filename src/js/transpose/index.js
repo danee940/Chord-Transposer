@@ -12,6 +12,7 @@ import {
   isChordProText,
   transposeChordProCore,
 } from "./chordpro.js";
+import { detectKey } from "./detect.js";
 import { nashvilleChordProLine, nashvilleLine } from "./nashville.js";
 import {
   chooseSpelling,
@@ -123,4 +124,4 @@ export function textToNashville(text, tonicKey) {
   return { text: result, tonic: keyLabel(tonic.note, tonic.minor) };
 }
 
-export { chordProToPlain, isChordProText };
+export { chordProToPlain, detectKey, isChordProText };

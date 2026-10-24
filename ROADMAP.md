@@ -6,10 +6,15 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
 
 ## Transposition engine
 
-- [ ] **Automatic key detection (M)**: guess the current key from the chords in
+- [x] **Automatic key detection (M)**: guess the current key from the chords in
       a pasted text or uploaded file and preselect it, instead of making the user
       pick it. Implement in both `src/transpose.py` and `src/js/transpose/`, with
       shared cases in `src/testdata/transpose_cases.json`.
+- [ ] **German keys in the key dropdowns (S)**: the key selects only list
+      English names, but on German sheets the core reads `B` as B♭ and there is
+      no `H`/`Hm` option at all, so a detected German key (e.g. `H`) can be shown
+      but not preselected. Add German-aware options or labels so detection and
+      manual selection work for German notation.
 - [ ] **Key-aware enharmonic spelling (M)**: spell chords correctly for the
       target key (for example `F#` vs `Gb`, `Cb` in `Gb` major) rather than
       choosing between two fixed sharp and flat spellings.
@@ -100,7 +105,14 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
 - [ ] **Browser end-to-end tests (M)**: Playwright tests for the paste, upload,
       and binder flows, run in CI.
 - [ ] **Upload hardening (S)**: per-IP rate limiting on the upload endpoints and
-      clearer errors for oversized or corrupt files.
+      clearer errors for oversized or corrupt files. Cover `/detect-key` too:
+      it is a second unauthenticated endpoint that parses untrusted .docx
+      (zip/XML) input, called automatically on every single-file selection.
+- [ ] **Single-upload key detection (M)**: a selected .docx is currently
+      uploaded twice — once to `/detect-key` for the key guess and again on
+      submit. When the "Upload preview before download" item lands with
+      client-side .docx text extraction, run detection in the browser and
+      retire `/detect-key`.
 - [ ] **Dependency automation (S)**: Dependabot for pip, npm and GitHub
       Actions, plus tagged releases with a `CHANGELOG.md`.
 - [ ] **Accessibility pass (S)**: keyboard navigation and screen-reader labels

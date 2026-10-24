@@ -10,6 +10,10 @@ function setupDom() {
       <select id="current_key"><option value="C">C</option><option value="D">D</option></select>
       <select id="target_key"><option value="C">C</option><option value="D">D</option></select>
       <button id="swap" type="button"></button>
+      <span id="upload_detected_wrap" class="hidden">
+        <span id="upload_detected_label"></span>
+        <button id="upload_detected_alt" type="button" class="hidden"></button>
+      </span>
       <label><input type="radio" name="format" value="docx" checked /></label>
       <label><input type="radio" name="format" value="pdf" /></label>
       <button id="submit" type="submit"><span id="submit-label"></span><span id="spinner"></span></button>
@@ -89,6 +93,128 @@ describe("initUpload", () => {
     setFiles(fileInput, [makeFile("song.docx", 2048)]);
     fileInput.dispatchEvent(new Event("change"));
     expect(document.getElementById("dropzone-text").textContent).toContain("song.docx");
+  });
+
+  it("detects the key of a text upload and preselects it", async () => {
+    initUpload();
+    const fileInput = document.getElementById("file");
+    setFiles(fileInput, [makeTextFile("hymn.txt", "D G A7 D\nBm G A7 D")]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() =>
+      expect(document.getElementById("upload_detected_label").textContent).toBe("Detected: D")
+    );
+    expect(document.getElementById("current_key").value).toBe("D");
+    expect(document.getElementById("upload_detected_wrap").classList.contains("hidden")).toBe(
+      false
+    );
+  });
+
+  it("asks the server to detect the key of a .docx upload", async () => {
+    initUpload();
+    fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 3 }),
+    });
+    const fileInput = document.getElementById("file");
+    setFiles(fileInput, [makeFile("song.docx", 2048)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() =>
+      expect(document.getElementById("upload_detected_label").textContent).toBe("Detected: D")
+    );
+    expect(fetch).toHaveBeenCalledWith("/detect-key", expect.objectContaining({ method: "POST" }));
+    expect(document.getElementById("current_key").value).toBe("D");
+  });
+
+  it("ignores a failed .docx key detection response", async () => {
+    initUpload();
+    fetch.mockResolvedValue({ ok: false });
+    const fileInput = document.getElementById("file");
+    setFiles(fileInput, [makeFile("song.docx", 2048)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(document.getElementById("current_key").value).toBe("C");
+    expect(document.getElementById("upload_detected_wrap").classList.contains("hidden")).toBe(true);
+  });
+
+  it("ignores a key detection network error", async () => {
+    initUpload();
+    fetch.mockRejectedValue(new Error("offline"));
+    const fileInput = document.getElementById("file");
+    setFiles(fileInput, [makeFile("song.docx", 2048)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(document.getElementById("upload_detected_wrap").classList.contains("hidden")).toBe(true);
+  });
+
+  it("discards a stale .docx detection response", async () => {
+    initUpload();
+    let resolveFirst;
+    const firstResponse = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    fetch.mockReturnValueOnce(firstResponse).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 3 }),
+    });
+    const fileInput = document.getElementById("file");
+    setFiles(fileInput, [makeFile("a.docx", 1024)]);
+    fileInput.dispatchEvent(new Event("change"));
+    setFiles(fileInput, [makeFile("b.docx", 1024)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() =>
+      expect(document.getElementById("upload_detected_label").textContent).toBe("Detected: D")
+    );
+    resolveFirst({
+      ok: true,
+      json: async () => ({ key: "C", alternate: null, ambiguous: false, chords: 4, distinct: 3 }),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.getElementById("upload_detected_label").textContent).toBe("Detected: D");
+    expect(document.getElementById("current_key").value).toBe("D");
+  });
+
+  it("discards a stale text file read after a newer selection", async () => {
+    initUpload();
+    const fileInput = document.getElementById("file");
+    let resolveFirst;
+    const slow = makeFile("slow.txt", 10);
+    slow.text = () =>
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+    setFiles(fileInput, [slow]);
+    fileInput.dispatchEvent(new Event("change"));
+    setFiles(fileInput, [makeTextFile("fast.txt", "D G A7 D\nBm G A7 D")]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() =>
+      expect(document.getElementById("upload_detected_label").textContent).toBe("Detected: D")
+    );
+    resolveFirst("C F G7 C");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.getElementById("upload_detected_label").textContent).toBe("Detected: D");
+    expect(document.getElementById("current_key").value).toBe("D");
+  });
+
+  it("skips key detection for multi-file binders", () => {
+    initUpload();
+    const fileInput = document.getElementById("file");
+    setFiles(fileInput, [makeFile("a.docx", 1024), makeFile("b.docx", 1024)]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("re-detects after a new file resets the user pick", async () => {
+    initUpload();
+    const currentKey = document.getElementById("current_key");
+    const fileInput = document.getElementById("file");
+    setFiles(fileInput, [makeTextFile("hymn.txt", "D G A7 D\nBm G A7 D")]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(currentKey.value).toBe("D"));
+    currentKey.value = "C";
+    currentKey.dispatchEvent(new Event("change"));
+    setFiles(fileInput, [makeTextFile("again.txt", "D G A7 D\nBm G A7 D")]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(currentKey.value).toBe("D"));
   });
 
   it("accepts a .txt file and previews the transposed text", async () => {

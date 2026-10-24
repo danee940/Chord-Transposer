@@ -1,4 +1,5 @@
 import { formatCapoSuggestion } from "./capo-suggest.js";
+import { createDetectionBadge } from "./detect-badge.js";
 import { initDiagrams } from "./diagrams/index.js";
 import { MODE_ACTIVE_CLASSES, MODE_INACTIVE_CLASSES } from "./dom.js";
 import { loadPrefs, savePrefs } from "./prefs.js";
@@ -38,6 +39,9 @@ export function initPaste() {
   const textLineCount = document.getElementById("text_linecount");
   const textSample = document.getElementById("text_sample");
   const textClear = document.getElementById("text_clear");
+  const textDetectedWrap = document.getElementById("text_detected_wrap");
+  const textDetectedLabel = document.getElementById("text_detected_label");
+  const textDetectedAlt = document.getElementById("text_detected_alt");
 
   const modeKey = document.getElementById("mode-key");
   const modeSemitone = document.getElementById("mode-semitone");
@@ -88,11 +92,16 @@ export function initPaste() {
   let outputFormat = "chordpro";
   let instrument = "guitar";
   let transposeTimer = null;
+  let chosenCurrentKey = textCurrentKey.value;
+
+  function rememberCurrentKey() {
+    chosenCurrentKey = textCurrentKey.value;
+  }
 
   function persistPrefs() {
     savePrefs({
       mode: transposeMode,
-      currentKey: textCurrentKey.value,
+      currentKey: chosenCurrentKey,
       targetKey: textTargetKey.value,
       semitones,
       notation: useFlats ? "flat" : "sharp",
@@ -338,9 +347,27 @@ export function initPaste() {
     syncOutputControls();
   }
 
+  const detection = createDetectionBadge({
+    wrap: textDetectedWrap,
+    label: textDetectedLabel,
+    altButton: textDetectedAlt,
+    select: textCurrentKey,
+    onAltPick: () => {
+      rememberCurrentKey();
+      runTextTranspose();
+      persistPrefs();
+    },
+  });
+  if (panelPaste.dataset.preselectFrom) {
+    detection.markUserPick();
+  }
+
   function scheduleTextTranspose() {
     clearTimeout(transposeTimer);
-    transposeTimer = setTimeout(runTextTranspose, 250);
+    transposeTimer = setTimeout(() => {
+      detection.detect(textInput.value);
+      runTextTranspose();
+    }, 250);
   }
 
   textInput.addEventListener("input", () => {
@@ -348,6 +375,8 @@ export function initPaste() {
     scheduleTextTranspose();
   });
   textCurrentKey.addEventListener("change", () => {
+    detection.markUserPick();
+    rememberCurrentKey();
     runTextTranspose();
     persistPrefs();
   });
@@ -357,9 +386,11 @@ export function initPaste() {
   });
 
   textSwap.addEventListener("click", () => {
+    detection.markUserPick();
     const from = textCurrentKey.value;
     textCurrentKey.value = textTargetKey.value;
     textTargetKey.value = from;
+    rememberCurrentKey();
     runTextTranspose();
     persistPrefs();
   });
@@ -387,6 +418,8 @@ export function initPaste() {
   textSample.addEventListener("click", () => {
     textInput.value = SAMPLE_CHORDS;
     updateLineCount();
+    detection.reset();
+    detection.detect(textInput.value);
     runTextTranspose();
     textInput.focus();
   });
@@ -394,6 +427,7 @@ export function initPaste() {
   textClear.addEventListener("click", () => {
     textInput.value = "";
     updateLineCount();
+    detection.reset();
     runTextTranspose();
     textInput.focus();
   });
@@ -444,9 +478,12 @@ export function initPaste() {
     semitones = Math.max(-MAX_SEMITONES, Math.min(MAX_SEMITONES, savedPrefs.semitones));
   }
 
+  rememberCurrentKey();
+
   selectOutputFormat(false);
   selectNotation(savedPrefs.notation === "flat");
   updateSemitoneDisplay();
+  detection.detect(textInput.value);
   selectMode(["key", "semitone", "nashville"].includes(savedPrefs.mode) ? savedPrefs.mode : "key");
   updateLineCount();
 

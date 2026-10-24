@@ -1439,5 +1439,291 @@
       "text": "1maj7 6m7 57sus4",
       "tonic": "C"
     }
+  },
+  {
+    "description": "detect basic major cadence",
+    "mode": "detect-key",
+    "input": "C F G C",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect pop major progression",
+    "mode": "detect-key",
+    "input": "C G Am F\nC G F C",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 4
+    }
+  },
+  {
+    "description": "detect relative minor ambiguity",
+    "mode": "detect-key",
+    "input": "Am F C G\nAm F C G\nAm",
+    "params": {},
+    "expected": {
+      "key": "Am",
+      "alternate": "C",
+      "ambiguous": true,
+      "chords": 9,
+      "distinct": 4
+    }
+  },
+  {
+    "description": "detect harmonic minor via E7",
+    "mode": "detect-key",
+    "input": "Am Dm E7 Am",
+    "params": {},
+    "expected": {
+      "key": "Am",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect G major with dominant seventh",
+    "mode": "detect-key",
+    "input": "G C D7 G\nEm C D7 G",
+    "params": {},
+    "expected": {
+      "key": "G",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 4
+    }
+  },
+  {
+    "description": "detect minor via dominant on repeat",
+    "mode": "detect-key",
+    "input": "Am F E7 Am",
+    "params": {},
+    "expected": {
+      "key": "Am",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect modal sheet as ambiguous",
+    "mode": "detect-key",
+    "input": "D C G D",
+    "params": {},
+    "expected": {
+      "key": "D",
+      "alternate": "G",
+      "ambiguous": true,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect just inside ambiguity margin",
+    "mode": "detect-key",
+    "input": "D C G A D",
+    "params": {},
+    "expected": {
+      "key": "D",
+      "alternate": "G",
+      "ambiguous": true,
+      "chords": 5,
+      "distinct": 4
+    }
+  },
+  {
+    "description": "detect just outside ambiguity margin",
+    "mode": "detect-key",
+    "input": "G C D Em\nG C D G",
+    "params": {},
+    "expected": {
+      "key": "G",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 4
+    }
+  },
+  {
+    "description": "detect single chord returns null",
+    "mode": "detect-key",
+    "input": "G",
+    "params": {},
+    "expected": {
+      "key": null,
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 1,
+      "distinct": 1
+    }
+  },
+  {
+    "description": "detect lyrics only returns null",
+    "mode": "detect-key",
+    "input": "just some lyrics here\nand another line",
+    "params": {},
+    "expected": {
+      "key": null,
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 0,
+      "distinct": 0
+    }
+  },
+  {
+    "description": "detect empty text returns null",
+    "mode": "detect-key",
+    "input": "",
+    "params": {},
+    "expected": {
+      "key": null,
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 0,
+      "distinct": 0
+    }
+  },
+  {
+    "description": "detect chordpro input",
+    "mode": "detect-key",
+    "input": "[C]Hello [F]world [G7]again [C]end",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect german notation key",
+    "mode": "detect-key",
+    "input": "E A H7 E\nA E H7 E",
+    "params": {},
+    "expected": {
+      "key": "E",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect lowercase german minor",
+    "mode": "detect-key",
+    "input": "e a H7 e",
+    "params": {},
+    "expected": {
+      "key": "Em",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect flat key",
+    "mode": "detect-key",
+    "input": "Bb Eb F Bb",
+    "params": {},
+    "expected": {
+      "key": "Bb",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect sharp minor key",
+    "mode": "detect-key",
+    "input": "F#m D A E\nF#m D E F#m",
+    "params": {},
+    "expected": {
+      "key": "F#m",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 4
+    }
+  },
+  {
+    "description": "detect ignores slash bass notes",
+    "mode": "detect-key",
+    "input": "C/E F G/B C",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect ignores labels and lyrics",
+    "mode": "detect-key",
+    "input": "VERSE:\nC F (G) C\nla la la lyrics",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect with diminished chord",
+    "mode": "detect-key",
+    "input": "C Dm Em F\nG7 Bdim C",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 7,
+      "distinct": 6
+    }
+  },
+  {
+    "description": "detect all-lowercase sheet as major",
+    "mode": "detect-key",
+    "input": "c f g c\nf c g c",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 3
+    }
+  },
+  {
+    "description": "detect mixed-case lowercase as minor",
+    "mode": "detect-key",
+    "input": "a d E7 a",
+    "params": {},
+    "expected": {
+      "key": "Am",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 4,
+      "distinct": 3
+    }
   }
 ]

@@ -763,3 +763,27 @@ class TestFileTransposerPage:
         assert response.status_code == 200
         assert "sheet_D.docx" in response.headers["Content-Disposition"]
         assert _paragraphs(response.data)[0] == "D A Bm G"
+
+
+class TestDetectKeyFromDocx:
+    """End-to-end key detection from real .docx bytes."""
+
+    def test_detects_key_from_body_chords(self):
+        docx_bytes = _make_docx(
+            "G        C        D7       G",
+            "Amazing grace how sweet the sound",
+            "Em       C        D7       G",
+        )
+        result = t.detect_key_from_docx_bytes(docx_bytes)
+        assert result["key"] == "G"
+        assert result["ambiguous"] is False
+        assert result["chords"] == 8
+
+    def test_detects_key_from_table_chords(self):
+        docx_bytes = _make_docx_with_table("Am Dm E7 Am", "lyrics only")
+        result = t.detect_key_from_docx_bytes(docx_bytes)
+        assert result["key"] == "Am"
+
+    def test_lyrics_only_docx_returns_none(self):
+        docx_bytes = _make_docx("Only lyrics here", "and more lyrics")
+        assert t.detect_key_from_docx_bytes(docx_bytes)["key"] is None

@@ -22,6 +22,7 @@ from transpose import (
     InvalidKeyError,
     PdfConversionError,
     convert_docx_to_pdf,
+    detect_key_from_docx_bytes,
     is_chordpro_text,
     transpose_chordpro_text,
     transpose_document_bytes,
@@ -230,6 +231,28 @@ def sitemap():
         + "\n</urlset>\n"
     )
     return Response(body, mimetype="application/xml")
+
+
+@app.route("/detect-key", methods=["POST"])
+def detect_key_upload():
+    """Guess the key of an uploaded .docx chord sheet and return it as JSON."""
+    uploaded = request.files.get("file")
+
+    if uploaded is None or not uploaded.filename:
+        return jsonify({"error": "Please choose a .docx file to upload."}), 400
+    if not uploaded.filename.lower().endswith(".docx"):
+        return jsonify({"error": "Only .docx files are supported."}), 400
+
+    file_bytes = uploaded.read()
+    if not file_bytes:
+        return jsonify({"error": "The uploaded file is empty."}), 400
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        return jsonify({"error": "File is too large. The maximum size is 10 MB."}), 400
+
+    try:
+        return jsonify(detect_key_from_docx_bytes(file_bytes))
+    except (PackageNotFoundError, BadZipFile):
+        return jsonify({"error": "Could not read the file as a valid .docx document."}), 400
 
 
 @app.route("/transpose", methods=["POST"])

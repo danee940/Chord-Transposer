@@ -70,6 +70,8 @@ def _run_case(case):
         return {"text": t._chordpro_to_plain(text)}
     if mode == "is-chordpro":
         return {"result": t.is_chordpro_text(text)}
+    if mode == "detect-key":
+        return t.detect_key(text)
     if mode == "nashville":
         result, tonic = t.text_to_nashville(text, params["tonic_key"])
         return {"text": result, "tonic": tonic}

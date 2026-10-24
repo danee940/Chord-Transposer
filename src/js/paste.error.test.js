@@ -31,6 +31,10 @@ function buildDom() {
       <div id="controls-key"></div>
       <div id="controls-semitone"></div>
       <label for="text_current_key"></label>
+      <span id="text_detected_wrap" class="hidden">
+        <span id="text_detected_label"></span>
+        <button id="text_detected_alt" class="hidden"></button>
+      </span>
       <div id="chordpro-format-toggle"></div>
       <button id="format_chordpro"></button>
       <button id="format_plain"></button>
