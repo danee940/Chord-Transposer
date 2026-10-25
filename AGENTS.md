@@ -93,6 +93,13 @@ npm run test:js
   `css_version` is a content hash computed in `app.py`. Static assets are served
   `immutable`; HTML is served `no-cache`.
 
+## SEO page dates
+
+- Every indexable page carries a `lastmod` date in `src/seo.py` that is
+  published in `/sitemap.xml`. When you change the copy a page renders, bump
+  that page's date and leave the others alone — crawlers discount `lastmod`
+  values they find unreliable, so a blanket update is worse than none.
+
 ## Conventions
 
 - Do not add explanatory code comments; use self-explanatory names instead.

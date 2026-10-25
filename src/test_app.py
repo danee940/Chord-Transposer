@@ -3,6 +3,7 @@
 
 import json
 import re
+from datetime import date
 from io import BytesIO
 from typing import Any
 from urllib.parse import quote_plus, unquote
@@ -435,6 +436,33 @@ def test_sitemap_lists_every_landing_url(client):
     for path in seo.sitemap_paths():
         assert f"<loc>{seo.SITE_URL}{path}</loc>" in body
     assert body.count("<url>") == len(seo.sitemap_paths())
+
+
+def test_sitemap_gives_every_url_a_lastmod(client):
+    body = client.get("/sitemap.xml").get_data(as_text=True)
+    for entry in seo.sitemap_entries():
+        assert (
+            f"<loc>{seo.SITE_URL}{entry['path']}</loc><lastmod>{entry['lastmod']}</lastmod>" in body
+        )
+    assert body.count("<lastmod>") == body.count("<url>")
+
+
+def test_sitemap_lastmod_dates_are_iso_formatted(client):
+    body = client.get("/sitemap.xml").get_data(as_text=True)
+    dates = re.findall(r"<lastmod>([^<]+)</lastmod>", body)
+    assert dates
+    for value in dates:
+        assert date.fromisoformat(value).isoformat() == value
+
+
+def test_sitemap_entries_cover_every_indexable_path():
+    assert [entry["path"] for entry in seo.sitemap_entries()] == seo.sitemap_paths()
+    assert all(entry["lastmod"] for entry in seo.sitemap_entries())
+
+
+def test_every_landing_page_declares_a_lastmod():
+    for page in seo.landing_pages():
+        assert date.fromisoformat(page["lastmod"])
 
 
 def test_robots_txt_points_to_sitemap(client):

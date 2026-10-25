@@ -243,11 +243,12 @@ def og_image():
 def sitemap():
     """Serve a sitemap generated from the home page and every landing page."""
     urls = []
-    for path in seo.sitemap_paths():
+    for entry in seo.sitemap_entries():
+        path = entry["path"]
         priority = "1.0" if path == "/" else "0.8"
         urls.append(
-            f"  <url><loc>{SITE_URL}{path}</loc><changefreq>monthly</changefreq>"
-            f"<priority>{priority}</priority></url>"
+            f"  <url><loc>{SITE_URL}{path}</loc><lastmod>{entry['lastmod']}</lastmod>"
+            f"<changefreq>monthly</changefreq><priority>{priority}</priority></url>"
         )
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'

@@ -4,6 +4,10 @@ This module is the single source of truth for the FAQ, the how-to steps, the
 instrument pages, and the chromatic transposition chart. Both the Flask routes
 and the templates read their content from here so the visible copy and the
 JSON-LD structured data cannot drift apart.
+
+Each page carries a ``lastmod`` date that is published in ``/sitemap.xml``. Bump
+the date of a page whenever you change the copy it renders, and leave the others
+alone, so crawlers keep treating the dates as trustworthy.
 """
 
 from transpose import SHARP_SPELLING
@@ -11,6 +15,8 @@ from transpose import SHARP_SPELLING
 SITE_URL = "https://chordtransposer.app"
 
 KEY_PAIR_SLUG_SEPARATOR = "-to-"
+
+HOME_LAST_MODIFIED = "2026-10-24"
 
 FAQ_ITEMS = [
     {
@@ -299,6 +305,7 @@ INSTRUMENTS = [
     {
         "instrument": "guitar",
         "slug": "guitar-chord-transposer",
+        "lastmod": "2026-10-24",
         "name": "Guitar",
         "title": "Guitar Chord Transposer — Change Key & Capo Finder",
         "description": (
@@ -329,6 +336,7 @@ INSTRUMENTS = [
     {
         "instrument": "ukulele",
         "slug": "ukulele-chord-transposer",
+        "lastmod": "2026-10-24",
         "name": "Ukulele",
         "title": "Ukulele Chord Transposer — Change Chords to Any Key",
         "description": (
@@ -358,6 +366,7 @@ INSTRUMENTS = [
     {
         "instrument": "piano",
         "slug": "piano-chord-transposer",
+        "lastmod": "2026-10-24",
         "name": "Piano",
         "title": "Piano Chord Transposer — Transpose Chords to Any Key",
         "description": (
@@ -487,6 +496,7 @@ def _instrument_page(instrument):
         "id": instrument["slug"].replace("-", "_"),
         "path": path,
         "kind": "instrument",
+        "lastmod": instrument["lastmod"],
         "instrument": instrument["instrument"],
         "title": instrument["title"],
         "description": instrument["description"],
@@ -602,6 +612,7 @@ def _chart_page():
         "id": "chromatic_chart",
         "path": path,
         "kind": "chart",
+        "lastmod": "2026-10-24",
         "title": "Chromatic Transposition Chart — Every Key by Semitone",
         "description": (
             "A chromatic transposition chart showing where each note lands when you shift it up "
@@ -641,6 +652,7 @@ def _file_page():
         "id": "file_chord_transposer",
         "path": path,
         "kind": "file",
+        "lastmod": "2026-10-24",
         "title": "File Chord Transposer — Transpose .docx, .txt & ChordPro",
         "description": (
             "Upload a chord sheet file and download it transposed to any key. Supports Word "
@@ -716,6 +728,13 @@ def nav_columns():
     return columns
 
 
+def sitemap_entries():
+    """Return every indexable path with the date its content last changed."""
+    entries = [{"path": "/", "lastmod": HOME_LAST_MODIFIED}]
+    entries.extend({"path": page["path"], "lastmod": page["lastmod"]} for page in landing_pages())
+    return entries
+
+
 def sitemap_paths():
     """Return every indexable path, starting with the home page."""
-    return ["/", *[page["path"] for page in landing_pages()]]
+    return [entry["path"] for entry in sitemap_entries()]
