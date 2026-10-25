@@ -10,6 +10,8 @@ from transpose import SHARP_SPELLING
 
 SITE_URL = "https://chordtransposer.app"
 
+KEY_PAIR_SLUG_SEPARATOR = "-to-"
+
 FAQ_ITEMS = [
     {
         "question": "How do I transpose chords to a different key?",
@@ -391,6 +393,24 @@ _SHIFT_LABELS = {
     5: "+5 (fourth)",
     7: "+7 (fifth)",
 }
+
+
+def key_slug(key):
+    """Return the lowercase URL fragment a key had in the retired key-pair pages."""
+    return key.replace("#", "-sharp").lower()
+
+
+def key_pair_from_slug(slug, keys):
+    """Return the (current, target) keys a retired key-pair slug named, or None."""
+    parts = slug.split(KEY_PAIR_SLUG_SEPARATOR)
+    if len(parts) != 2:
+        return None
+    lookup = {key_slug(key): key for key in keys}
+    from_key = lookup.get(parts[0])
+    to_key = lookup.get(parts[1])
+    if from_key is None or to_key is None:
+        return None
+    return from_key, to_key
 
 
 def _breadcrumbs(title, path):

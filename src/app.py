@@ -7,13 +7,13 @@ import logging
 import os
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from zipfile import BadZipFile
 
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, render_template, request, send_file
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_file
 from pypdf import PdfWriter
 
 import seo
@@ -167,6 +167,20 @@ def set_cache_headers(response):
     return response
 
 
+def _requested_preselect():
+    """Return the key preselection asked for by the home page's query string.
+
+    Keys are omitted rather than passed as None so the paste panel keeps its own
+    defaults when a query string is absent or names a key that is not offered.
+    """
+    requested = {}
+    for parameter, field in (("from", "preselect_from"), ("to", "preselect_to")):
+        value = request.args.get(parameter)
+        if value in KEY_OPTIONS:
+            requested[field] = value
+    return requested
+
+
 @app.route("/")
 def index():
     """Render the upload page with available key options."""
@@ -180,7 +194,18 @@ def index():
         nav_columns=seo.nav_columns(),
         current_path="/",
         jsonld=seo.home_jsonld(),
+        **_requested_preselect(),
     )
+
+
+@app.route("/transpose/<slug>")
+def retired_key_pair(slug):
+    """Redirect a retired key-pair URL to the home page with both keys preselected."""
+    pair = seo.key_pair_from_slug(slug, KEY_OPTIONS)
+    if pair is None:
+        abort(404)
+    from_key, to_key = pair
+    return redirect(f"/?{urlencode({'from': from_key, 'to': to_key})}", code=301)
 
 
 @app.route("/health")

@@ -5,7 +5,7 @@ import json
 import re
 from io import BytesIO
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import quote_plus, unquote
 
 import pytest
 from docx import Document
@@ -440,6 +440,59 @@ def test_sitemap_lists_every_landing_url(client):
 def test_robots_txt_points_to_sitemap(client):
     body = client.get("/robots.txt").get_data(as_text=True)
     assert f"Sitemap: {seo.SITE_URL}/sitemap.xml" in body
+
+
+RETIRED_KEY_PAIRS = [
+    ("C", "D"),
+    ("C", "G"),
+    ("C", "A"),
+    ("C", "E"),
+    ("C", "F"),
+    ("G", "A"),
+    ("G", "C"),
+    ("G", "E"),
+    ("D", "C"),
+    ("D", "E"),
+    ("D", "G"),
+    ("A", "G"),
+    ("E", "G"),
+    ("E", "D"),
+    ("F", "G"),
+    ("Bb", "C"),
+]
+
+
+@pytest.mark.parametrize("from_key,to_key", RETIRED_KEY_PAIRS)
+def test_retired_key_pair_redirects_permanently(client, from_key, to_key):
+    slug = f"{seo.key_slug(from_key)}{seo.KEY_PAIR_SLUG_SEPARATOR}{seo.key_slug(to_key)}"
+    response = client.get(f"/transpose/{slug}")
+    assert response.status_code == 301
+    assert response.headers["Location"] == f"/?from={quote_plus(from_key)}&to={quote_plus(to_key)}"
+
+
+def test_retired_key_pair_redirect_handles_sharp_slugs(client):
+    response = client.get("/transpose/f-sharp-to-c-sharpm")
+    assert response.status_code == 301
+    assert response.headers["Location"] == "/?from=F%23&to=C%23m"
+
+
+def test_retired_key_pair_redirect_target_preselects_both_keys(client):
+    response = client.get("/transpose/c-to-g", follow_redirects=True)
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert 'data-preselect-from="C"' in body
+    assert 'data-preselect-to="G"' in body
+
+
+@pytest.mark.parametrize("slug", ["c-to-h", "zz-to-c", "c", "a-to-b-to-c"])
+def test_unknown_key_pair_slug_is_not_found(client, slug):
+    assert client.get(f"/transpose/{slug}").status_code == 404
+
+
+def test_home_page_ignores_unknown_preselect_keys(client):
+    body = client.get("/?from=H&to=zzz").get_data(as_text=True)
+    assert "data-preselect-from" not in body
+    assert "data-preselect-to" not in body
 
 
 def _text_upload(data_bytes, filename="song.txt") -> dict[str, Any]:
