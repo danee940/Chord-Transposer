@@ -66,6 +66,15 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       the two keys, so any links and crawl history they had are kept.
 - [x] **Branded 404 page (S)**: replace Flask's default "404 Not Found" with a
       page in the site's style that links to the transposer and landing pages.
+- [ ] **Redirect URL variants (S)**: trailing-slash and uppercase versions of
+      landing URLs (e.g. `/guitar-chord-transposer/`) currently 404, losing any
+      links that generate them. 301 slash and case variants to the canonical
+      lowercase, slashless URL.
+- [ ] **Response compression (S)**: nothing in the stack compresses responses —
+      gunicorn, Flask, and Railway's proxy all send HTML, CSS, and JS
+      uncompressed, and HTML is `no-cache` so it is paid on every visit. Add
+      `flask-compress` (brotli/gzip) to cut transfer roughly 70% and feed the
+      Core Web Vitals budget.
 - [ ] **Landing pages for existing features (M)**: dedicated pages for the capo
       finder, Nashville number converter, ChordPro transposer and German
       H-notation transposer. These features exist but have no page of their own,
@@ -73,11 +82,19 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
 - [ ] **How-to guides (M)**: short articles that answer informational queries,
       such as how to transpose chords, transposing up or down a half step, and
       how a capo changes the key, each linking to the tool.
+- [ ] **Privacy and about pages (S)**: the FAQ claims uploaded files are not
+      stored, but no page substantiates who runs the site or how uploads are
+      handled. Short `/privacy` and `/about` pages add E-E-A-T trust signals
+      and give directories something to link besides the home page.
 - [x] **Lean structured data (S)**: keep `WebApplication` and `BreadcrumbList`,
       and review `FAQPage` and `HowTo` in `src/seo.py`, which Google no longer
       shows as rich results for most sites.
 - [x] **Sitemap `lastmod` (S)**: add last-modified dates to `/sitemap.xml` so
       crawlers can see when pages change.
+- [ ] **Cache headers for root-served assets (S)**: `/og-image.png` (107 KB),
+      `/favicon.ico`, and `/favicon.svg` are served by custom routes outside
+      `/static/`, so they miss the `immutable` cache header in `src/app.py`
+      and are re-fetched on every visit.
 - [ ] **Performance budget in CI (S)**: a Lighthouse CI job in
       `.github/workflows/ci.yml` that fails when Core Web Vitals or page weight
       regress.
