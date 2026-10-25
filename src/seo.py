@@ -268,22 +268,10 @@ CHART_FAQ_ITEMS = [
 ]
 
 HOWTO_STEPS = [
-    {
-        "name": "Add your chords",
-        "text": "Paste your chords, or upload a chord sheet in .docx format.",
-    },
-    {
-        "name": "Choose the current key",
-        "text": "Select the key the song is currently written in.",
-    },
-    {
-        "name": "Choose the target key",
-        "text": "Select the key you want to play it in.",
-    },
-    {
-        "name": "Get the result",
-        "text": "See the result instantly, or download it as a .docx or PDF.",
-    },
+    {"text": "Paste your chords, or upload a chord sheet in .docx format."},
+    {"text": "Select the key the song is currently written in."},
+    {"text": "Select the key you want to play it in."},
+    {"text": "See the result instantly, or download it as a .docx or PDF."},
 ]
 
 WEBAPP_JSONLD = {
@@ -430,42 +418,6 @@ def _breadcrumbs(title, path):
     ]
 
 
-def _howto_jsonld(name):
-    """Return a HowTo structured-data block built from the shared steps."""
-    return {
-        "@context": "https://schema.org",
-        "@type": "HowTo",
-        "name": name,
-        "step": [
-            {
-                "@type": "HowToStep",
-                "position": index,
-                "name": step["name"],
-                "text": step["text"],
-            }
-            for index, step in enumerate(HOWTO_STEPS, start=1)
-        ],
-    }
-
-
-def _faq_jsonld(faq_items=None):
-    """Return a FAQPage structured-data block built from the given FAQ list."""
-    if faq_items is None:
-        faq_items = FAQ_ITEMS
-    return {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": [
-            {
-                "@type": "Question",
-                "name": item["question"],
-                "acceptedAnswer": {"@type": "Answer", "text": item["answer"]},
-            }
-            for item in faq_items
-        ],
-    }
-
-
 def _breadcrumb_jsonld(breadcrumbs):
     """Return a BreadcrumbList structured-data block for a landing page."""
     return {
@@ -485,7 +437,7 @@ def _breadcrumb_jsonld(breadcrumbs):
 
 def home_jsonld():
     """Return the structured-data blocks for the home page."""
-    return [WEBAPP_JSONLD, _howto_jsonld("How to transpose chords"), _faq_jsonld()]
+    return [WEBAPP_JSONLD]
 
 
 def _instrument_page(instrument):
@@ -510,11 +462,7 @@ def _instrument_page(instrument):
         "faq_items": instrument["faq_items"],
         "show_capo": instrument["show_capo"],
         "breadcrumbs": breadcrumbs,
-        "jsonld": [
-            _howto_jsonld(f"How to transpose {instrument['instrument']} chords"),
-            _faq_jsonld(instrument["faq_items"]),
-            _breadcrumb_jsonld(breadcrumbs),
-        ],
+        "jsonld": [_breadcrumb_jsonld(breadcrumbs)],
     }
 
 
@@ -636,11 +584,7 @@ def _chart_page():
         "interval_reference": interval_reference(),
         "key_signature_reference": key_signature_reference(),
         "breadcrumbs": breadcrumbs,
-        "jsonld": [
-            _howto_jsonld("How to read the chromatic transposition chart"),
-            _faq_jsonld(CHART_FAQ_ITEMS),
-            _breadcrumb_jsonld(breadcrumbs),
-        ],
+        "jsonld": [_breadcrumb_jsonld(breadcrumbs)],
     }
 
 
@@ -674,11 +618,7 @@ def _file_page():
         "faq_items": FILE_FAQ_ITEMS,
         "show_capo": False,
         "breadcrumbs": breadcrumbs,
-        "jsonld": [
-            _howto_jsonld("How to transpose a chord sheet file"),
-            _faq_jsonld(FILE_FAQ_ITEMS),
-            _breadcrumb_jsonld(breadcrumbs),
-        ],
+        "jsonld": [_breadcrumb_jsonld(breadcrumbs)],
     }
 
 

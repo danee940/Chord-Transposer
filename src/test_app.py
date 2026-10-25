@@ -4,6 +4,7 @@
 import json
 import re
 from datetime import date
+from html import escape
 from io import BytesIO
 from typing import Any
 from urllib.parse import quote_plus, unquote
@@ -299,10 +300,20 @@ def test_landing_pages_return_200_with_unique_title_and_canonical(client):
     assert len(canonicals) == landing_count
 
 
-def test_landing_pages_include_all_structured_data(client):
+def test_landing_pages_include_only_breadcrumb_structured_data(client):
     for page in seo.landing_pages():
         body = client.get(page["path"]).get_data(as_text=True)
-        assert {"HowTo", "FAQPage", "BreadcrumbList"} <= _jsonld_types(body), page["path"]
+        assert _jsonld_types(body) == {"BreadcrumbList"}, page["path"]
+
+
+def test_landing_page_breadcrumbs_trail_back_to_home(client):
+    for page in seo.landing_pages():
+        body = client.get(page["path"]).get_data(as_text=True)
+        block = next(b for b in _jsonld_blocks(body) if b.get("@type") == "BreadcrumbList")
+        items = block["itemListElement"]
+        assert [item["position"] for item in items] == list(range(1, len(items) + 1))
+        assert items[0]["item"] == f"{seo.SITE_URL}/"
+        assert items[-1]["item"] == f"{seo.SITE_URL}{page['path']}"
 
 
 def test_landing_page_title_differs_from_home(client):
@@ -340,17 +351,29 @@ def test_home_has_no_data_instrument_attribute(client):
     assert "data-instrument=" not in client.get("/").get_data(as_text=True)
 
 
-def test_home_has_howto_jsonld(client):
+def test_home_has_only_webapplication_jsonld(client):
     body = client.get("/").get_data(as_text=True)
-    assert "HowTo" in _jsonld_types(body)
-    assert "FAQPage" in _jsonld_types(body)
+    assert _jsonld_types(body) == {"WebApplication"}
+
+
+def test_no_page_emits_retired_rich_result_types(client):
+    for path in seo.sitemap_paths():
+        body = client.get(path).get_data(as_text=True)
+        assert not {"FAQPage", "HowTo"} & _jsonld_types(body), path
 
 
 def test_faq_is_single_sourced(client):
     body = client.get("/").get_data(as_text=True)
-    accordion_count = body.count("<summary")
-    faq_block = next(block for block in _jsonld_blocks(body) if block.get("@type") == "FAQPage")
-    assert accordion_count == len(faq_block["mainEntity"]) == len(seo.FAQ_ITEMS)
+    assert body.count("<summary") == len(seo.FAQ_ITEMS)
+    for item in seo.FAQ_ITEMS:
+        assert escape(item["question"]) in body
+        assert escape(item["answer"]) in body
+
+
+def test_howto_steps_are_single_sourced(client):
+    body = client.get("/").get_data(as_text=True)
+    for step in seo.HOWTO_STEPS:
+        assert escape(step["text"]) in body
 
 
 def test_home_has_no_capo_calculator(client):
@@ -404,12 +427,10 @@ def test_pages_have_page_specific_faq(client):
     }
     for path, faq_items in cases.items():
         body = client.get(path).get_data(as_text=True)
-        faq_block = next(block for block in _jsonld_blocks(body) if block.get("@type") == "FAQPage")
-        rendered_questions = {item["question"] for item in faq_items}
-        jsonld_questions = {entry["name"] for entry in faq_block["mainEntity"]}
-        assert jsonld_questions == rendered_questions
         assert body.count("<summary") == len(faq_items)
-        assert faq_items[0]["question"] in body
+        for item in faq_items:
+            assert escape(item["question"]) in body
+            assert escape(item["answer"]) in body
 
 
 def test_nav_lists_file_transposer_first(client):
