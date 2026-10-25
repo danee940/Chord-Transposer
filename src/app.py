@@ -481,6 +481,27 @@ def binder():
 
 LANDING_PAGES = seo.landing_pages()
 NAV_COLUMNS = seo.nav_columns()
+NOT_FOUND_LINKS = seo.not_found_links()
+
+
+@app.errorhandler(404)
+def not_found(_error):
+    """Render the branded 404 page, cross-linking the transposer and landing pages."""
+    return (
+        render_template(
+            "404.html",
+            page_title="Page not found — Chord Transposer",
+            page_description=(
+                "That page could not be found. Head back to the free chord transposer to paste "
+                "or upload a chord sheet and change its key."
+            ),
+            noindex=True,
+            quick_links=NOT_FOUND_LINKS,
+            nav_columns=NAV_COLUMNS,
+            current_path=None,
+        ),
+        404,
+    )
 
 
 def _landing_context(page):

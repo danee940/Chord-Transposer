@@ -489,6 +489,48 @@ def test_unknown_key_pair_slug_is_not_found(client, slug):
     assert client.get(f"/transpose/{slug}").status_code == 404
 
 
+def test_not_found_page_is_branded(client):
+    response = client.get("/no-such-page")
+    assert response.status_code == 404
+    body = response.get_data(as_text=True)
+    assert "That page is out of key" in body
+    assert "<title>Page not found — Chord Transposer</title>" in body
+    assert "tailwind.css" in body
+
+
+def test_not_found_page_is_noindex_without_canonical(client):
+    body = client.get("/no-such-page").get_data(as_text=True)
+    assert '<meta name="robots" content="noindex, follow" />' in body
+    assert 'rel="canonical"' not in body
+
+
+def test_not_found_page_links_home_and_landing_pages(client):
+    body = client.get("/no-such-page").get_data(as_text=True)
+    assert 'href="/"' in body
+    for link in seo.not_found_links():
+        assert f'href="{link["path"]}"' in body
+    for path in seo.sitemap_paths():
+        assert f'href="{path}"' in body
+
+
+def test_not_found_links_match_landing_pages():
+    paths = {page["path"] for page in seo.landing_pages()}
+    assert {link["path"] for link in seo.not_found_links()} <= paths
+
+
+def test_indexable_pages_keep_canonical_and_index_robots(client):
+    for path in seo.sitemap_paths():
+        body = client.get(path).get_data(as_text=True)
+        assert '<meta name="robots" content="index, follow" />' in body
+        assert 'rel="canonical"' in body
+
+
+def test_unknown_key_pair_slug_renders_branded_not_found(client):
+    response = client.get("/transpose/c-to-h")
+    assert response.status_code == 404
+    assert "That page is out of key" in response.get_data(as_text=True)
+
+
 def test_home_page_ignores_unknown_preselect_keys(client):
     body = client.get("/?from=H&to=zzz").get_data(as_text=True)
     assert "data-preselect-from" not in body

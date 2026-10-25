@@ -678,6 +678,18 @@ def landing_pages():
     return pages
 
 
+NOT_FOUND_LINK_IDS = ("guitar_chord_transposer", "file_chord_transposer", "chromatic_chart")
+
+
+def not_found_links():
+    """Return the landing pages offered as shortcut buttons on the 404 page."""
+    pages_by_id = {page["id"]: page for page in landing_pages()}
+    return [
+        {"name": pages_by_id[page_id]["h1"], "path": pages_by_id[page_id]["path"]}
+        for page_id in NOT_FOUND_LINK_IDS
+    ]
+
+
 def nav_sections():
     """Return grouped internal links for the cross-link hub in nav and footer."""
     instrument_links = [

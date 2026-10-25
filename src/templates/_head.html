@@ -5,12 +5,15 @@
   {% set resolved_title = page_title | default("Chord Transposer — Transpose Chords Online, Free & Instant") %}
   {% set resolved_description = page_description | default("Free online chord transposer. Paste your chords or upload a .docx chord sheet, pick the current and target key, and get the result instantly — keeps formatting.") %}
   {% set resolved_canonical = canonical_url | default("https://chordtransposer.app/") %}
+  {% set is_noindex = noindex | default(false) %}
 
   <title>{{ resolved_title }}</title>
   <meta name="description" content="{{ resolved_description }}" />
   <meta name="author" content="danee940" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="{{ 'noindex, follow' if is_noindex else 'index, follow' }}" />
+  {% if not is_noindex %}
   <link rel="canonical" href="{{ resolved_canonical }}" />
+  {% endif %}
 
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Chord Transposer" />
