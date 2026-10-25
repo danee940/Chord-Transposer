@@ -61,10 +61,10 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
 
 ## SEO
 
-- [ ] **Redirect removed key-pair pages (S)**: old `/transpose/<from>-to-<to>`
+- [x] **Redirect removed key-pair pages (S)**: old `/transpose/<from>-to-<to>`
       URLs now return 404. Send them to the home page with a 301, preselecting
       the two keys, so any links and crawl history they had are kept.
-- [ ] **Branded 404 page (S)**: replace Flask's default "404 Not Found" with a
+- [x] **Branded 404 page (S)**: replace Flask's default "404 Not Found" with a
       page in the site's style that links to the transposer and landing pages.
 - [ ] **Landing pages for existing features (M)**: dedicated pages for the capo
       finder, Nashville number converter, ChordPro transposer and German
@@ -73,10 +73,10 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
 - [ ] **How-to guides (M)**: short articles that answer informational queries,
       such as how to transpose chords, transposing up or down a half step, and
       how a capo changes the key, each linking to the tool.
-- [ ] **Lean structured data (S)**: keep `WebApplication` and `BreadcrumbList`,
+- [x] **Lean structured data (S)**: keep `WebApplication` and `BreadcrumbList`,
       and review `FAQPage` and `HowTo` in `src/seo.py`, which Google no longer
       shows as rich results for most sites.
-- [ ] **Sitemap `lastmod` (S)**: add last-modified dates to `/sitemap.xml` so
+- [x] **Sitemap `lastmod` (S)**: add last-modified dates to `/sitemap.xml` so
       crawlers can see when pages change.
 - [ ] **Performance budget in CI (S)**: a Lighthouse CI job in
       `.github/workflows/ci.yml` that fails when Core Web Vitals or page weight
