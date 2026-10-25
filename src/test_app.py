@@ -148,6 +148,13 @@ def test_favicon_svg(client):
     assert response.get_data(as_text=True).lstrip().startswith("<svg")
 
 
+def test_favicon_ico(client):
+    response = client.get("/favicon.ico")
+    assert response.status_code == 200
+    assert response.mimetype == "image/vnd.microsoft.icon"
+    assert response.data.startswith(b"\x00\x00\x01\x00")
+
+
 def test_sitemap_xml(client):
     response = client.get("/sitemap.xml")
     assert response.status_code == 200
