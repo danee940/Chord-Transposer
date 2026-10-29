@@ -13,7 +13,8 @@ export interface TokenAffixes {
   trailing: string;
 }
 
-export const ROOT_PATTERN = "(?:Cis|Des|Dis|Eis|Fis|Ges|Gis|Ais|His|Ces|Fes|Es|As|[A-Ha-h](?:#|b)?)";
+export const ROOT_PATTERN =
+  "(?:Cis|Des|Dis|Eis|Fis|Ges|Gis|Ais|His|Ces|Fes|Es|As|[A-Ha-h](?:#|b)?)";
 export const QUALITY_PATTERN = "(?:maj|min|dim|aug|sus|add|m|M|\\+|°|ø|\\d|#|b|-|\\(|\\)|,)*";
 
 export const CHORD_TOKEN_RE = new RegExp(
@@ -33,8 +34,7 @@ export class ChangeSet {
   sorted(): Change[] {
     return [...this.entries.values()].sort((a, b) => {
       if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
-      if (a[1] !== b[1]) return a[1] < b[1] ? -1 : 1;
-      return 0;
+      return a[1] < b[1] ? -1 : 1;
     });
   }
 }
@@ -83,10 +83,19 @@ export function splitAffixes(token: string): TokenAffixes {
   while (start < token.length && PUNCTUATION.includes(token.charAt(start))) start += 1;
   let end = token.length;
   while (end > start && PUNCTUATION.includes(token.charAt(end - 1))) end -= 1;
-  return { leading: token.slice(0, start), core: token.slice(start, end), trailing: token.slice(end) };
+  return {
+    leading: token.slice(0, start),
+    core: token.slice(start, end),
+    trailing: token.slice(end),
+  };
 }
 
-export function transposeChord(chord: string, semitones: number, spelling: Spelling, german: boolean): string {
+export function transposeChord(
+  chord: string,
+  semitones: number,
+  spelling: Spelling,
+  german: boolean
+): string {
   const { leading, core, trailing } = splitAffixes(chord);
   if (core !== chord) {
     if (!CHORD_TOKEN_RE.test(core)) return chord;

@@ -62,7 +62,9 @@ function textUsesGerman(text: string): boolean {
 }
 
 function keyDistance(current: ParsedKey, target: ParsedKey, german: boolean): number {
-  return mod12(Number(keySemitone(target.note, german)) - Number(keySemitone(current.note, german)));
+  return mod12(
+    Number(keySemitone(target.note, german)) - Number(keySemitone(current.note, german))
+  );
 }
 
 function transposeTextCore(text: string, semitones: number, useFlats: boolean): TransposedCore {
@@ -79,7 +81,11 @@ function transposeTextCore(text: string, semitones: number, useFlats: boolean): 
   return { text: result, changes: changes.sorted() };
 }
 
-export function transposeText(text: string, currentKey: string, targetKey: string): KeyTransposition {
+export function transposeText(
+  text: string,
+  currentKey: string,
+  targetKey: string
+): KeyTransposition {
   const current = requireKey(currentKey);
   const target = requireKey(targetKey);
 

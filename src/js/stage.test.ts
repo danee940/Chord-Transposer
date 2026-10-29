@@ -84,7 +84,9 @@ describe("createStageView", () => {
   }
 
   function playButton() {
-    return [...document.querySelectorAll("button")].find((b) => ["Play", "Pause"].includes(b.textContent))!;
+    return [...document.querySelectorAll("button")].find((b) =>
+      ["Play", "Pause"].includes(b.textContent)
+    )!;
   }
 
   it("builds and opens the overlay with the given text", () => {

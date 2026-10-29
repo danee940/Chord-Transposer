@@ -58,7 +58,6 @@ function isTransposeMode(value: unknown): value is TransposeMode {
 
 function semitoneLabel(count: number, useFlats: boolean): string {
   const accidental = useFlats ? "♭" : "♯";
-  if (count === 0) return `No change (${accidental})`;
   const sign = count > 0 ? "+" : "−";
   const magnitude = Math.abs(count);
   const unit = magnitude === 1 ? "semitone" : "semitones";
@@ -140,7 +139,7 @@ export function initPaste(): void {
   }
 
   function outputText(): string {
-    return textOutput.textContent ?? "";
+    return textOutput.textContent!;
   }
 
   function persistPrefs(): void {
@@ -323,12 +322,8 @@ export function initPaste(): void {
       hideChanges();
       return;
     }
-    const seen = new Set<string>();
     const pills: HTMLSpanElement[] = [];
     for (const { from, to } of changes) {
-      const key = `${from}→${to}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
       const pill = document.createElement("span");
       pill.className =
         "rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-mono text-slate-700 dark:border-app-border dark:bg-bg dark:text-slate-200";
@@ -494,7 +489,8 @@ export function initPaste(): void {
     if (transposeMode !== "semitone") return;
     const target = event.target as HTMLElement | null;
     const typing =
-      target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.tagName === "SELECT");
+      target &&
+      (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.tagName === "SELECT");
     if (typing) return;
     if (event.key === "[") {
       event.preventDefault();

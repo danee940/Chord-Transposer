@@ -15,8 +15,6 @@ import {
   type KeyDetection,
 } from "./transpose/index";
 
-type MessageKind = "error" | "ok";
-
 interface UploadRequest {
   endpoint: string;
   body: FormData;
@@ -66,8 +64,8 @@ export function initUpload(): void {
     message.replaceChildren();
   }
 
-  function show(kind: MessageKind, text: string): void {
-    message.className = BASE_CLASSES + " " + (kind === "error" ? ERROR_CLASSES : OK_CLASSES);
+  function showError(text: string): void {
+    message.className = BASE_CLASSES + " " + ERROR_CLASSES;
     message.textContent = text;
   }
 
@@ -76,8 +74,7 @@ export function initUpload(): void {
     return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
 
-  function validateFile(file: File | undefined): string | null {
-    if (!file) return "Please choose a file to upload.";
+  function validateFile(file: File): string | null {
     if (!isDocxName(file.name) && !isTextName(file.name))
       return "Unsupported file type. Upload .docx, .txt, .pro, or .cho.";
     if (file.size === 0) return "The selected file is empty.";
@@ -177,7 +174,7 @@ export function initUpload(): void {
         : transposeText(textPreviewSource, currentKey.value, targetKey.value);
       showPreview(result.from, result.to, result.text);
     } catch (err) {
-      if (err instanceof InvalidKeyError) show("error", err.message);
+      if (err instanceof InvalidKeyError) showError(err.message);
     }
   }
 
@@ -195,7 +192,7 @@ export function initUpload(): void {
     }
     const error = files.length > 1 ? validateFiles(files) : validateFile(first);
     if (error) {
-      show("error", error);
+      showError(error);
       fileInput.value = "";
       updateDropzone(null);
       return;
@@ -261,7 +258,7 @@ export function initUpload(): void {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
-      .map((s) => s.split("->"));
+      .map((s) => s.split("->") as [string, string | undefined]);
 
     const table = document.createElement("table");
     table.className = "w-full border-collapse";
@@ -278,7 +275,7 @@ export function initUpload(): void {
     for (const [orig, transposed] of pairs) {
       const row = document.createElement("tr");
       row.className = "border-t border-app-ok/20";
-      row.appendChild(makeCell(orig ?? "", "py-1 pr-4 font-mono"));
+      row.appendChild(makeCell(orig, "py-1 pr-4 font-mono"));
       row.appendChild(makeCell(transposed ?? "", "py-1 font-mono"));
       tbody.appendChild(row);
     }
@@ -338,7 +335,12 @@ export function initUpload(): void {
       data.append("file", file);
       data.append("format", format);
       const ext = format === "pdf" ? "pdf" : format === "txt" ? "txt" : "pro";
-      return { endpoint: "/transpose-text", body: data, multi: false, fallback: `transposed.${ext}` };
+      return {
+        endpoint: "/transpose-text",
+        body: data,
+        multi: false,
+        fallback: `transposed.${ext}`,
+      };
     }
     return {
       endpoint: "/transpose",
@@ -364,13 +366,13 @@ export function initUpload(): void {
         ? "Please choose a file to upload."
         : files.length > 1
           ? validateFiles(files)
-          : validateFile(files[0]);
+          : validateFile(files[0]!);
     if (fileError) {
-      show("error", fileError);
+      showError(fileError);
       return;
     }
     if (currentKey.value === targetKey.value) {
-      show("error", "Current and desired keys are the same. Pick a different key to transpose.");
+      showError("Current and desired keys are the same. Pick a different key to transpose.");
       return;
     }
 
@@ -384,7 +386,7 @@ export function initUpload(): void {
         const data = (await response
           .json()
           .catch(() => ({ error: "Something went wrong." }))) as ErrorResponse;
-        show("error", data.error || "Something went wrong.");
+        showError(data.error || "Something went wrong.");
         return;
       }
 
@@ -411,7 +413,7 @@ export function initUpload(): void {
         showTransposeResult(from, to, changes);
       }
     } catch {
-      show("error", "Network error. Please try again.");
+      showError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }

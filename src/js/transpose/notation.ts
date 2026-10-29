@@ -103,11 +103,63 @@ export const FLAT_KEYS: ReadonlySet<string> = new Set([
   "Abm",
 ]);
 
-export const SHARP_SPELLING: Spelling = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-export const FLAT_SPELLING: Spelling = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+export const SHARP_SPELLING: Spelling = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
+export const FLAT_SPELLING: Spelling = [
+  "C",
+  "Db",
+  "D",
+  "Eb",
+  "E",
+  "F",
+  "Gb",
+  "G",
+  "Ab",
+  "A",
+  "Bb",
+  "B",
+];
 
-export const GERMAN_SHARP_SPELLING: Spelling = ["C", "Cis", "D", "Dis", "E", "F", "Fis", "G", "Gis", "A", "B", "H"];
-export const GERMAN_FLAT_SPELLING: Spelling = ["C", "Des", "D", "Es", "E", "F", "Ges", "G", "As", "A", "B", "H"];
+export const GERMAN_SHARP_SPELLING: Spelling = [
+  "C",
+  "Cis",
+  "D",
+  "Dis",
+  "E",
+  "F",
+  "Fis",
+  "G",
+  "Gis",
+  "A",
+  "B",
+  "H",
+];
+export const GERMAN_FLAT_SPELLING: Spelling = [
+  "C",
+  "Des",
+  "D",
+  "Es",
+  "E",
+  "F",
+  "Ges",
+  "G",
+  "As",
+  "A",
+  "B",
+  "H",
+];
 
 function mod12(value: number): number {
   return ((value % 12) + 12) % 12;
@@ -182,7 +234,12 @@ export function keySemitone(note: string, german: boolean): number | undefined {
   return noteSemitone(note, german);
 }
 
-export function transposeNote(note: string, semitones: number, spelling: Spelling, german: boolean): string {
+export function transposeNote(
+  note: string,
+  semitones: number,
+  spelling: Spelling,
+  german: boolean
+): string {
   const semitone = mod12(Number(noteSemitone(note, german)) + semitones);
   return String(spelling[semitone]);
 }

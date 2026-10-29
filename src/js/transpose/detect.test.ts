@@ -116,3 +116,25 @@ describe("detectKey", () => {
     expect(detectKey("Am Bdim C-7 E79\nAm Ddim Am").key).toBe("Am");
   });
 });
+
+describe("detectKey tie-breaking", () => {
+  it("prefers the major key when a relative pair scores equally", () => {
+    const result = detectKey("C Em C7");
+    expect(result.key).toBe("F");
+    expect(result.ambiguous).toBe(true);
+    expect(result.alternate).toBe("Fm");
+  });
+
+  it("breaks a tie between a major key and an unrelated minor key in favour of the major", () => {
+    const result = detectKey("C G7 Gm");
+    expect(result.key).toBe("C");
+    expect(result.ambiguous).toBe(true);
+    expect(result.alternate).toBe("Gm");
+  });
+
+  it("breaks a tie between parallel keys in favour of the major", () => {
+    const result = detectKey("C Gm D");
+    expect(result.key).toBe("G");
+    expect(result.alternate).toBe("Gm");
+  });
+});

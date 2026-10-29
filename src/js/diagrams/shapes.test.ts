@@ -160,11 +160,15 @@ describe("piano and note spelling", () => {
   });
 
   it("builds a movable minor-seventh barre", () => {
-    expect((lookupShape(parseChordSymbol("Bbm7"), "guitar") as FrettedShape).frets).toEqual([-1, 1, 3, 1, 2, 1]);
+    expect((lookupShape(parseChordSymbol("Bbm7"), "guitar") as FrettedShape).frets).toEqual([
+      -1, 1, 3, 1, 2, 1,
+    ]);
   });
 
   it("builds a movable major-seventh barre", () => {
-    expect((lookupShape(parseChordSymbol("Bbmaj7"), "guitar") as FrettedShape).frets).toEqual([-1, 1, 3, 2, 3, 1]);
+    expect((lookupShape(parseChordSymbol("Bbmaj7"), "guitar") as FrettedShape).frets).toEqual([
+      -1, 1, 3, 2, 3, 1,
+    ]);
   });
 
   it("returns null for an empty core", () => {
@@ -183,12 +187,13 @@ describe("piano and note spelling", () => {
 
   it("uses the maj interval fallback for an unknown family in chordNotes", () => {
     expect(
-      chordNotes({ family: "unknown", rootSemitone: 0, bassSemitone: null, german: false } as unknown as ParsedChord)
-    ).toEqual([
-      "C",
-      "E",
-      "G",
-    ]);
+      chordNotes({
+        family: "unknown",
+        rootSemitone: 0,
+        bassSemitone: null,
+        german: false,
+      } as unknown as ParsedChord)
+    ).toEqual(["C", "E", "G"]);
   });
 
   it("returns null when looking up a null chord", () => {
@@ -197,5 +202,17 @@ describe("piano and note spelling", () => {
 
   it("returns null for an unsupported ukulele barre chord", () => {
     expect(lookupShape(parseChordSymbol("C#"), "ukulele")).toBeNull();
+  });
+});
+
+describe("roots outside the note tables", () => {
+  it("rejects a chord whose root has no semitone", () => {
+    expect(parseChordSymbol("Hb")).toBeNull();
+  });
+
+  it("drops a slash bass whose root has no semitone", () => {
+    const chord = parseChordSymbol("C/Hb")!;
+    expect(chord.bassName).toBe("");
+    expect(chord.bassSemitone).toBeNull();
   });
 });

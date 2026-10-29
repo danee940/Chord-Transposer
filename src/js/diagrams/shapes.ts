@@ -98,25 +98,6 @@ export const QUALITY_LABELS: Readonly<Record<ChordFamily, string>> = {
   add9: "added ninth",
 };
 
-const FRETTED_FAMILIES: ReadonlySet<ChordFamily> = new Set<ChordFamily>([
-  "maj",
-  "min",
-  "dom7",
-  "min7",
-  "maj7",
-  "dim",
-  "dim7",
-  "aug",
-  "sus2",
-  "sus4",
-  "min7b5",
-  "maj6",
-  "min6",
-  "dom9",
-  "min9",
-  "add9",
-]);
-
 function rootSemitone(name: string, german: boolean): number | null {
   const semitone = keySemitone(name, german);
   return semitone === undefined ? null : semitone;
@@ -153,8 +134,7 @@ export function parseChordSymbol(token: string, german = false): ParsedChord | n
   const head = slashIndex === -1 ? core : core.slice(0, slashIndex);
   const bassText = slashIndex === -1 ? "" : core.slice(slashIndex + 1);
 
-  const match = ROOT_MATCH_RE.exec(head);
-  if (!match) return null;
+  const match = ROOT_MATCH_RE.exec(head)!;
   const rootName = match[1]!;
   const quality = match[2]!;
   const semitone = rootSemitone(rootName, german);
@@ -280,7 +260,10 @@ const GUITAR_BARRE_TEMPLATES: Readonly<Record<string, BarreTemplate>> = {
   },
 };
 
-function buildOpenIndex(entries: readonly OpenShapeEntry[], german: boolean): Map<string, number[]> {
+function buildOpenIndex(
+  entries: readonly OpenShapeEntry[],
+  german: boolean
+): Map<string, number[]> {
   const index = new Map<string, number[]>();
   for (const [name, family, frets] of entries) {
     const semitone = rootSemitone(name, german);
@@ -296,8 +279,7 @@ function applyBarreTemplate(template: number[], fret: number): number[] {
   return template.map((offset) => (offset < 0 ? -1 : offset + fret));
 }
 
-function guitarBarreShape(rootSemitoneValue: number, family: ChordFamily): number[] | null {
-  if (!FRETTED_FAMILIES.has(family)) return null;
+function guitarBarreShape(rootSemitoneValue: number, family: ChordFamily): number[] {
   const candidates: { fret: number; frets: number[] }[] = [];
   for (const shape of Object.values(GUITAR_BARRE_TEMPLATES)) {
     const template = shape.families[family];
@@ -305,18 +287,19 @@ function guitarBarreShape(rootSemitoneValue: number, family: ChordFamily): numbe
     const fret = mod12(rootSemitoneValue - shape.rootOpenSemitone);
     candidates.push({ fret, frets: applyBarreTemplate(template, fret) });
   }
-  if (candidates.length === 0) return null;
   candidates.sort((a, b) => a.fret - b.fret);
   return candidates[0]!.frets;
 }
 
-function frettedShape(instrument: FrettedInstrument, chord: ParsedChord): { frets: number[] } | null {
+function frettedShape(
+  instrument: FrettedInstrument,
+  chord: ParsedChord
+): { frets: number[] } | null {
   const index = instrument === "guitar" ? GUITAR_OPEN_INDEX : UKULELE_OPEN_INDEX;
   const open = index.get(`${chord.rootSemitone}:${chord.family}`);
   if (open) return { frets: open };
   if (instrument === "guitar") {
-    const barre = guitarBarreShape(chord.rootSemitone, chord.family);
-    if (barre) return { frets: barre };
+    return { frets: guitarBarreShape(chord.rootSemitone, chord.family) };
   }
   return null;
 }

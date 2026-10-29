@@ -1,4 +1,10 @@
-import { isChordLine, isChordToken, lineUsesGerman, splitLinesKeepEnds, splitAffixes } from "../transpose/chords";
+import {
+  isChordLine,
+  isChordToken,
+  lineUsesGerman,
+  splitLinesKeepEnds,
+  splitAffixes,
+} from "../transpose/chords";
 
 export type ChordActivation = (button: HTMLButtonElement) => void;
 
@@ -82,7 +88,10 @@ function appendLyricLine(
   }
 }
 
-export function buildInteractiveOutput(text: string, onActivate?: ChordActivation): DocumentFragment {
+export function buildInteractiveOutput(
+  text: string,
+  onActivate?: ChordActivation
+): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const german = textUsesGerman(text);
   for (const { content, ending } of splitLinesKeepEnds(text)) {

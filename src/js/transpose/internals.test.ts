@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { ChangeSet, isChordToken, transposeChord } from "./chords";
 import { chordToNashville, nashvilleLine, noteToNashvilleDegree } from "./nashville";
-import { capitalizeFirst, isMinorSuffix, keySemitone, mod12, noteSemitone, parseKey } from "./notation";
+import {
+  capitalizeFirst,
+  isMinorSuffix,
+  keySemitone,
+  mod12,
+  noteSemitone,
+  parseKey,
+} from "./notation";
 
 describe("ChangeSet.sorted", () => {
   it("orders by original then by transposed and dedupes identical pairs", () => {
@@ -15,6 +22,18 @@ describe("ChangeSet.sorted", () => {
       ["A", "B"],
       ["A", "C"],
       ["B", "D"],
+    ]);
+  });
+
+  it("orders ascending insertions within the same original", () => {
+    const set = new ChangeSet();
+    set.add("A", "B");
+    set.add("A", "C");
+    set.add("A", "D");
+    expect(set.sorted()).toEqual([
+      ["A", "B"],
+      ["A", "C"],
+      ["A", "D"],
     ]);
   });
 
@@ -31,14 +50,36 @@ describe("ChangeSet.sorted", () => {
 
 describe("transposeChord affixes", () => {
   it("preserves surrounding punctuation while transposing the core", () => {
-    expect(transposeChord("(C)", 2, ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], false)).toBe(
-      "(D)"
-    );
+    expect(
+      transposeChord(
+        "(C)",
+        2,
+        ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
+        false
+      )
+    ).toBe("(D)");
   });
 
   it("returns the token unchanged when the core is not a chord", () => {
     const spelling = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     expect(transposeChord("(xyz)", 2, spelling, false)).toBe("(xyz)");
+  });
+});
+
+describe("unmatched roots", () => {
+  it("returns a bare non-chord token unchanged from transposeChord", () => {
+    expect(
+      transposeChord(
+        "xyz",
+        2,
+        ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
+        false
+      )
+    ).toBe("xyz");
+  });
+
+  it("returns a bare non-chord token unchanged from chordToNashville", () => {
+    expect(chordToNashville("xyz", 0, false)).toBe("xyz");
   });
 });
 

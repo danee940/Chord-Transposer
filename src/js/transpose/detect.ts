@@ -138,7 +138,11 @@ function detectObservations(text: string): {
   parsed.forEach(({ root, remainder, lineLast }, index) => {
     const semitone = Number(noteSemitone(root, german));
     let quality = chordQuality(remainder);
-    if (lowercaseMeansMinor && root.charAt(0) === root.charAt(0).toLowerCase() && quality === "major") {
+    if (
+      lowercaseMeansMinor &&
+      root.charAt(0) === root.charAt(0).toLowerCase() &&
+      quality === "major"
+    ) {
       quality = "minor";
     }
     let weight = DETECT_BASE_WEIGHT;
@@ -166,7 +170,7 @@ function scoreKeyCandidates(observations: Observation[]): KeyCandidate[] {
   }
   candidates.sort((a, b) => {
     if (a.score !== b.score) return b.score - a.score;
-    if (a.minor !== b.minor) return a.minor ? 1 : -1;
+    if (a.minor !== b.minor) return Number(a.minor) - Number(b.minor);
     return a.tonic - b.tonic;
   });
   return candidates;
@@ -186,7 +190,13 @@ function spellDetectedKey(semitone: number, minor: boolean, german: boolean): st
 
 export function detectKey(text: string): KeyDetection {
   const { observations, german, total, distinct } = detectObservations(text);
-  const result: KeyDetection = { key: null, alternate: null, ambiguous: false, chords: total, distinct };
+  const result: KeyDetection = {
+    key: null,
+    alternate: null,
+    ambiguous: false,
+    chords: total,
+    distinct,
+  };
   if (total < DETECT_MIN_CHORDS || distinct < DETECT_MIN_DISTINCT_ROOTS) return result;
 
   const [best, second] = scoreKeyCandidates(observations) as [KeyCandidate, KeyCandidate];

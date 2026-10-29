@@ -72,7 +72,11 @@ export function nashvilleLine(line: string, tonicSemitone: number, german: boole
   return result;
 }
 
-export function nashvilleChordProLine(line: string, tonicSemitone: number, german: boolean): string {
+export function nashvilleChordProLine(
+  line: string,
+  tonicSemitone: number,
+  german: boolean
+): string {
   return line.replace(CHORDPRO_BRACKET_RE, (whole: string, token: string) => {
     if (!CHORD_TOKEN_RE.test(token.trim())) return whole;
     return `[${chordToNashville(token, tonicSemitone, german)}]`;

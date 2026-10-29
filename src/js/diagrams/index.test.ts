@@ -20,7 +20,8 @@ describe("initDiagrams", () => {
     document.body.appendChild(container);
     diagrams.renderInto(container, "C  G");
     const button = container.querySelector<HTMLButtonElement>("button.chord-token")!;
-    button.getBoundingClientRect = () => ({ left: 0, right: 20, top: 0, bottom: 20, width: 20, height: 20 }) as DOMRect;
+    button.getBoundingClientRect = () =>
+      ({ left: 0, right: 20, top: 0, bottom: 20, width: 20, height: 20 }) as DOMRect;
     button.focus = vi.fn();
     button.dispatchEvent(new Event("click"));
     expect(document.querySelector(".chord-popover")).not.toBeNull();

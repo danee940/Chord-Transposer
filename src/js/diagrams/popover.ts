@@ -45,7 +45,10 @@ export function createChordPopover(getInstrument: () => Instrument): ChordPopove
     const rect = trigger.getBoundingClientRect();
     const popRect = element.getBoundingClientRect();
     let left = window.scrollX + rect.left + rect.width / 2 - popRect.width / 2;
-    left = Math.max(window.scrollX + 8, Math.min(left, window.scrollX + window.innerWidth - popRect.width - 8));
+    left = Math.max(
+      window.scrollX + 8,
+      Math.min(left, window.scrollX + window.innerWidth - popRect.width - 8)
+    );
     let top = window.scrollY + rect.bottom + 8;
     if (rect.bottom + popRect.height + 8 > window.innerHeight) {
       top = window.scrollY + rect.top - popRect.height - 8;

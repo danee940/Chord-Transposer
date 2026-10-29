@@ -5,7 +5,8 @@ import { parseChordSymbol } from "./shapes";
 
 function makeAnchor() {
   const button = document.createElement("button");
-  button.getBoundingClientRect = () => ({ left: 100, right: 140, bottom: 50, top: 30, width: 40, height: 20 }) as DOMRect;
+  button.getBoundingClientRect = () =>
+    ({ left: 100, right: 140, bottom: 50, top: 30, width: 40, height: 20 }) as DOMRect;
   button.focus = vi.fn();
   document.body.appendChild(button);
   return button;
@@ -35,7 +36,8 @@ describe("createChordPopover", () => {
   it("flips above the anchor when there is no room below", () => {
     const popover = createChordPopover(() => "guitar");
     const anchor = makeAnchor();
-    anchor.getBoundingClientRect = () => ({ left: 100, right: 140, bottom: 590, top: 570, width: 40, height: 20 }) as DOMRect;
+    anchor.getBoundingClientRect = () =>
+      ({ left: 100, right: 140, bottom: 590, top: 570, width: 40, height: 20 }) as DOMRect;
     popover.show(anchor, parseChordSymbol("C"));
     const element = document.querySelector<HTMLElement>(".chord-popover")!;
     element.getBoundingClientRect = () => ({ width: 200, height: 200 }) as DOMRect;
@@ -50,7 +52,9 @@ describe("createChordPopover", () => {
     popover.show(anchor, parseChordSymbol("C"));
     const event = new KeyboardEvent("keydown", { key: "Escape" });
     document.dispatchEvent(event);
-    expect(document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")).toBe(true);
+    expect(
+      document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")
+    ).toBe(true);
     expect(anchor.focus).toHaveBeenCalled();
   });
 
@@ -58,7 +62,9 @@ describe("createChordPopover", () => {
     const popover = createChordPopover(() => "guitar");
     popover.show(makeAnchor(), parseChordSymbol("C"));
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
-    expect(document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")).toBe(false);
+    expect(
+      document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")
+    ).toBe(false);
   });
 
   it("closes on a pointer press outside the popover", () => {
@@ -69,7 +75,9 @@ describe("createChordPopover", () => {
     const event = new Event("pointerdown");
     Object.defineProperty(event, "target", { value: outside });
     document.dispatchEvent(event);
-    expect(document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")).toBe(true);
+    expect(
+      document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")
+    ).toBe(true);
   });
 
   it("keeps open when the pointer press is inside the popover or on the anchor", () => {
@@ -93,7 +101,9 @@ describe("createChordPopover", () => {
     const popover = createChordPopover(() => "guitar");
     popover.show(makeAnchor(), parseChordSymbol("C"));
     document.querySelector(".chord-popover-close")!.dispatchEvent(new Event("click"));
-    expect(document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")).toBe(true);
+    expect(
+      document.querySelector<HTMLElement>(".chord-popover")!.classList.contains("hidden")
+    ).toBe(true);
   });
 
   it("is a no-op to hide when already hidden", () => {

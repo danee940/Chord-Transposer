@@ -156,7 +156,11 @@ function renderKeyboard(chord: ParsedChord): SVGElement {
           width: whiteWidth,
           height: whiteHeight,
           rx: 2,
-          fill: active ? (isRoot ? "var(--diagram-root)" : "var(--diagram-active)") : "var(--diagram-white)",
+          fill: active
+            ? isRoot
+              ? "var(--diagram-root)"
+              : "var(--diagram-active)"
+            : "var(--diagram-white)",
           stroke: "var(--diagram-line)",
           "stroke-width": 1,
         })
@@ -179,7 +183,11 @@ function renderKeyboard(chord: ParsedChord): SVGElement {
           width: blackWidth,
           height: blackHeight,
           rx: 1,
-          fill: active ? (isRoot ? "var(--diagram-root)" : "var(--diagram-active)") : "var(--diagram-black)",
+          fill: active
+            ? isRoot
+              ? "var(--diagram-root)"
+              : "var(--diagram-active)"
+            : "var(--diagram-black)",
           stroke: "var(--diagram-line)",
           "stroke-width": 1,
         })
@@ -202,7 +210,9 @@ export function renderDiagram(chord: ParsedChord | null, instrument: Instrument)
   container.className = "diagram-body flex flex-col items-center gap-2";
 
   if (chord === null) {
-    container.appendChild(textLine("text-sm text-muted-light dark:text-muted", "No diagram available."));
+    container.appendChild(
+      textLine("text-sm text-muted-light dark:text-muted", "No diagram available.")
+    );
     return container;
   }
 

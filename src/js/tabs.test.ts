@@ -17,8 +17,12 @@ describe("initTabs", () => {
 
   it("selects the paste tab by default", () => {
     initTabs();
-    expect(requireElement<HTMLButtonElement>("tab-paste").getAttribute("aria-selected")).toBe("true");
-    expect(requireElement<HTMLButtonElement>("tab-upload").getAttribute("aria-selected")).toBe("false");
+    expect(requireElement<HTMLButtonElement>("tab-paste").getAttribute("aria-selected")).toBe(
+      "true"
+    );
+    expect(requireElement<HTMLButtonElement>("tab-upload").getAttribute("aria-selected")).toBe(
+      "false"
+    );
     expect(requireElement("panel-paste").classList.contains("hidden")).toBe(false);
     expect(requireElement("panel-upload").classList.contains("hidden")).toBe(true);
   });
@@ -26,7 +30,9 @@ describe("initTabs", () => {
   it("switches to the upload tab on click", () => {
     initTabs();
     requireElement<HTMLButtonElement>("tab-upload").dispatchEvent(new Event("click"));
-    expect(requireElement<HTMLButtonElement>("tab-upload").getAttribute("aria-selected")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("tab-upload").getAttribute("aria-selected")).toBe(
+      "true"
+    );
     expect(requireElement("panel-upload").classList.contains("hidden")).toBe(false);
     expect(requireElement("panel-paste").classList.contains("hidden")).toBe(true);
   });
@@ -35,7 +41,9 @@ describe("initTabs", () => {
     initTabs();
     requireElement<HTMLButtonElement>("tab-upload").dispatchEvent(new Event("click"));
     requireElement<HTMLButtonElement>("tab-paste").dispatchEvent(new Event("click"));
-    expect(requireElement<HTMLButtonElement>("tab-paste").getAttribute("aria-selected")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("tab-paste").getAttribute("aria-selected")).toBe(
+      "true"
+    );
     expect(requireElement("panel-paste").classList.contains("hidden")).toBe(false);
   });
 });

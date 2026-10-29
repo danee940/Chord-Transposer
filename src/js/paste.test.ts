@@ -367,7 +367,9 @@ describe("initPaste", () => {
     initPaste();
     requireElement<HTMLButtonElement>("mode-semitone").dispatchEvent(new Event("click"));
     const event = new KeyboardEvent("keydown", { key: "]" });
-    Object.defineProperty(event, "target", { value: requireElement<HTMLTextAreaElement>("text_input") });
+    Object.defineProperty(event, "target", {
+      value: requireElement<HTMLTextAreaElement>("text_input"),
+    });
     document.dispatchEvent(event);
     expect(requireElement("semitone_value").textContent).toBe("0");
   });
@@ -385,9 +387,13 @@ describe("initPaste", () => {
     initPaste();
     requireElement<HTMLButtonElement>("mode-semitone").dispatchEvent(new Event("click"));
     requireElement<HTMLButtonElement>("notation_flat").dispatchEvent(new Event("click"));
-    expect(requireElement<HTMLButtonElement>("notation_flat").getAttribute("aria-pressed")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("notation_flat").getAttribute("aria-pressed")).toBe(
+      "true"
+    );
     requireElement<HTMLButtonElement>("notation_sharp").dispatchEvent(new Event("click"));
-    expect(requireElement<HTMLButtonElement>("notation_sharp").getAttribute("aria-pressed")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("notation_sharp").getAttribute("aria-pressed")).toBe(
+      "true"
+    );
   });
 
   it("toggles output format for ChordPro text", () => {
@@ -395,9 +401,13 @@ describe("initPaste", () => {
     type("[C]Twinkle [G]twinkle");
     vi.advanceTimersByTime(300);
     requireElement<HTMLButtonElement>("format_plain").dispatchEvent(new Event("click"));
-    expect(requireElement<HTMLButtonElement>("format_plain").getAttribute("aria-pressed")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("format_plain").getAttribute("aria-pressed")).toBe(
+      "true"
+    );
     requireElement<HTMLButtonElement>("format_chordpro").dispatchEvent(new Event("click"));
-    expect(requireElement<HTMLButtonElement>("format_chordpro").getAttribute("aria-pressed")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("format_chordpro").getAttribute("aria-pressed")).toBe(
+      "true"
+    );
   });
 
   it("swaps keys", () => {
@@ -667,7 +677,9 @@ describe("initPaste preferences", () => {
     expect(requireElement<HTMLSelectElement>("text_target_key").value).toBe("D");
     expect(requireElement("semitone_value").textContent).toBe("+3");
     expect(requireElement<HTMLSelectElement>("text_instrument").value).toBe("piano");
-    expect(requireElement<HTMLButtonElement>("notation_flat").getAttribute("aria-pressed")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("notation_flat").getAttribute("aria-pressed")).toBe(
+      "true"
+    );
   });
 
   it("defaults the instrument to the page instrument when set", () => {
@@ -703,6 +715,8 @@ describe("initPaste preferences", () => {
     buildDom();
     stubPrefs({ mode: "bogus" });
     initPaste();
-    expect(requireElement<HTMLButtonElement>("mode-key").getAttribute("aria-selected")).toBe("true");
+    expect(requireElement<HTMLButtonElement>("mode-key").getAttribute("aria-selected")).toBe(
+      "true"
+    );
   });
 });

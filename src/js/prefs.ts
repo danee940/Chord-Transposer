@@ -1,5 +1,12 @@
 const PREFS_STORAGE_KEY = "chord-transposer:prefs";
-const ALLOWED_PREF_KEYS = ["mode", "currentKey", "targetKey", "semitones", "notation", "instrument"] as const;
+const ALLOWED_PREF_KEYS = [
+  "mode",
+  "currentKey",
+  "targetKey",
+  "semitones",
+  "notation",
+  "instrument",
+] as const;
 
 export type PrefKey = (typeof ALLOWED_PREF_KEYS)[number];
 export type PrefValue = string | number | boolean;

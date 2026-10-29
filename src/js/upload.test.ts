@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockInstance } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+  type MockInstance,
+} from "vitest";
 
 import { requireElement } from "./dom";
 import { initUpload } from "./upload";
@@ -114,9 +123,7 @@ describe("initUpload", () => {
       expect(requireElement("upload_detected_label").textContent).toBe("Detected: D")
     );
     expect(requireElement<HTMLSelectElement>("current_key").value).toBe("D");
-    expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(
-      false
-    );
+    expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(false);
   });
 
   it("asks the server to detect the key of a .docx upload", async () => {
@@ -353,7 +360,10 @@ describe("initUpload", () => {
   it("rejects a binder that exceeds the combined size limit", () => {
     initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeFile("a.docx", 30 * 1024 * 1024), makeFile("b.docx", 20 * 1024 * 1024)]);
+    setFiles(fileInput, [
+      makeFile("a.docx", 30 * 1024 * 1024),
+      makeFile("b.docx", 20 * 1024 * 1024),
+    ]);
     fileInput.dispatchEvent(new Event("change"));
     expect(message().textContent).toBe("Files are too large. The combined maximum is 40 MB.");
   });
@@ -379,7 +389,9 @@ describe("initUpload", () => {
       },
     });
     const dropzone = requireElement("dropzone");
-    const event = Object.assign(new Event("drop"), { dataTransfer: { files: [makeFile("dropped.docx", 1024)] } });
+    const event = Object.assign(new Event("drop"), {
+      dataTransfer: { files: [makeFile("dropped.docx", 1024)] },
+    });
     dropzone.dispatchEvent(event);
     expect(requireElement("dropzone-text").textContent).toContain("dropped.docx");
   });
@@ -429,7 +441,10 @@ describe("initUpload", () => {
 
   it("blocks submission of an invalid binder selection", async () => {
     initUpload();
-    setFiles(requireElement<HTMLInputElement>("file"), [makeFile("a.docx", 10), makeFile("b.txt", 10)]);
+    setFiles(requireElement<HTMLInputElement>("file"), [
+      makeFile("a.docx", 10),
+      makeFile("b.txt", 10),
+    ]);
     requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
     await Promise.resolve();
     expect(message().textContent).toBe("The binder accepts .docx files only.");
@@ -450,7 +465,9 @@ describe("initUpload", () => {
     requireElement<HTMLSelectElement>("current_key").value = "C";
     requireElement<HTMLSelectElement>("target_key").value = "D";
     requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
-    await vi.waitFor(() => expect(requireElement("spinner").classList.contains("hidden")).toBe(true));
+    await vi.waitFor(() =>
+      expect(requireElement("spinner").classList.contains("hidden")).toBe(true)
+    );
   }
 
   it("posts a single .docx to /transpose and renders the change table", async () => {
@@ -466,7 +483,9 @@ describe("initUpload", () => {
   });
 
   it("posts a .txt file to /transpose-text with the native text format", async () => {
-    fetchMock.mockResolvedValue(response({ headers: { "Content-Disposition": 'attachment; filename="hymn_D.txt"' } }));
+    fetchMock.mockResolvedValue(
+      response({ headers: { "Content-Disposition": 'attachment; filename="hymn_D.txt"' } })
+    );
     initUpload();
     setFiles(requireElement<HTMLInputElement>("file"), [makeTextFile("hymn.txt", "C G Am F")]);
     await submitAndWait();
@@ -476,7 +495,9 @@ describe("initUpload", () => {
   });
 
   it("posts a ChordPro file to /transpose-text as chordpro", async () => {
-    fetchMock.mockResolvedValue(response({ headers: { "Content-Disposition": 'attachment; filename="grace_D.pro"' } }));
+    fetchMock.mockResolvedValue(
+      response({ headers: { "Content-Disposition": 'attachment; filename="grace_D.pro"' } })
+    );
     initUpload();
     setFiles(requireElement<HTMLInputElement>("file"), [makeTextFile("grace.pro", "[C]hi")]);
     await submitAndWait();
@@ -497,9 +518,14 @@ describe("initUpload", () => {
   });
 
   it("posts multiple .docx files to /binder and reports the binder result", async () => {
-    fetchMock.mockResolvedValue(response({ headers: { "Content-Disposition": 'attachment; filename="chord_binder_D.pdf"' } }));
+    fetchMock.mockResolvedValue(
+      response({ headers: { "Content-Disposition": 'attachment; filename="chord_binder_D.pdf"' } })
+    );
     initUpload();
-    setFiles(requireElement<HTMLInputElement>("file"), [makeFile("a.docx", 1024), makeFile("b.docx", 1024)]);
+    setFiles(requireElement<HTMLInputElement>("file"), [
+      makeFile("a.docx", 1024),
+      makeFile("b.docx", 1024),
+    ]);
     await submitAndWait();
     const [endpoint, options] = fetchMock.mock.calls[0]!;
     expect(endpoint).toBe("/binder");
@@ -510,7 +536,10 @@ describe("initUpload", () => {
   it("falls back to the binder filename when no disposition is present", async () => {
     fetchMock.mockResolvedValue(response({ headers: { "Content-Disposition": null } }));
     initUpload();
-    setFiles(requireElement<HTMLInputElement>("file"), [makeFile("a.docx", 1024), makeFile("b.docx", 1024)]);
+    setFiles(requireElement<HTMLInputElement>("file"), [
+      makeFile("a.docx", 1024),
+      makeFile("b.docx", 1024),
+    ]);
     const anchorSpy = vi.spyOn(document, "createElement");
     await submitAndWait();
     const anchor = anchorSpy.mock.results.map((r) => r.value).find((el) => el.tagName === "A");
@@ -555,7 +584,9 @@ describe("initUpload", () => {
 
   it("parses an extended UTF-8 filename", async () => {
     fetchMock.mockResolvedValue(
-      response({ headers: { "Content-Disposition": "attachment; filename*=UTF-8''caf%C3%A9.docx" } })
+      response({
+        headers: { "Content-Disposition": "attachment; filename*=UTF-8''caf%C3%A9.docx" },
+      })
     );
     initUpload();
     setFiles(requireElement<HTMLInputElement>("file"), [makeFile("song.docx", 1024)]);
@@ -618,5 +649,38 @@ describe("initUpload", () => {
     await submitAndWait();
     const anchor = anchorSpy.mock.results.map((r) => r.value).find((el) => el.tagName === "A");
     expect(anchor.download).toBe("transposed.pdf");
+  });
+});
+
+describe("initUpload change table", () => {
+  beforeEach(() => {
+    setupDom();
+    globalThis.URL.createObjectURL = vi.fn(() => "blob:mock");
+    globalThis.URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("renders an empty After cell for a malformed change entry", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(response({ headers: { "X-Transpose-Changes": "C->D, G" } }))
+    );
+    initUpload();
+    setFiles(requireElement<HTMLInputElement>("file"), [makeFile("song.docx", 1024)]);
+    requireElement<HTMLSelectElement>("current_key").value = "C";
+    requireElement<HTMLSelectElement>("target_key").value = "D";
+    requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
+    await vi.waitFor(() =>
+      expect(requireElement("spinner").classList.contains("hidden")).toBe(true)
+    );
+    const cells = [...requireElement("message").querySelectorAll("tbody td")].map(
+      (cell) => cell.textContent
+    );
+    expect(cells).toEqual(["C", "D", "G", ""]);
   });
 });

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  capoOptions,
-  formatCapoSuggestion,
-  keyToCapoSemitone,
-  suggestCapo,
-} from "./capo-suggest";
+import { capoOptions, formatCapoSuggestion, keyToCapoSemitone, suggestCapo } from "./capo-suggest";
 
 describe("keyToCapoSemitone", () => {
   it("resolves flat and sharp spellings", () => {
