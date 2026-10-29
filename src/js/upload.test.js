@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { initUpload } from "./upload.js";
+import { initUpload } from "./upload";
 
 function setupDom() {
   document.body.innerHTML = `

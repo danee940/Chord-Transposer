@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildInteractiveOutput } from "./output.js";
+import { buildInteractiveOutput } from "./output";
 
 function stripToPlainText(text) {
   const container = document.createElement("div");

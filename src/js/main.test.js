@@ -6,11 +6,11 @@ const initPaste = vi.fn();
 const initCapo = vi.fn();
 const initSyncedPanes = vi.fn();
 
-vi.mock("./upload.js", () => ({ initUpload }));
-vi.mock("./tabs.js", () => ({ initTabs }));
-vi.mock("./paste.js", () => ({ initPaste }));
-vi.mock("./capo.js", () => ({ initCapo }));
-vi.mock("./panes.js", () => ({ initSyncedPanes }));
+vi.mock("./upload", () => ({ initUpload }));
+vi.mock("./tabs", () => ({ initTabs }));
+vi.mock("./paste", () => ({ initPaste }));
+vi.mock("./capo", () => ({ initCapo }));
+vi.mock("./panes", () => ({ initSyncedPanes }));
 
 describe("main entry point", () => {
   afterEach(() => {
@@ -20,7 +20,7 @@ describe("main entry point", () => {
   });
 
   it("wires up every feature on load", async () => {
-    await import("./main.js");
+    await import("./main");
     expect(initUpload).toHaveBeenCalledOnce();
     expect(initTabs).toHaveBeenCalledOnce();
     expect(initPaste).toHaveBeenCalledOnce();
@@ -28,13 +28,13 @@ describe("main entry point", () => {
   });
 
   it("skips the capo table when the capo widget is absent", async () => {
-    await import("./main.js");
+    await import("./main");
     expect(initCapo).not.toHaveBeenCalled();
   });
 
   it("initialises the capo table when the capo widget is present", async () => {
     document.body.innerHTML = `<div id="capo-key"></div>`;
-    await import("./main.js");
+    await import("./main");
     expect(initCapo).toHaveBeenCalledOnce();
   });
 });

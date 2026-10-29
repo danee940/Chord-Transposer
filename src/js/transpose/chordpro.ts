@@ -5,16 +5,22 @@ import {
   splitLineContents,
   splitLinesKeepEnds,
   transposeChord,
-} from "./chords.js";
-import { chooseSpelling } from "./notation.js";
+  type Change,
+} from "./chords";
+import { chooseSpelling, type Spelling } from "./notation";
+
+export interface TransposedCore {
+  text: string;
+  changes: Change[];
+}
 
 const CHORDPRO_BRACKET_RE = /\[([^\]]+)\]/g;
 
-export function bracketTokens(text) {
-  return [...text.matchAll(CHORDPRO_BRACKET_RE)].map((match) => match[1]);
+export function bracketTokens(text: string): string[] {
+  return [...text.matchAll(CHORDPRO_BRACKET_RE)].map((match) => match[1]!);
 }
 
-export function isChordProText(text) {
+export function isChordProText(text: string): boolean {
   for (const line of splitLineContents(text)) {
     for (const token of bracketTokens(line)) {
       if (CHORD_TOKEN_RE.test(token.trim())) return true;
@@ -23,7 +29,7 @@ export function isChordProText(text) {
   return false;
 }
 
-export function chordProUsesGerman(text) {
+export function chordProUsesGerman(text: string): boolean {
   for (const token of bracketTokens(text)) {
     const stripped = token.trim();
     if (CHORD_TOKEN_RE.test(stripped) && lineUsesGerman(stripped)) return true;
@@ -31,8 +37,14 @@ export function chordProUsesGerman(text) {
   return false;
 }
 
-function transposeChordProLine(line, semitones, spelling, german, changes) {
-  return line.replace(CHORDPRO_BRACKET_RE, (whole, token) => {
+function transposeChordProLine(
+  line: string,
+  semitones: number,
+  spelling: Spelling,
+  german: boolean,
+  changes: ChangeSet
+): string {
+  return line.replace(CHORDPRO_BRACKET_RE, (whole: string, token: string) => {
     if (!CHORD_TOKEN_RE.test(token.trim())) return whole;
     const transposed = transposeChord(token, semitones, spelling, german);
     if (transposed !== token) changes.add(token, transposed);
@@ -40,7 +52,7 @@ function transposeChordProLine(line, semitones, spelling, german, changes) {
   });
 }
 
-export function chordProToPlain(text) {
+export function chordProToPlain(text: string): string {
   let result = "";
   for (const { content, ending } of splitLinesKeepEnds(text)) {
     const tokens = bracketTokens(content).map((token) => token.trim());
@@ -49,7 +61,12 @@ export function chordProToPlain(text) {
   return result;
 }
 
-export function transposeChordProCore(text, semitones, useFlats, german) {
+export function transposeChordProCore(
+  text: string,
+  semitones: number,
+  useFlats: boolean,
+  german: boolean
+): TransposedCore {
   const spelling = chooseSpelling(useFlats, german);
   const changes = new ChangeSet();
   let result = "";

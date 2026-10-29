@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { initTabs } from "./tabs.js";
+import { initTabs } from "./tabs";
 
 function setupDom() {
   document.body.innerHTML = `

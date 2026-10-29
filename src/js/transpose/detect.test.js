@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectKey } from "./detect.js";
+import { detectKey } from "./detect";
 
 describe("detectKey", () => {
   it("detects a basic major cadence", () => {

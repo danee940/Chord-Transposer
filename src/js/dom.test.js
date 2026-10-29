@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { makeCell, makeHeaderCell } from "./dom.js";
+import { makeCell, makeHeaderCell } from "./dom";
 
 describe("dom helpers", () => {
   it("builds a td with text and class", () => {

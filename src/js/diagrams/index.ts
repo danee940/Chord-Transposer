@@ -1,0 +1,24 @@
+import { buildInteractiveOutput } from "./output";
+import { createChordPopover } from "./popover";
+import { parseChordSymbol, type Instrument } from "./shapes";
+
+export interface Diagrams {
+  renderInto(container: Element, text: string): void;
+  closePopover(): void;
+}
+
+export function initDiagrams(getInstrument: () => Instrument): Diagrams {
+  const popover = createChordPopover(getInstrument);
+
+  function activate(button: HTMLButtonElement): void {
+    const chord = parseChordSymbol(button.dataset.chord!, button.dataset.german === "1");
+    popover.show(button, chord);
+  }
+
+  function renderInto(container: Element, text: string): void {
+    popover.hide();
+    container.replaceChildren(buildInteractiveOutput(text, activate));
+  }
+
+  return { renderInto, closePopover: popover.hide };
+}

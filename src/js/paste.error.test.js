@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./transpose/index.js", async () => {
-  const actual = await vi.importActual("./transpose/index.js");
+vi.mock("./transpose/index", async () => {
+  const actual = await vi.importActual("./transpose/index");
   return {
     ...actual,
     transposeText: () => {
@@ -10,7 +10,7 @@ vi.mock("./transpose/index.js", async () => {
   };
 });
 
-import { initPaste } from "./paste.js";
+import { initPaste } from "./paste";
 
 function buildDom() {
   document.body.innerHTML = `

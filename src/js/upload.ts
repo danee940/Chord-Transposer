@@ -1,27 +1,48 @@
-import { createDetectionBadge } from "./detect-badge.js";
-import { BASE_CLASSES, ERROR_CLASSES, OK_CLASSES, makeCell, makeHeaderCell } from "./dom.js";
+import { createDetectionBadge } from "./detect-badge";
+import {
+  BASE_CLASSES,
+  ERROR_CLASSES,
+  OK_CLASSES,
+  makeCell,
+  makeHeaderCell,
+  requireElement,
+} from "./dom";
 import {
   InvalidKeyError,
   isChordProText,
   transposeChordProText,
   transposeText,
-} from "./transpose/index.js";
+  type KeyDetection,
+} from "./transpose/index";
 
-export function initUpload() {
-  const form = document.getElementById("form");
-  const submit = document.getElementById("submit");
-  const submitLabel = document.getElementById("submit-label");
-  const spinner = document.getElementById("spinner");
-  const message = document.getElementById("message");
-  const fileInput = document.getElementById("file");
-  const dropzone = document.getElementById("dropzone");
-  const dropzoneText = document.getElementById("dropzone-text");
-  const currentKey = document.getElementById("current_key");
-  const targetKey = document.getElementById("target_key");
-  const swap = document.getElementById("swap");
-  const detectedWrap = document.getElementById("upload_detected_wrap");
-  const detectedLabel = document.getElementById("upload_detected_label");
-  const detectedAlt = document.getElementById("upload_detected_alt");
+type MessageKind = "error" | "ok";
+
+interface UploadRequest {
+  endpoint: string;
+  body: FormData;
+  multi: boolean;
+  fallback: string;
+}
+
+interface ErrorResponse {
+  error?: string;
+}
+
+export function initUpload(): void {
+  const form = requireElement<HTMLFormElement>("form");
+  const submit = requireElement<HTMLButtonElement>("submit");
+  const submitLabel = requireElement("submit-label");
+  const spinner = requireElement("spinner");
+  const message = requireElement("message");
+  const fileInput = requireElement<HTMLInputElement>("file");
+  const dropzone = requireElement("dropzone");
+  const dropzoneText = requireElement("dropzone-text");
+  const currentKey = requireElement<HTMLSelectElement>("current_key");
+  const targetKey = requireElement<HTMLSelectElement>("target_key");
+  const swap = requireElement("swap");
+  const detectedWrap = requireElement("upload_detected_wrap");
+  const detectedLabel = requireElement("upload_detected_label");
+  const detectedAlt = requireElement("upload_detected_alt");
 
   const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
   const MAX_BINDER_FILES = 20;
@@ -30,32 +51,32 @@ export function initUpload() {
   const DEFAULT_DROPZONE_HTML =
     '<span class="font-medium text-slate-800 dark:text-slate-200">Drop your chord sheets here</span> or click to browse';
 
-  let textPreviewSource = null;
+  let textPreviewSource: string | null = null;
 
-  function isTextName(name) {
+  function isTextName(name: string): boolean {
     return TEXT_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext));
   }
 
-  function isDocxName(name) {
+  function isDocxName(name: string): boolean {
     return name.toLowerCase().endsWith(".docx");
   }
 
-  function hideMessage() {
+  function hideMessage(): void {
     message.className = BASE_CLASSES + " hidden";
     message.replaceChildren();
   }
 
-  function show(kind, text) {
+  function show(kind: MessageKind, text: string): void {
     message.className = BASE_CLASSES + " " + (kind === "error" ? ERROR_CLASSES : OK_CLASSES);
     message.textContent = text;
   }
 
-  function formatBytes(bytes) {
+  function formatBytes(bytes: number): string {
     const mb = bytes / (1024 * 1024);
     return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
 
-  function validateFile(file) {
+  function validateFile(file: File | undefined): string | null {
     if (!file) return "Please choose a file to upload.";
     if (!isDocxName(file.name) && !isTextName(file.name))
       return "Unsupported file type. Upload .docx, .txt, .pro, or .cho.";
@@ -64,7 +85,7 @@ export function initUpload() {
     return null;
   }
 
-  function validateFiles(files) {
+  function validateFiles(files: File[]): string | null {
     if (files.length > MAX_BINDER_FILES)
       return `Too many files. The maximum is ${MAX_BINDER_FILES}.`;
     let total = 0;
@@ -78,11 +99,11 @@ export function initUpload() {
     return null;
   }
 
-  function selectedFiles() {
-    return [...fileInput.files];
+  function selectedFiles(): File[] {
+    return [...fileInput.files!];
   }
 
-  function updateDropzone(files) {
+  function updateDropzone(files: File[] | null): void {
     if (!files || files.length === 0) {
       dropzoneText.innerHTML = DEFAULT_DROPZONE_HTML;
       return;
@@ -90,21 +111,22 @@ export function initUpload() {
     dropzoneText.innerHTML =
       `<span class="font-medium text-slate-800 dark:text-slate-200"></span>` +
       `<span class="block text-xs text-muted-light dark:text-muted"></span>`;
-    if (files.length === 1) {
-      dropzoneText.firstChild.textContent = files[0].name;
-      dropzoneText.lastChild.textContent = formatBytes(files[0].size);
+    const [first] = files;
+    if (files.length === 1 && first) {
+      dropzoneText.firstChild!.textContent = first.name;
+      dropzoneText.lastChild!.textContent = formatBytes(first.size);
       return;
     }
     const total = files.reduce((sum, file) => sum + file.size, 0);
-    dropzoneText.firstChild.textContent = `${files.length} files selected`;
-    dropzoneText.lastChild.textContent = formatBytes(total);
+    dropzoneText.firstChild!.textContent = `${files.length} files selected`;
+    dropzoneText.lastChild!.textContent = formatBytes(total);
   }
 
-  function selectedFormat() {
-    return form.querySelector('input[name="format"]:checked')?.value || "docx";
+  function selectedFormat(): string {
+    return form.querySelector<HTMLInputElement>('input[name="format"]:checked')?.value || "docx";
   }
 
-  function showPreview(from, to, text) {
+  function showPreview(from: string, to: string, text: string): void {
     message.className = BASE_CLASSES + " " + OK_CLASSES;
     message.replaceChildren();
 
@@ -129,13 +151,13 @@ export function initUpload() {
 
   let fileSelectionId = 0;
 
-  async function detectDocxKey(file, selectionId) {
+  async function detectDocxKey(file: File, selectionId: number): Promise<void> {
     const data = new FormData();
     data.append("file", file);
     try {
       const response = await fetch("/detect-key", { method: "POST", body: data });
       if (!response.ok) return;
-      const result = await response.json();
+      const result = (await response.json()) as KeyDetection;
       if (selectionId !== fileSelectionId) return;
       detection.apply(result);
     } catch {
@@ -143,7 +165,7 @@ export function initUpload() {
     }
   }
 
-  function runPreview() {
+  function runPreview(): void {
     if (textPreviewSource === null) return;
     if (currentKey.value === targetKey.value) {
       hideMessage();
@@ -166,11 +188,12 @@ export function initUpload() {
     const selectionId = fileSelectionId;
     detection.reset();
     const files = selectedFiles();
-    if (files.length === 0) {
+    const [first] = files;
+    if (first === undefined) {
       updateDropzone(null);
       return;
     }
-    const error = files.length > 1 ? validateFiles(files) : validateFile(files[0]);
+    const error = files.length > 1 ? validateFiles(files) : validateFile(first);
     if (error) {
       show("error", error);
       fileInput.value = "";
@@ -178,25 +201,25 @@ export function initUpload() {
       return;
     }
     updateDropzone(files);
-    if (files.length === 1 && isTextName(files[0].name)) {
-      files[0].text().then((content) => {
+    if (files.length === 1 && isTextName(first.name)) {
+      first.text().then((content) => {
         if (selectionId !== fileSelectionId) return;
         textPreviewSource = content;
         detection.detect(content);
         runPreview();
       });
-    } else if (files.length === 1 && isDocxName(files[0].name)) {
-      detectDocxKey(files[0], selectionId);
+    } else if (files.length === 1 && isDocxName(first.name)) {
+      void detectDocxKey(first, selectionId);
     }
   });
 
-  ["dragenter", "dragover"].forEach((name) =>
+  (["dragenter", "dragover"] as const).forEach((name) =>
     dropzone.addEventListener(name, (event) => {
       event.preventDefault();
       dropzone.classList.add("border-accent", "bg-accent/5");
     })
   );
-  ["dragleave", "dragend", "drop"].forEach((name) =>
+  (["dragleave", "dragend", "drop"] as const).forEach((name) =>
     dropzone.addEventListener(name, (event) => {
       event.preventDefault();
       dropzone.classList.remove("border-accent", "bg-accent/5");
@@ -225,7 +248,7 @@ export function initUpload() {
   });
   targetKey.addEventListener("change", runPreview);
 
-  function showTransposeResult(from, to, changesRaw) {
+  function showTransposeResult(from: string, to: string, changesRaw: string): void {
     message.className = BASE_CLASSES + " " + OK_CLASSES;
     message.replaceChildren();
 
@@ -255,8 +278,8 @@ export function initUpload() {
     for (const [orig, transposed] of pairs) {
       const row = document.createElement("tr");
       row.className = "border-t border-app-ok/20";
-      row.appendChild(makeCell(orig, "py-1 pr-4 font-mono"));
-      row.appendChild(makeCell(transposed, "py-1 font-mono"));
+      row.appendChild(makeCell(orig ?? "", "py-1 pr-4 font-mono"));
+      row.appendChild(makeCell(transposed ?? "", "py-1 font-mono"));
       tbody.appendChild(row);
     }
     table.appendChild(tbody);
@@ -264,7 +287,7 @@ export function initUpload() {
     message.appendChild(table);
   }
 
-  function showBinderResult(count) {
+  function showBinderResult(count: number): void {
     message.className = BASE_CLASSES + " " + OK_CLASSES;
     message.replaceChildren();
     const heading = document.createElement("div");
@@ -273,32 +296,32 @@ export function initUpload() {
     message.appendChild(heading);
   }
 
-  function parseDownloadFilename(disposition, fallback) {
+  function parseDownloadFilename(disposition: string, fallback: string): string {
     const extendedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
     if (extendedMatch) {
       try {
-        return decodeURIComponent(extendedMatch[1]);
+        return decodeURIComponent(extendedMatch[1]!);
       } catch {
         return fallback;
       }
     }
     const quotedMatch = disposition.match(/filename="([^"]+)"/i);
     if (quotedMatch) {
-      return quotedMatch[1];
+      return quotedMatch[1]!;
     }
     const bareMatch = disposition.match(/filename=([^;]+)/i);
     if (bareMatch) {
-      return bareMatch[1].trim();
+      return bareMatch[1]!.trim();
     }
     return fallback;
   }
 
-  function textOutputFormat(name) {
+  function textOutputFormat(name: string): string {
     if (selectedFormat() === "pdf") return "pdf";
     return name.toLowerCase().endsWith(".txt") ? "txt" : "chordpro";
   }
 
-  function buildRequest(files) {
+  function buildRequest(files: File[]): UploadRequest {
     if (files.length > 1) {
       const data = new FormData();
       data.append("current_key", currentKey.value);
@@ -306,7 +329,7 @@ export function initUpload() {
       files.forEach((file) => data.append("files", file));
       return { endpoint: "/binder", body: data, multi: true, fallback: "chord_binder.pdf" };
     }
-    const file = files[0];
+    const file = files[0]!;
     if (isTextName(file.name)) {
       const format = textOutputFormat(file.name);
       const data = new FormData();
@@ -325,7 +348,7 @@ export function initUpload() {
     };
   }
 
-  function setLoading(loading) {
+  function setLoading(loading: boolean): void {
     submit.disabled = loading;
     spinner.classList.toggle("hidden", !loading);
     submitLabel.textContent = loading ? "Transposing..." : "Transpose & Download";
@@ -358,7 +381,9 @@ export function initUpload() {
       const response = await fetch(request.endpoint, { method: "POST", body: request.body });
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: "Something went wrong." }));
+        const data = (await response
+          .json()
+          .catch(() => ({ error: "Something went wrong." }))) as ErrorResponse;
         show("error", data.error || "Something went wrong.");
         return;
       }
@@ -385,7 +410,7 @@ export function initUpload() {
       } else {
         showTransposeResult(from, to, changes);
       }
-    } catch (err) {
+    } catch {
       show("error", "Network error. Please try again.");
     } finally {
       setLoading(false);

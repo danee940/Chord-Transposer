@@ -1,14 +1,39 @@
-import { detectKey } from "./transpose/index.js";
+import { detectKey, type KeyDetection } from "./transpose/index";
 
-export function createDetectionBadge({ wrap, label, altButton, select, onAltPick }) {
+export interface DetectionBadgeOptions {
+  wrap: HTMLElement;
+  label: HTMLElement;
+  altButton: HTMLElement;
+  select: HTMLSelectElement;
+  onAltPick?: () => void;
+}
+
+export interface DetectionBadge {
+  apply(result: KeyDetection | null | undefined): void;
+  detect(text: string): void;
+  markUserPick(): void;
+  reset(): void;
+}
+
+interface DetectedKey extends KeyDetection {
+  key: string;
+}
+
+export function createDetectionBadge({
+  wrap,
+  label,
+  altButton,
+  select,
+  onAltPick,
+}: DetectionBadgeOptions): DetectionBadge {
   let userPicked = false;
-  let current = null;
+  let current: DetectedKey | null = null;
 
-  function hasOption(value) {
+  function hasOption(value: string): boolean {
     return [...select.options].some((option) => option.value === value);
   }
 
-  function render() {
+  function render(): void {
     if (!current || !current.key) {
       wrap.classList.add("hidden");
       wrap.classList.remove("inline-flex");
@@ -29,8 +54,8 @@ export function createDetectionBadge({ wrap, label, altButton, select, onAltPick
     wrap.classList.add("inline-flex");
   }
 
-  function apply(result) {
-    current = result && result.key ? result : null;
+  function apply(result: KeyDetection | null | undefined): void {
+    current = result && result.key ? (result as DetectedKey) : null;
     if (current && !userPicked && hasOption(current.key)) {
       select.value = current.key;
     }
@@ -50,13 +75,13 @@ export function createDetectionBadge({ wrap, label, altButton, select, onAltPick
 
   return {
     apply,
-    detect(text) {
+    detect(text: string): void {
       apply(detectKey(text));
     },
-    markUserPick() {
+    markUserPick(): void {
       userPicked = true;
     },
-    reset() {
+    reset(): void {
       userPicked = false;
       current = null;
       render();

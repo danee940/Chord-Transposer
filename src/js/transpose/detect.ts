@@ -5,8 +5,8 @@ import {
   ROOT_MATCH_RE,
   splitAffixes,
   splitLineContents,
-} from "./chords.js";
-import { bracketTokens, chordProUsesGerman, isChordProText } from "./chordpro.js";
+} from "./chords";
+import { bracketTokens, chordProUsesGerman, isChordProText } from "./chordpro";
 import {
   chooseSpelling,
   FLAT_KEYS,
@@ -16,7 +16,36 @@ import {
   noteSemitone,
   SHARP_KEYS,
   SHARP_SPELLING,
-} from "./notation.js";
+} from "./notation";
+
+export interface KeyDetection {
+  key: string | null;
+  alternate: string | null;
+  ambiguous: boolean;
+  chords: number;
+  distinct: number;
+}
+
+type ChordQuality = "major" | "minor" | "dom7" | "dim" | "other";
+
+type DegreeFits = Readonly<Record<ChordQuality, number>>;
+
+interface DetectedToken {
+  core: string;
+  lineLast: boolean;
+}
+
+interface Observation {
+  semitone: number;
+  quality: ChordQuality;
+  weight: number;
+}
+
+interface KeyCandidate {
+  score: number;
+  minor: boolean;
+  tonic: number;
+}
 
 const DETECT_MIN_CHORDS = 3;
 const DETECT_MIN_DISTINCT_ROOTS = 2;
@@ -27,7 +56,7 @@ const DETECT_LINE_END_BONUS = 1;
 
 const OUT_OF_SCALE_FIT = -3;
 
-const MAJOR_DEGREE_FITS = {
+const MAJOR_DEGREE_FITS: Readonly<Record<number, DegreeFits>> = {
   0: { major: 6, dom7: 4, other: 4, minor: 1, dim: 1 },
   2: { minor: 3, dom7: 2, other: 2, major: 1, dim: 1 },
   4: { minor: 3, major: 1, dom7: 1, other: 1, dim: 1 },
@@ -38,7 +67,7 @@ const MAJOR_DEGREE_FITS = {
   11: { dim: 3, major: 1, minor: 1, dom7: 1, other: 1 },
 };
 
-const MINOR_DEGREE_FITS = {
+const MINOR_DEGREE_FITS: Readonly<Record<number, DegreeFits>> = {
   0: { minor: 6, other: 4, major: 1, dom7: 1, dim: 1 },
   2: { dim: 2, minor: 2, major: 1, dom7: 1, other: 1 },
   3: { major: 4, other: 2, dom7: 2, minor: 1, dim: 1 },
@@ -49,13 +78,13 @@ const MINOR_DEGREE_FITS = {
   11: { dim: 2, major: 1, minor: 1, dom7: 1, other: 1 },
 };
 
-function chordQuality(remainder) {
-  const rem = remainder.split("/", 1)[0];
+function chordQuality(remainder: string): ChordQuality {
+  const rem = remainder.split("/", 1)[0]!;
   if (rem === "") return "major";
   const low = rem.toLowerCase();
   if (low.startsWith("maj")) return "major";
   if (low.startsWith("dim")) return "dim";
-  const first = rem[0];
+  const first = rem.charAt(0);
   if (first === "°" || first === "ø") return "dim";
   if (first === "M") return "major";
   if (first === "m" || first === "-") return "minor";
@@ -63,8 +92,8 @@ function chordQuality(remainder) {
   return "other";
 }
 
-function detectChordTokens(text) {
-  const tokens = [];
+function detectChordTokens(text: string): { tokens: DetectedToken[]; german: boolean } {
+  const tokens: DetectedToken[] = [];
   if (isChordProText(text)) {
     for (const line of splitLineContents(text)) {
       const cores = bracketTokens(line)
@@ -79,7 +108,7 @@ function detectChordTokens(text) {
   for (const line of splitLineContents(text)) {
     if (!isChordLine(line)) continue;
     if (lineUsesGerman(line)) german = true;
-    const cores = [];
+    const cores: string[] = [];
     for (const token of line.split(/\s+/).filter((part) => part.length > 0)) {
       const { core } = splitAffixes(token);
       if (core && CHORD_TOKEN_RE.test(core)) cores.push(core);
@@ -89,22 +118,27 @@ function detectChordTokens(text) {
   return { tokens, german };
 }
 
-function detectObservations(text) {
+function detectObservations(text: string): {
+  observations: Observation[];
+  german: boolean;
+  total: number;
+  distinct: number;
+} {
   const { tokens, german } = detectChordTokens(text);
   const parsed = tokens.map(({ core, lineLast }) => {
-    const match = ROOT_MATCH_RE.exec(core);
-    return { root: match[1], remainder: match[2], lineLast };
+    const match = ROOT_MATCH_RE.exec(core)!;
+    return { root: match[1]!, remainder: match[2]!, lineLast };
   });
-  const hasUpper = parsed.some(({ root }) => root[0] === root[0].toUpperCase());
-  const hasLower = parsed.some(({ root }) => root[0] === root[0].toLowerCase());
+  const hasUpper = parsed.some(({ root }) => root.charAt(0) === root.charAt(0).toUpperCase());
+  const hasLower = parsed.some(({ root }) => root.charAt(0) === root.charAt(0).toLowerCase());
   const lowercaseMeansMinor = hasUpper && hasLower;
 
-  const observations = [];
-  const roots = new Set();
+  const observations: Observation[] = [];
+  const roots = new Set<number>();
   parsed.forEach(({ root, remainder, lineLast }, index) => {
-    const semitone = noteSemitone(root, german);
+    const semitone = Number(noteSemitone(root, german));
     let quality = chordQuality(remainder);
-    if (lowercaseMeansMinor && root[0] === root[0].toLowerCase() && quality === "major") {
+    if (lowercaseMeansMinor && root.charAt(0) === root.charAt(0).toLowerCase() && quality === "major") {
       quality = "minor";
     }
     let weight = DETECT_BASE_WEIGHT;
@@ -117,8 +151,8 @@ function detectObservations(text) {
   return { observations, german, total: observations.length, distinct: roots.size };
 }
 
-function scoreKeyCandidates(observations) {
-  const candidates = [];
+function scoreKeyCandidates(observations: Observation[]): KeyCandidate[] {
+  const candidates: KeyCandidate[] = [];
   for (const minor of [false, true]) {
     const fits = minor ? MINOR_DEGREE_FITS : MAJOR_DEGREE_FITS;
     for (let tonic = 0; tonic < 12; tonic += 1) {
@@ -138,24 +172,24 @@ function scoreKeyCandidates(observations) {
   return candidates;
 }
 
-function spellDetectedKey(semitone, minor, german) {
-  const flatLabel = keyLabel(FLAT_SPELLING[semitone], minor);
-  const sharpLabel = keyLabel(SHARP_SPELLING[semitone], minor);
+function spellDetectedKey(semitone: number, minor: boolean, german: boolean): string {
+  const flatLabel = keyLabel(FLAT_SPELLING[semitone]!, minor);
+  const sharpLabel = keyLabel(SHARP_SPELLING[semitone]!, minor);
   let useFlats = true;
   if (FLAT_KEYS.has(flatLabel)) {
     useFlats = true;
   } else if (SHARP_KEYS.has(sharpLabel)) {
     useFlats = false;
   }
-  return keyLabel(chooseSpelling(useFlats, german)[semitone], minor);
+  return keyLabel(chooseSpelling(useFlats, german)[semitone]!, minor);
 }
 
-export function detectKey(text) {
+export function detectKey(text: string): KeyDetection {
   const { observations, german, total, distinct } = detectObservations(text);
-  const result = { key: null, alternate: null, ambiguous: false, chords: total, distinct };
+  const result: KeyDetection = { key: null, alternate: null, ambiguous: false, chords: total, distinct };
   if (total < DETECT_MIN_CHORDS || distinct < DETECT_MIN_DISTINCT_ROOTS) return result;
 
-  const [best, second] = scoreKeyCandidates(observations);
+  const [best, second] = scoreKeyCandidates(observations) as [KeyCandidate, KeyCandidate];
   result.key = spellDetectedKey(best.tonic, best.minor, german);
   result.ambiguous = (best.score - second.score) * 100 < DETECT_AMBIGUITY_PERCENT * best.score;
   if (result.ambiguous) {

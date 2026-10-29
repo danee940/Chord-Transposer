@@ -1,12 +1,14 @@
-import { ACTIVE_TAB_CLASSES, INACTIVE_TAB_CLASSES } from "./dom.js";
+import { ACTIVE_TAB_CLASSES, INACTIVE_TAB_CLASSES, requireElement } from "./dom";
 
-export function initTabs() {
-  const tabPaste = document.getElementById("tab-paste");
-  const tabUpload = document.getElementById("tab-upload");
-  const panelPaste = document.getElementById("panel-paste");
-  const panelUpload = document.getElementById("panel-upload");
+type Tab = "paste" | "upload";
 
-  function selectTab(active) {
+export function initTabs(): void {
+  const tabPaste = requireElement("tab-paste");
+  const tabUpload = requireElement("tab-upload");
+  const panelPaste = requireElement("panel-paste");
+  const panelUpload = requireElement("panel-upload");
+
+  function selectTab(active: Tab): void {
     const paste = active === "paste";
     tabPaste.setAttribute("aria-selected", String(paste));
     tabUpload.setAttribute("aria-selected", String(!paste));

@@ -10,12 +10,15 @@
     "build:js": "vite build",
     "build": "npm run build:css && npm run build:js",
     "test:js": "vitest run --coverage",
+    "typecheck": "tsc -b",
     "dev": "vite build --watch"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^2.1.9",
     "jsdom": "^25.0.1",
     "tailwindcss": "^3.4.17",
+    "typescript": "^7.0.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"
   }

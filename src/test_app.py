@@ -103,7 +103,7 @@ def test_js_bundle_reads_hashed_entry_from_manifest(monkeypatch):
     monkeypatch.setattr(
         app_module.Path,
         "read_text",
-        lambda _self: '{"main.js": {"file": "main.abc123.js"}}',
+        lambda _self: '{"main.ts": {"file": "main.abc123.js"}}',
     )
     assert app_module._resolve_js_bundle() == "/static/js/main.abc123.js"
 

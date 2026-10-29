@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDetectionBadge } from "./detect-badge.js";
+import { createDetectionBadge } from "./detect-badge";
 
 function buildDom() {
   document.body.innerHTML = `

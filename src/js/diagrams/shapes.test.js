@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chordNotes, classifyQuality, lookupShape, parseChordSymbol } from "./shapes.js";
+import { chordNotes, classifyQuality, lookupShape, parseChordSymbol } from "./shapes";
 
 function guitarFrets(symbol) {
   const shape = lookupShape(parseChordSymbol(symbol), "guitar");

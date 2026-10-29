@@ -20,14 +20,27 @@ export const MODE_ACTIVE_CLASSES = [
 ];
 export const MODE_INACTIVE_CLASSES = ["text-muted-light", "dark:text-muted"];
 
-export function makeCell(text, className) {
+function required<T>(found: T | null, description: string): T {
+  if (found === null) throw new Error(`Missing required element: ${description}`);
+  return found;
+}
+
+export function requireElement<T extends HTMLElement = HTMLElement>(id: string): T {
+  return required(document.getElementById(id) as T | null, `#${id}`);
+}
+
+export function requireSelector<T extends Element = Element>(selector: string): T {
+  return required(document.querySelector<T>(selector), selector);
+}
+
+export function makeCell(text: string, className: string): HTMLTableCellElement {
   const cell = document.createElement("td");
   cell.className = className;
   cell.textContent = text;
   return cell;
 }
 
-export function makeHeaderCell(text, className) {
+export function makeHeaderCell(text: string, className: string): HTMLTableCellElement {
   const cell = document.createElement("th");
   cell.className = className;
   cell.textContent = text;

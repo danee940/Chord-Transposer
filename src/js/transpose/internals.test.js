@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { ChangeSet, isChordToken, transposeChord } from "./chords.js";
-import { chordToNashville, nashvilleLine, noteToNashvilleDegree } from "./nashville.js";
-import { capitalizeFirst, isMinorSuffix, keySemitone, mod12, noteSemitone, parseKey } from "./notation.js";
+import { ChangeSet, isChordToken, transposeChord } from "./chords";
+import { chordToNashville, nashvilleLine, noteToNashvilleDegree } from "./nashville";
+import { capitalizeFirst, isMinorSuffix, keySemitone, mod12, noteSemitone, parseKey } from "./notation";
 
 describe("ChangeSet.sorted", () => {
   it("orders by original then by transposed and dedupes identical pairs", () => {

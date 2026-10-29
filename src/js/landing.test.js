@@ -5,10 +5,10 @@ const initPaste = vi.fn();
 const initSyncedPanes = vi.fn();
 const initUpload = vi.fn();
 
-vi.mock("./capo.js", () => ({ initCapo }));
-vi.mock("./paste.js", () => ({ initPaste }));
-vi.mock("./panes.js", () => ({ initSyncedPanes }));
-vi.mock("./upload.js", () => ({ initUpload }));
+vi.mock("./capo", () => ({ initCapo }));
+vi.mock("./paste", () => ({ initPaste }));
+vi.mock("./panes", () => ({ initSyncedPanes }));
+vi.mock("./upload", () => ({ initUpload }));
 
 describe("landing entry point", () => {
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe("landing entry point", () => {
   });
 
   it("initialises nothing when the landing widgets are absent", async () => {
-    await import("./landing.js");
+    await import("./landing");
     expect(initPaste).not.toHaveBeenCalled();
     expect(initSyncedPanes).not.toHaveBeenCalled();
     expect(initCapo).not.toHaveBeenCalled();
@@ -30,7 +30,7 @@ describe("landing entry point", () => {
 
   it("initialises the paste panel and capo table when present", async () => {
     document.body.innerHTML = `<div id="panel-paste"></div><div id="capo-key"></div>`;
-    await import("./landing.js");
+    await import("./landing");
     expect(initPaste).toHaveBeenCalledOnce();
     expect(initSyncedPanes).toHaveBeenCalledOnce();
     expect(initCapo).toHaveBeenCalledOnce();
@@ -39,7 +39,7 @@ describe("landing entry point", () => {
 
   it("initialises the upload panel on the file transposer page", async () => {
     document.body.innerHTML = `<form id="form"></form>`;
-    await import("./landing.js");
+    await import("./landing");
     expect(initUpload).toHaveBeenCalledOnce();
     expect(initPaste).not.toHaveBeenCalled();
     expect(initCapo).not.toHaveBeenCalled();

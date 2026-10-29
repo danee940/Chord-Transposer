@@ -1,7 +1,7 @@
-import { initCapo } from "./capo.js";
-import { initSyncedPanes } from "./panes.js";
-import { initPaste } from "./paste.js";
-import { initUpload } from "./upload.js";
+import { initCapo } from "./capo";
+import { initSyncedPanes } from "./panes";
+import { initPaste } from "./paste";
+import { initUpload } from "./upload";
 
 if (document.getElementById("panel-paste")) {
   initPaste();

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { loadPrefs, sanitizePrefs, savePrefs } from "./prefs.js";
+import { loadPrefs, sanitizePrefs, savePrefs } from "./prefs";
 
 describe("sanitizePrefs", () => {
   it("keeps only the allowed preference keys", () => {

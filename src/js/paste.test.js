@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { initPaste } from "./paste.js";
+import { initPaste } from "./paste";
 
 const PANEL_ATTRS = {
   maxSemitones: "11",

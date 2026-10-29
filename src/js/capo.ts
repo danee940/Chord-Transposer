@@ -1,11 +1,11 @@
-import { capoOptions } from "./capo-suggest.js";
-import { makeCell, makeHeaderCell } from "./dom.js";
+import { capoOptions } from "./capo-suggest";
+import { makeCell, makeHeaderCell, requireElement } from "./dom";
 
-export function initCapo() {
-  const capoKey = document.getElementById("capo-key");
-  const capoTableOutput = document.getElementById("capo-table-output");
+export function initCapo(): void {
+  const capoKey = requireElement<HTMLSelectElement>("capo-key");
+  const capoTableOutput = requireElement("capo-table-output");
 
-  function renderCapoTable() {
+  function renderCapoTable(): void {
     const key = capoKey.value;
     capoTableOutput.replaceChildren();
     const rows = capoOptions(key);

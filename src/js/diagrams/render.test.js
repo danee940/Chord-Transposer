@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { renderDiagram } from "./render.js";
-import { parseChordSymbol } from "./shapes.js";
+import { renderDiagram } from "./render";
+import { parseChordSymbol } from "./shapes";
 
 function render(symbol, instrument, german = false) {
   return renderDiagram(symbol === null ? null : parseChordSymbol(symbol, german), instrument);

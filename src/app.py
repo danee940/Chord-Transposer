@@ -86,9 +86,9 @@ logger = logging.getLogger("chordtransposer")
 STATIC_CSS_MAX_AGE = 31_536_000
 
 
-JS_ENTRY = "main.js"
+JS_ENTRY = "main.ts"
 JS_BUNDLE_FALLBACK = "/static/js/main.js"
-JS_ENTRY_LANDING = "landing.js"
+JS_ENTRY_LANDING = "landing.ts"
 JS_BUNDLE_LANDING_FALLBACK = "/static/js/landing.js"
 
 

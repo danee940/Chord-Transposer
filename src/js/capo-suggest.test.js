@@ -5,7 +5,7 @@ import {
   formatCapoSuggestion,
   keyToCapoSemitone,
   suggestCapo,
-} from "./capo-suggest.js";
+} from "./capo-suggest";
 
 describe("keyToCapoSemitone", () => {
   it("resolves flat and sharp spellings", () => {

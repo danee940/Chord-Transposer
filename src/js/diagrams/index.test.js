@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { initDiagrams } from "./index.js";
+import { initDiagrams } from "./index";
 
 describe("initDiagrams", () => {
   beforeEach(() => {

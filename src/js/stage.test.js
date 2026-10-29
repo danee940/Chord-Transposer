@@ -9,7 +9,7 @@ import {
   clampAutoscrollSpeed,
   clampFontSize,
   createStageView,
-} from "./stage.js";
+} from "./stage";
 
 describe("autoscrollStep", () => {
   it("advances by speed scaled to elapsed time", () => {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createChordPopover } from "./popover.js";
-import { parseChordSymbol } from "./shapes.js";
+import { createChordPopover } from "./popover";
+import { parseChordSymbol } from "./shapes";
 
 function makeAnchor() {
   const button = document.createElement("button");

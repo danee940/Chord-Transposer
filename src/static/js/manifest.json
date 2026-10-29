@@ -1,24 +1,24 @@
 {
-  "_upload.D7U_2c0R.js": {
-    "file": "upload.D7U_2c0R.js",
+  "_upload.VOusCC7E.js": {
+    "file": "upload.VOusCC7E.js",
     "name": "upload"
   },
-  "landing.js": {
-    "file": "landing.BqL6pefc.js",
+  "landing.ts": {
+    "file": "landing.DKturOQH.js",
     "name": "landing",
-    "src": "landing.js",
+    "src": "landing.ts",
     "isEntry": true,
     "imports": [
-      "_upload.D7U_2c0R.js"
+      "_upload.VOusCC7E.js"
     ]
   },
-  "main.js": {
-    "file": "main.ORo2Y69I.js",
+  "main.ts": {
+    "file": "main.DBhuKB4u.js",
     "name": "main",
-    "src": "main.js",
+    "src": "main.ts",
     "isEntry": true,
     "imports": [
-      "_upload.D7U_2c0R.js"
+      "_upload.VOusCC7E.js"
     ]
   }
 }

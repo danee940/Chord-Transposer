@@ -1,16 +1,18 @@
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
+
+const rootDir = import.meta.dirname;
 
 export default defineConfig({
   root: "src/js",
   build: {
     manifest: "manifest.json",
-    outDir: resolve(__dirname, "src/static/js"),
+    outDir: resolve(rootDir, "src/static/js"),
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "src/js/main.js"),
-        landing: resolve(__dirname, "src/js/landing.js"),
+        main: resolve(rootDir, "src/js/main.ts"),
+        landing: resolve(rootDir, "src/js/landing.ts"),
       },
       output: {
         entryFileNames: "[name].[hash].js",
@@ -20,14 +22,14 @@ export default defineConfig({
     },
   },
   test: {
-    root: resolve(__dirname),
+    root: rootDir,
     environment: "jsdom",
-    include: ["src/js/**/*.test.js"],
+    include: ["src/js/**/*.test.{js,ts}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
-      include: ["src/js/**/*.js"],
-      exclude: ["src/js/**/*.test.js"],
+      include: ["src/js/**/*.ts"],
+      exclude: ["src/js/**/*.test.ts"],
       thresholds: {
         statements: 99,
         branches: 98,

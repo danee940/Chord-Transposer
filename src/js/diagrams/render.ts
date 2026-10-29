@@ -1,18 +1,21 @@
-import { mod12 } from "../transpose/notation.js";
+import { mod12 } from "../transpose/notation";
 import {
   INSTRUMENT_LABELS,
   QUALITY_INTERVALS,
   QUALITY_LABELS,
   chordNotes,
   lookupShape,
-} from "./shapes.js";
+  type FrettedShape,
+  type Instrument,
+  type ParsedChord,
+} from "./shapes";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const WHITE_PITCH_CLASSES = [0, 2, 4, 5, 7, 9, 11];
-const BLACK_AFTER_WHITE = { 0: 1, 2: 3, 5: 6, 7: 8, 9: 10 };
+const BLACK_AFTER_WHITE: Readonly<Record<number, number>> = { 0: 1, 2: 3, 5: 6, 7: 8, 9: 10 };
 
-function svgEl(name, attributes) {
+function svgEl(name: string, attributes: Record<string, string | number>): SVGElement {
   const node = document.createElementNS(SVG_NS, name);
   for (const [key, value] of Object.entries(attributes)) {
     node.setAttribute(key, String(value));
@@ -20,14 +23,14 @@ function svgEl(name, attributes) {
   return node;
 }
 
-function chordPitchClasses(chord) {
+function chordPitchClasses(chord: ParsedChord): Set<number> {
   const intervals = QUALITY_INTERVALS[chord.family] || QUALITY_INTERVALS.maj;
   const classes = new Set(intervals.map((interval) => mod12(chord.rootSemitone + interval)));
   if (chord.bassSemitone !== null) classes.add(mod12(chord.bassSemitone));
   return classes;
 }
 
-function fretWindow(frets) {
+function fretWindow(frets: number[]): { baseFret: number; fretCount: number } {
   const played = frets.filter((fret) => fret > 0);
   const fretCount = 5;
   if (played.length === 0) return { baseFret: 1, fretCount };
@@ -37,7 +40,7 @@ function fretWindow(frets) {
   return { baseFret: minFret, fretCount: Math.max(fretCount, maxFret - minFret + 1) };
 }
 
-function renderFretboard(shape) {
+function renderFretboard(shape: FrettedShape): SVGElement {
   const { frets } = shape;
   const stringCount = frets.length;
   const { baseFret, fretCount } = fretWindow(frets);
@@ -121,7 +124,7 @@ function renderFretboard(shape) {
   return svg;
 }
 
-function renderKeyboard(chord) {
+function renderKeyboard(chord: ParsedChord): SVGElement {
   const pitchClasses = chordPitchClasses(chord);
   const rootClass = mod12(chord.rootSemitone);
   const whiteWidth = 16;
@@ -163,8 +166,8 @@ function renderKeyboard(chord) {
 
   for (let octave = 0; octave < octaves; octave += 1) {
     WHITE_PITCH_CLASSES.forEach((pitchClass, whiteIndex) => {
-      if (!(pitchClass in BLACK_AFTER_WHITE)) return;
       const blackClass = BLACK_AFTER_WHITE[pitchClass];
+      if (blackClass === undefined) return;
       const baseX = (octave * WHITE_PITCH_CLASSES.length + whiteIndex) * whiteWidth + 1;
       const x = baseX + whiteWidth - blackWidth / 2;
       const active = pitchClasses.has(blackClass);
@@ -187,14 +190,14 @@ function renderKeyboard(chord) {
   return svg;
 }
 
-function textLine(className, text) {
+function textLine(className: string, text: string): HTMLParagraphElement {
   const node = document.createElement("p");
   node.className = className;
   node.textContent = text;
   return node;
 }
 
-export function renderDiagram(chord, instrument) {
+export function renderDiagram(chord: ParsedChord | null, instrument: Instrument): HTMLDivElement {
   const container = document.createElement("div");
   container.className = "diagram-body flex flex-col items-center gap-2";
 
@@ -217,17 +220,17 @@ export function renderDiagram(chord, instrument) {
   );
 
   const shape = lookupShape(chord, instrument);
-  if (instrument === "piano") {
-    container.appendChild(renderKeyboard(chord));
-  } else if (shape !== null) {
-    container.appendChild(renderFretboard(shape));
-  } else {
+  if (shape === null) {
     container.appendChild(
       textLine(
         "text-xs text-muted-light dark:text-muted",
         `No stored ${INSTRUMENT_LABELS[instrument]} shape.`
       )
     );
+  } else if (shape.kind === "piano") {
+    container.appendChild(renderKeyboard(chord));
+  } else {
+    container.appendChild(renderFretboard(shape));
   }
 
   const notes = chordNotes(chord);

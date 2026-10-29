@@ -1,4 +1,11 @@
-export const NOTE_TO_SEMITONE = {
+export type Spelling = readonly string[];
+
+export interface ParsedKey {
+  note: string;
+  minor: boolean;
+}
+
+export const NOTE_TO_SEMITONE: Readonly<Record<string, number>> = {
   C: 0,
   "C#": 1,
   Db: 1,
@@ -24,7 +31,7 @@ export const NOTE_TO_SEMITONE = {
   "H#": 0,
 };
 
-export const GERMAN_NOTE_NAMES = {
+export const GERMAN_NOTE_NAMES: Readonly<Record<string, number>> = {
   C: 0,
   Cis: 1,
   Des: 1,
@@ -48,17 +55,22 @@ export const GERMAN_NOTE_NAMES = {
   Ces: 11,
 };
 
-export const GERMAN_NOTE_TO_SEMITONE = { ...NOTE_TO_SEMITONE, B: 10, Bb: 9, ...GERMAN_NOTE_NAMES };
+export const GERMAN_NOTE_TO_SEMITONE: Readonly<Record<string, number>> = {
+  ...NOTE_TO_SEMITONE,
+  B: 10,
+  Bb: 9,
+  ...GERMAN_NOTE_NAMES,
+};
 
-export const GERMAN_ROOT_NAMES = Object.keys(GERMAN_NOTE_NAMES)
+export const GERMAN_ROOT_NAMES: readonly string[] = Object.keys(GERMAN_NOTE_NAMES)
   .filter((name) => name.length > 1)
   .sort((a, b) => b.length - a.length);
 
-export const GERMAN_ONLY_ROOTS_KEYS = new Set(
+export const GERMAN_ONLY_ROOTS_KEYS: ReadonlySet<string> = new Set(
   Object.keys(GERMAN_NOTE_NAMES).filter((name) => !(name in NOTE_TO_SEMITONE))
 );
 
-export const SHARP_KEYS = new Set([
+export const SHARP_KEYS: ReadonlySet<string> = new Set([
   "G",
   "D",
   "A",
@@ -74,7 +86,7 @@ export const SHARP_KEYS = new Set([
   "D#m",
   "A#m",
 ]);
-export const FLAT_KEYS = new Set([
+export const FLAT_KEYS: ReadonlySet<string> = new Set([
   "F",
   "Bb",
   "Eb",
@@ -91,30 +103,30 @@ export const FLAT_KEYS = new Set([
   "Abm",
 ]);
 
-export const SHARP_SPELLING = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-export const FLAT_SPELLING = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+export const SHARP_SPELLING: Spelling = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+export const FLAT_SPELLING: Spelling = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
-export const GERMAN_SHARP_SPELLING = ["C", "Cis", "D", "Dis", "E", "F", "Fis", "G", "Gis", "A", "B", "H"];
-export const GERMAN_FLAT_SPELLING = ["C", "Des", "D", "Es", "E", "F", "Ges", "G", "As", "A", "B", "H"];
+export const GERMAN_SHARP_SPELLING: Spelling = ["C", "Cis", "D", "Dis", "E", "F", "Fis", "G", "Gis", "A", "B", "H"];
+export const GERMAN_FLAT_SPELLING: Spelling = ["C", "Des", "D", "Es", "E", "F", "Ges", "G", "As", "A", "B", "H"];
 
-function mod12(value) {
+function mod12(value: number): number {
   return ((value % 12) + 12) % 12;
 }
 
-function capitalizeFirst(text) {
+function capitalizeFirst(text: string): string {
   if (text === "") return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function canonicalNote(note) {
+function canonicalNote(note: string): string {
   return note.charAt(0).toUpperCase() + note.slice(1);
 }
 
-function isMinorSuffix(rest) {
+function isMinorSuffix(rest: string): boolean {
   return ["m", "min", "minor"].includes(rest.trim().toLowerCase());
 }
 
-export function parseKey(raw) {
+export function parseKey(raw: string): ParsedKey | null {
   const text = raw.trim();
   if (!text) return null;
 
@@ -131,8 +143,8 @@ export function parseKey(raw) {
   const root = text.charAt(0).toUpperCase();
   let rest = text.slice(1);
   let accidental = "";
-  if (rest && (rest[0] === "#" || rest[0] === "b")) {
-    accidental = rest[0];
+  if (rest && (rest.charAt(0) === "#" || rest.charAt(0) === "b")) {
+    accidental = rest.charAt(0);
     rest = rest.slice(1);
   }
   const note = root + accidental;
@@ -140,29 +152,29 @@ export function parseKey(raw) {
   return { note, minor: isMinorSuffix(rest) };
 }
 
-export function keyLabel(note, minor) {
+export function keyLabel(note: string, minor: boolean): string {
   return note + (minor ? "m" : "");
 }
 
-export function prefersFlats(targetNote, targetMinor) {
+export function prefersFlats(targetNote: string, targetMinor: boolean): boolean {
   const label = keyLabel(targetNote, targetMinor);
   if (FLAT_KEYS.has(label) || FLAT_KEYS.has(targetNote)) return true;
   if (SHARP_KEYS.has(label) || SHARP_KEYS.has(targetNote)) return false;
   return true;
 }
 
-export function chooseSpelling(useFlats, german) {
+export function chooseSpelling(useFlats: boolean, german: boolean): Spelling {
   if (german) return useFlats ? GERMAN_FLAT_SPELLING : GERMAN_SHARP_SPELLING;
   return useFlats ? FLAT_SPELLING : SHARP_SPELLING;
 }
 
-export function noteSemitone(note, german) {
+export function noteSemitone(note: string, german: boolean): number | undefined {
   const key = canonicalNote(note);
   const table = german ? GERMAN_NOTE_TO_SEMITONE : NOTE_TO_SEMITONE;
   return table[key];
 }
 
-export function keySemitone(note, german) {
+export function keySemitone(note: string, german: boolean): number | undefined {
   const canonical = canonicalNote(note);
   if (GERMAN_ONLY_ROOTS_KEYS.has(canonical)) {
     return GERMAN_NOTE_TO_SEMITONE[canonical];
@@ -170,9 +182,9 @@ export function keySemitone(note, german) {
   return noteSemitone(note, german);
 }
 
-export function transposeNote(note, semitones, spelling, german) {
-  const semitone = mod12(noteSemitone(note, german) + semitones);
-  return spelling[semitone];
+export function transposeNote(note: string, semitones: number, spelling: Spelling, german: boolean): string {
+  const semitone = mod12(Number(noteSemitone(note, german)) + semitones);
+  return String(spelling[semitone]);
 }
 
 export { capitalizeFirst, isMinorSuffix, mod12 };

@@ -10,7 +10,7 @@ import {
   transposeChordProTextBySemitones,
   transposeText,
   transposeTextBySemitones,
-} from "./index.js";
+} from "./index";
 
 function runCase({ mode, input, params }) {
   if (mode === "key") {

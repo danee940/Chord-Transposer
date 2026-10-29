@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { initSyncedPanes, scaledScrollTop } from "./panes.js";
+import { initSyncedPanes, scaledScrollTop } from "./panes";
 
 function fakePane(scrollTop, scrollHeight, clientHeight) {
   return { scrollTop, scrollHeight, clientHeight };

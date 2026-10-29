@@ -1,4 +1,4 @@
-export function scaledScrollTop(source, target) {
+export function scaledScrollTop(source: Element, target: Element): number {
   const sourceRange = source.scrollHeight - source.clientHeight;
   const targetRange = target.scrollHeight - target.clientHeight;
   if (sourceRange <= 0 || targetRange <= 0) return 0;
@@ -6,13 +6,13 @@ export function scaledScrollTop(source, target) {
   return ratio * targetRange;
 }
 
-export function initSyncedPanes() {
-  const panes = Array.from(document.querySelectorAll("[data-sync-scroll]"));
+export function initSyncedPanes(): void {
+  const panes = Array.from(document.querySelectorAll<HTMLElement>("[data-sync-scroll]"));
   if (panes.length < 2) return;
 
   let syncing = false;
 
-  function syncFrom(source) {
+  function syncFrom(source: HTMLElement): void {
     if (syncing) return;
     syncing = true;
     for (const target of panes) {

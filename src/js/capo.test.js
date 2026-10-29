@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { initCapo } from "./capo.js";
+import { initCapo } from "./capo";
 
 function setupDom() {
   document.body.innerHTML = `
