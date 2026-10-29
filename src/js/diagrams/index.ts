@@ -10,9 +10,8 @@ export interface Diagrams {
 export function initDiagrams(getInstrument: () => Instrument): Diagrams {
   const popover = createChordPopover(getInstrument);
 
-  function activate(button: HTMLButtonElement): void {
-    const chord = parseChordSymbol(button.dataset.chord!, button.dataset.german === "1");
-    popover.show(button, chord);
+  function activate(button: HTMLButtonElement, chordSymbol: string, german: boolean): void {
+    popover.show(button, parseChordSymbol(chordSymbol, german));
   }
 
   function renderInto(container: Element, text: string): void {

@@ -13,19 +13,36 @@ export interface TokenAffixes {
   trailing: string;
 }
 
-export const ROOT_PATTERN =
-  "(?:Cis|Des|Dis|Eis|Fis|Ges|Gis|Ais|His|Ces|Fes|Es|As|[A-Ha-h](?:#|b)?)";
-export const QUALITY_PATTERN = "(?:maj|min|dim|aug|sus|add|m|M|\\+|°|ø|\\d|#|b|-|\\(|\\)|,)*";
+export interface ChordParts {
+  root: string;
+  quality: string;
+  bass: string | null;
+  bassQuality: string;
+}
+
+export interface SpacedToken {
+  token: string;
+  trailing: string;
+}
+
+export interface SpacedLine {
+  leading: string;
+  tokens: SpacedToken[];
+}
+
+const ROOT_PATTERN =
+  "(?:Cis|Des|Dis|Eis|Fis|Ges|Gis|Ais|His|Ces|Fes|Es|As|[A-Ga-g](?:#|b)?|[Hh]#?(?!b))";
+const QUALITY_PATTERN = "(?:maj|min|dim|aug|sus|add|m|M|\\+|°|ø|\\d|#|b|-|\\(|\\)|,)*";
 
 export const CHORD_TOKEN_RE = new RegExp(
-  `^${ROOT_PATTERN}${QUALITY_PATTERN}(?:/${ROOT_PATTERN}${QUALITY_PATTERN})?$`
+  `^(${ROOT_PATTERN})(${QUALITY_PATTERN})(?:/(${ROOT_PATTERN})(${QUALITY_PATTERN}))?$`
 );
-export const ROOT_MATCH_RE = new RegExp(`^(${ROOT_PATTERN})([\\s\\S]*)$`);
+const ROOT_PREFIX_RE = new RegExp(`^(${ROOT_PATTERN})`);
 
 export const PUNCTUATION = "().,;:…\"'-";
 
 export class ChangeSet {
-  readonly entries = new Map<string, Change>();
+  private readonly entries = new Map<string, Change>();
 
   add(original: string, transposed: string): void {
     this.entries.set(`${original}\u0000${transposed}`, [original, transposed]);
@@ -41,6 +58,7 @@ export class ChangeSet {
 
 const LINE_BREAK_RE = /\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]/g;
 const WHITESPACE_RE = /\s+/;
+const SPACED_TOKEN_RE = /(\S+)(\s*)/g;
 
 export function splitLinesKeepEnds(text: string): LineSegment[] {
   const segments: LineSegment[] = [];
@@ -61,13 +79,20 @@ export function splitLineContents(text: string): string[] {
   return splitLinesKeepEnds(text).map((segment) => segment.content);
 }
 
-function splitWhitespace(text: string): string[] {
+export function splitWhitespace(text: string): string[] {
   return text.split(WHITESPACE_RE).filter((token) => token.length > 0);
 }
 
-function leadingWhitespace(text: string): string {
-  const stripped = text.replace(/^\s+/, "");
-  return text.slice(0, text.length - stripped.length);
+export function splitSpacedTokens(text: string): SpacedLine {
+  const body = text.replace(/^\s+/, "");
+  const leading = text.slice(0, text.length - body.length);
+  const tokens: SpacedToken[] = [];
+  SPACED_TOKEN_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = SPACED_TOKEN_RE.exec(body)) !== null) {
+    tokens.push({ token: match[1]!, trailing: match[2]! });
+  }
+  return { leading, tokens };
 }
 
 function stripChars(text: string, chars: string): string {
@@ -90,35 +115,32 @@ export function splitAffixes(token: string): TokenAffixes {
   };
 }
 
+export function parseChordCore(core: string): ChordParts | null {
+  const match = CHORD_TOKEN_RE.exec(core);
+  if (match === null) return null;
+  return {
+    root: match[1]!,
+    quality: match[2]!,
+    bass: match[3] ?? null,
+    bassQuality: match[4] ?? "",
+  };
+}
+
+export function mapChordRoots(chord: string, mapRoot: (root: string) => string): string {
+  const { leading, core, trailing } = splitAffixes(chord);
+  const parts = parseChordCore(core);
+  if (parts === null) return chord;
+  const bass = parts.bass === null ? "" : `/${mapRoot(parts.bass)}${parts.bassQuality}`;
+  return `${leading}${mapRoot(parts.root)}${parts.quality}${bass}${trailing}`;
+}
+
 export function transposeChord(
   chord: string,
   semitones: number,
   spelling: Spelling,
   german: boolean
 ): string {
-  const { leading, core, trailing } = splitAffixes(chord);
-  if (core !== chord) {
-    if (!CHORD_TOKEN_RE.test(core)) return chord;
-    return leading + transposeChord(core, semitones, spelling, german) + trailing;
-  }
-
-  const match = ROOT_MATCH_RE.exec(chord);
-  if (!match) return chord;
-  const root = match[1]!;
-  const remainder = match[2]!;
-  const newRoot = transposeNote(root, semitones, spelling, german);
-
-  const slashIndex = remainder.indexOf("/");
-  if (slashIndex !== -1) {
-    const beforeSlash = remainder.slice(0, slashIndex);
-    const bass = remainder.slice(slashIndex + 1);
-    const bassMatch = ROOT_MATCH_RE.exec(bass);
-    if (bassMatch) {
-      const newBass = transposeNote(bassMatch[1]!, semitones, spelling, german);
-      return newRoot + beforeSlash + "/" + newBass + bassMatch[2]!;
-    }
-  }
-  return newRoot + remainder;
+  return mapChordRoots(chord, (root) => transposeNote(root, semitones, spelling, german));
 }
 
 export function isChordToken(token: string): boolean {
@@ -161,7 +183,7 @@ GERMAN_ONLY_ROOTS.add("H");
 function* tokenRoots(token: string): Generator<string> {
   const { core } = splitAffixes(token);
   for (const part of core.split("/")) {
-    const match = ROOT_MATCH_RE.exec(part);
+    const match = ROOT_PREFIX_RE.exec(part);
     if (match) yield match[1]!;
   }
 }
@@ -182,31 +204,22 @@ export function transposeLineText(
   german: boolean,
   changes: ChangeSet
 ): string {
-  const leading = leadingWhitespace(text);
-  const body = text.slice(leading.length);
+  const { leading, tokens } = splitSpacedTokens(text);
   let result = leading;
+  for (const { token, trailing } of tokens) {
+    const transposed = isChordToken(token)
+      ? transposeChord(token, semitones, spelling, german)
+      : token;
+    if (transposed !== token) changes.add(token, transposed);
 
-  const tokenSplit = /(\S+)(\s*)/g;
-  let match: RegExpExecArray | null;
-  while ((match = tokenSplit.exec(body)) !== null) {
-    const chord = match[1]!;
-    let trailing = match[2]!;
-    let transposed: string;
-    if (isChordToken(chord)) {
-      transposed = transposeChord(chord, semitones, spelling, german);
-    } else {
-      transposed = chord;
-    }
-    if (transposed !== chord) changes.add(chord, transposed);
-
-    const diff = transposed.length - chord.length;
+    const diff = transposed.length - token.length;
+    let spacing = trailing;
     if (diff > 0) {
-      trailing = trailing.slice(Math.min(diff, trailing.length));
+      spacing = trailing.slice(Math.min(diff, trailing.length));
     } else if (diff < 0) {
-      trailing = trailing + " ".repeat(-diff);
+      spacing = trailing + " ".repeat(-diff);
     }
-    result += transposed + trailing;
+    result += transposed + spacing;
   }
-
   return result;
 }

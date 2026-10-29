@@ -1,7 +1,15 @@
-import { ROOT_MATCH_RE, isChordToken, splitAffixes } from "../transpose/chords";
-import { GERMAN_SHARP_SPELLING, SHARP_SPELLING, keySemitone, mod12 } from "../transpose/notation";
+import { parseChordCore, splitAffixes } from "../transpose/chords";
+import {
+  GERMAN_SHARP_SPELLING,
+  SHARP_SPELLING,
+  keySemitone,
+  mod12,
+  type Semitone,
+} from "../transpose/notation";
 
-export type Instrument = "guitar" | "ukulele" | "piano";
+export const INSTRUMENTS = ["guitar", "ukulele", "piano"] as const;
+
+export type Instrument = (typeof INSTRUMENTS)[number];
 export type FrettedInstrument = Exclude<Instrument, "piano">;
 
 export type ChordFamily =
@@ -25,18 +33,18 @@ export type ChordFamily =
 export interface ParsedChord {
   raw: string;
   rootName: string;
-  rootSemitone: number;
+  rootSemitone: Semitone;
   quality: string;
   family: ChordFamily;
   bassName: string;
-  bassSemitone: number | null;
+  bassSemitone: Semitone | null;
   german: boolean;
 }
 
 export interface PianoShape {
   kind: "piano";
   notes: string[];
-  rootSemitone: number;
+  rootSemitone: Semitone;
 }
 
 export interface FrettedShape {
@@ -49,9 +57,9 @@ export type ChordShape = PianoShape | FrettedShape;
 
 type OpenShapeEntry = readonly [root: string, family: ChordFamily, frets: number[]];
 
-interface BarreTemplate {
-  rootOpenSemitone: number;
-  families: Partial<Record<ChordFamily, number[]>>;
+interface BarreTemplate<Families> {
+  rootOpenSemitone: Semitone;
+  families: Families;
 }
 
 export const INSTRUMENT_LABELS: Readonly<Record<Instrument, string>> = {
@@ -59,6 +67,10 @@ export const INSTRUMENT_LABELS: Readonly<Record<Instrument, string>> = {
   ukulele: "Ukulele",
   piano: "Piano",
 };
+
+export function isInstrument(value: unknown): value is Instrument {
+  return (INSTRUMENTS as readonly unknown[]).includes(value);
+}
 
 export const QUALITY_INTERVALS: Readonly<Record<ChordFamily, number[]>> = {
   maj: [0, 4, 7],
@@ -98,11 +110,6 @@ export const QUALITY_LABELS: Readonly<Record<ChordFamily, string>> = {
   add9: "added ninth",
 };
 
-function rootSemitone(name: string, german: boolean): number | null {
-  const semitone = keySemitone(name, german);
-  return semitone === undefined ? null : semitone;
-}
-
 export function classifyQuality(quality: string): ChordFamily {
   const s = quality.trim();
   if (s === "") return "maj";
@@ -128,49 +135,27 @@ export function classifyQuality(quality: string): ChordFamily {
 
 export function parseChordSymbol(token: string, german = false): ParsedChord | null {
   const { core } = splitAffixes(token);
-  if (core === "" || !isChordToken(core)) return null;
-
-  const slashIndex = core.indexOf("/");
-  const head = slashIndex === -1 ? core : core.slice(0, slashIndex);
-  const bassText = slashIndex === -1 ? "" : core.slice(slashIndex + 1);
-
-  const match = ROOT_MATCH_RE.exec(head)!;
-  const rootName = match[1]!;
-  const quality = match[2]!;
-  const semitone = rootSemitone(rootName, german);
-  if (semitone === null) return null;
-
-  let bassName = "";
-  let bassSemitone: number | null = null;
-  if (bassText !== "") {
-    const bassMatch = ROOT_MATCH_RE.exec(bassText);
-    if (bassMatch) {
-      const bassValue = rootSemitone(bassMatch[1]!, german);
-      if (bassValue !== null) {
-        bassName = bassMatch[1]!;
-        bassSemitone = bassValue;
-      }
-    }
-  }
-
+  const parts = parseChordCore(core);
+  if (parts === null) return null;
   return {
     raw: core,
-    rootName,
-    rootSemitone: semitone,
-    quality,
-    family: classifyQuality(quality),
-    bassName,
-    bassSemitone,
+    rootName: parts.root,
+    rootSemitone: keySemitone(parts.root, german),
+    quality: parts.quality,
+    family: classifyQuality(parts.quality),
+    bassName: parts.bass ?? "",
+    bassSemitone: parts.bass === null ? null : keySemitone(parts.bass, german),
     german,
   };
 }
 
 export function chordNotes(chord: ParsedChord): string[] {
-  const intervals = QUALITY_INTERVALS[chord.family] || QUALITY_INTERVALS.maj;
   const spelling = chord.german ? GERMAN_SHARP_SPELLING : SHARP_SPELLING;
-  const notes = intervals.map((interval) => spelling[mod12(chord.rootSemitone + interval)]!);
+  const notes = QUALITY_INTERVALS[chord.family].map(
+    (interval) => spelling[mod12(chord.rootSemitone + interval)]
+  );
   if (chord.bassSemitone !== null) {
-    const bass = spelling[mod12(chord.bassSemitone)]!;
+    const bass = spelling[chord.bassSemitone];
     if (!notes.includes(bass)) notes.unshift(bass);
   }
   return notes;
@@ -226,81 +211,69 @@ const UKULELE_OPEN: readonly OpenShapeEntry[] = [
   ["B", "dom7", [2, 3, 2, 2]],
 ];
 
-const GUITAR_BARRE_TEMPLATES: Readonly<Record<string, BarreTemplate>> = {
-  E: {
-    rootOpenSemitone: 4,
-    families: {
-      maj: [0, 2, 2, 1, 0, 0],
-      min: [0, 2, 2, 0, 0, 0],
-      dom7: [0, 2, 0, 1, 0, 0],
-      min7: [0, 2, 0, 0, 0, 0],
-      maj7: [0, 2, 1, 1, 0, 0],
-    },
-  },
-  A: {
-    rootOpenSemitone: 9,
-    families: {
-      maj: [-1, 0, 2, 2, 2, 0],
-      min: [-1, 0, 2, 2, 1, 0],
-      dom7: [-1, 0, 2, 0, 2, 0],
-      min7: [-1, 0, 2, 0, 1, 0],
-      maj7: [-1, 0, 2, 1, 2, 0],
-      dim: [-1, 0, 1, 2, 1, -1],
-      dim7: [-1, 0, 1, 2, 1, 2],
-      aug: [-1, 0, 3, 2, 2, 1],
-      sus2: [-1, 0, 2, 2, 0, 0],
-      sus4: [-1, 0, 2, 2, 3, 0],
-      min7b5: [-1, 0, 1, 0, 1, -1],
-      maj6: [-1, 0, 2, 2, 2, 2],
-      min6: [-1, 0, 2, 2, 1, 2],
-      dom9: [-1, 0, -1, 0, 0, 0],
-      min9: [-1, 0, -1, 0, 0, 1],
-      add9: [-1, 0, 2, 4, 0, 0],
-    },
+const E_SHAPE_BARRE: BarreTemplate<Partial<Record<ChordFamily, number[]>>> = {
+  rootOpenSemitone: 4,
+  families: {
+    maj: [0, 2, 2, 1, 0, 0],
+    min: [0, 2, 2, 0, 0, 0],
+    dom7: [0, 2, 0, 1, 0, 0],
+    min7: [0, 2, 0, 0, 0, 0],
+    maj7: [0, 2, 1, 1, 0, 0],
   },
 };
 
-function buildOpenIndex(
-  entries: readonly OpenShapeEntry[],
-  german: boolean
-): Map<string, number[]> {
+const A_SHAPE_BARRE: BarreTemplate<Record<ChordFamily, number[]>> = {
+  rootOpenSemitone: 9,
+  families: {
+    maj: [-1, 0, 2, 2, 2, 0],
+    min: [-1, 0, 2, 2, 1, 0],
+    dom7: [-1, 0, 2, 0, 2, 0],
+    min7: [-1, 0, 2, 0, 1, 0],
+    maj7: [-1, 0, 2, 1, 2, 0],
+    dim: [-1, 0, 1, 2, 1, -1],
+    dim7: [-1, 0, 1, 2, 1, 2],
+    aug: [-1, 0, 3, 2, 2, 1],
+    sus2: [-1, 0, 2, 2, 0, 0],
+    sus4: [-1, 0, 2, 2, 3, 0],
+    min7b5: [-1, 0, 1, 0, 1, -1],
+    maj6: [-1, 0, 2, 2, 2, 2],
+    min6: [-1, 0, 2, 2, 1, 2],
+    dom9: [-1, 0, -1, 0, 0, 0],
+    min9: [-1, 0, -1, 0, 0, 1],
+    add9: [-1, 0, 2, 4, 0, 0],
+  },
+};
+
+function buildOpenIndex(entries: readonly OpenShapeEntry[]): Map<string, number[]> {
   const index = new Map<string, number[]>();
   for (const [name, family, frets] of entries) {
-    const semitone = rootSemitone(name, german);
-    index.set(`${semitone}:${family}`, frets);
+    index.set(`${keySemitone(name, false)}:${family}`, frets);
   }
   return index;
 }
 
-const GUITAR_OPEN_INDEX = buildOpenIndex(GUITAR_OPEN, false);
-const UKULELE_OPEN_INDEX = buildOpenIndex(UKULELE_OPEN, false);
+const GUITAR_OPEN_INDEX = buildOpenIndex(GUITAR_OPEN);
+const UKULELE_OPEN_INDEX = buildOpenIndex(UKULELE_OPEN);
 
 function applyBarreTemplate(template: number[], fret: number): number[] {
   return template.map((offset) => (offset < 0 ? -1 : offset + fret));
 }
 
-function guitarBarreShape(rootSemitoneValue: number, family: ChordFamily): number[] {
-  const candidates: { fret: number; frets: number[] }[] = [];
-  for (const shape of Object.values(GUITAR_BARRE_TEMPLATES)) {
-    const template = shape.families[family];
-    if (!template) continue;
-    const fret = mod12(rootSemitoneValue - shape.rootOpenSemitone);
-    candidates.push({ fret, frets: applyBarreTemplate(template, fret) });
+function guitarBarreShape(rootSemitone: Semitone, family: ChordFamily): number[] {
+  const aShapeFret = mod12(rootSemitone - A_SHAPE_BARRE.rootOpenSemitone);
+  const eShapeTemplate = E_SHAPE_BARRE.families[family];
+  if (eShapeTemplate !== undefined) {
+    const eShapeFret = mod12(rootSemitone - E_SHAPE_BARRE.rootOpenSemitone);
+    if (eShapeFret <= aShapeFret) return applyBarreTemplate(eShapeTemplate, eShapeFret);
   }
-  candidates.sort((a, b) => a.fret - b.fret);
-  return candidates[0]!.frets;
+  return applyBarreTemplate(A_SHAPE_BARRE.families[family], aShapeFret);
 }
 
-function frettedShape(
-  instrument: FrettedInstrument,
-  chord: ParsedChord
-): { frets: number[] } | null {
+function frettedShape(instrument: FrettedInstrument, chord: ParsedChord): number[] | null {
   const index = instrument === "guitar" ? GUITAR_OPEN_INDEX : UKULELE_OPEN_INDEX;
   const open = index.get(`${chord.rootSemitone}:${chord.family}`);
-  if (open) return { frets: open };
-  if (instrument === "guitar") {
-    return { frets: guitarBarreShape(chord.rootSemitone, chord.family) };
-  }
+  if (open) return open;
+  if (instrument === "guitar") return guitarBarreShape(chord.rootSemitone, chord.family);
   return null;
 }
 
@@ -309,7 +282,7 @@ export function lookupShape(chord: ParsedChord | null, instrument: Instrument): 
   if (instrument === "piano") {
     return { kind: "piano", notes: chordNotes(chord), rootSemitone: chord.rootSemitone };
   }
-  const fretted = frettedShape(instrument, chord);
-  if (fretted === null) return null;
-  return { kind: "fretted", instrument, ...fretted };
+  const frets = frettedShape(instrument, chord);
+  if (frets === null) return null;
+  return { kind: "fretted", instrument, frets };
 }

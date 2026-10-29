@@ -1,11 +1,30 @@
-export type Spelling = readonly string[];
+export type Semitone = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+
+export const SEMITONES: readonly Semitone[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+export type Spelling = readonly [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+];
 
 export interface ParsedKey {
   note: string;
   minor: boolean;
 }
 
-export const NOTE_TO_SEMITONE: Readonly<Record<string, number>> = {
+export class UnknownNoteError extends Error {}
+
+export const NOTE_TO_SEMITONE: Readonly<Record<string, Semitone>> = {
   C: 0,
   "C#": 1,
   Db: 1,
@@ -31,7 +50,7 @@ export const NOTE_TO_SEMITONE: Readonly<Record<string, number>> = {
   "H#": 0,
 };
 
-export const GERMAN_NOTE_NAMES: Readonly<Record<string, number>> = {
+export const GERMAN_NOTE_NAMES: Readonly<Record<string, Semitone>> = {
   C: 0,
   Cis: 1,
   Des: 1,
@@ -55,7 +74,7 @@ export const GERMAN_NOTE_NAMES: Readonly<Record<string, number>> = {
   Ces: 11,
 };
 
-export const GERMAN_NOTE_TO_SEMITONE: Readonly<Record<string, number>> = {
+export const GERMAN_NOTE_TO_SEMITONE: Readonly<Record<string, Semitone>> = {
   ...NOTE_TO_SEMITONE,
   B: 10,
   Bb: 9,
@@ -161,11 +180,11 @@ export const GERMAN_FLAT_SPELLING: Spelling = [
   "H",
 ];
 
-function mod12(value: number): number {
-  return ((value % 12) + 12) % 12;
+export function mod12(value: number): Semitone {
+  return (((value % 12) + 12) % 12) as Semitone;
 }
 
-function capitalizeFirst(text: string): string {
+export function capitalizeFirst(text: string): string {
   if (text === "") return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
@@ -174,7 +193,7 @@ function canonicalNote(note: string): string {
   return note.charAt(0).toUpperCase() + note.slice(1);
 }
 
-function isMinorSuffix(rest: string): boolean {
+export function isMinorSuffix(rest: string): boolean {
   return ["m", "min", "minor"].includes(rest.trim().toLowerCase());
 }
 
@@ -220,17 +239,15 @@ export function chooseSpelling(useFlats: boolean, german: boolean): Spelling {
   return useFlats ? FLAT_SPELLING : SHARP_SPELLING;
 }
 
-export function noteSemitone(note: string, german: boolean): number | undefined {
-  const key = canonicalNote(note);
+export function noteSemitone(note: string, german: boolean): Semitone {
   const table = german ? GERMAN_NOTE_TO_SEMITONE : NOTE_TO_SEMITONE;
-  return table[key];
+  const semitone = table[canonicalNote(note)];
+  if (semitone === undefined) throw new UnknownNoteError(`'${note}' is not a known note.`);
+  return semitone;
 }
 
-export function keySemitone(note: string, german: boolean): number | undefined {
-  const canonical = canonicalNote(note);
-  if (GERMAN_ONLY_ROOTS_KEYS.has(canonical)) {
-    return GERMAN_NOTE_TO_SEMITONE[canonical];
-  }
+export function keySemitone(note: string, german: boolean): Semitone {
+  if (GERMAN_ONLY_ROOTS_KEYS.has(canonicalNote(note))) return noteSemitone(note, true);
   return noteSemitone(note, german);
 }
 
@@ -240,8 +257,5 @@ export function transposeNote(
   spelling: Spelling,
   german: boolean
 ): string {
-  const semitone = mod12(Number(noteSemitone(note, german)) + semitones);
-  return String(spelling[semitone]);
+  return spelling[mod12(noteSemitone(note, german) + semitones)];
 }
-
-export { capitalizeFirst, isMinorSuffix, mod12 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectKey } from "./detect";
+import { detectKey, isKeyDetection } from "./detect";
 
 describe("detectKey", () => {
   it("detects a basic major cadence", () => {
@@ -136,5 +136,28 @@ describe("detectKey tie-breaking", () => {
     const result = detectKey("C Gm D");
     expect(result.key).toBe("G");
     expect(result.alternate).toBe("Gm");
+  });
+});
+
+describe("isKeyDetection", () => {
+  it("accepts the shape returned by the detect endpoint", () => {
+    expect(
+      isKeyDetection({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 3 })
+    ).toBe(true);
+    expect(
+      isKeyDetection({ key: null, alternate: null, ambiguous: false, chords: 0, distinct: 0 })
+    ).toBe(true);
+  });
+
+  it("rejects payloads that are not detections", () => {
+    expect(isKeyDetection(null)).toBe(false);
+    expect(isKeyDetection("D")).toBe(false);
+    expect(
+      isKeyDetection({ key: 4, alternate: null, ambiguous: false, chords: 4, distinct: 3 })
+    ).toBe(false);
+    expect(
+      isKeyDetection({ key: "D", alternate: null, ambiguous: "no", chords: 4, distinct: 3 })
+    ).toBe(false);
+    expect(isKeyDetection({ key: "D", alternate: null, ambiguous: false })).toBe(false);
   });
 });

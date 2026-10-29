@@ -59,9 +59,15 @@ npm run test:js
   under `src/js/`, tests included) and `tsconfig.node.json` (`vite.config.ts`).
   The compiler options follow the strict create-vite baseline plus
   `noUncheckedIndexedAccess` and `noImplicitOverride`. Keep the code free of
-  `any`; use narrow casts only at I/O boundaries and in test fixtures, and
-  non-null assertions only for regex capture groups that always participate and
-  for fixture-guaranteed elements in tests.
+  `any` and of casts: validate untrusted data with type guards (`isKeyDetection`,
+  `isInstrument`, `sanitizePrefs`) instead of asserting its shape. Non-null
+  assertions are reserved for regex capture groups that always participate;
+  tests may also use them for fixture-guaranteed elements.
+- Chord symbols are parsed in one place, `parseChordCore` in
+  `src/js/transpose/chords.ts`; `mapChordRoots` rewrites the root and bass of a
+  symbol for both transposition and Nashville numbering. Note lookups throw
+  `UnknownNoteError` for names outside the tables, so the chord grammar (shared
+  with `src/transpose.py`) must only admit roots the tables know.
 - Required DOM elements are fetched with `requireElement` / `requireSelector`
   from `src/js/dom.ts`, which throw a named error when the markup is missing an
   element, so new panels should use them instead of raw `getElementById`.

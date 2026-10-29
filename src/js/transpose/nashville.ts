@@ -1,73 +1,40 @@
-import { CHORD_TOKEN_RE, isChordToken, ROOT_MATCH_RE, splitAffixes } from "./chords";
-import { mod12, noteSemitone } from "./notation";
+import { CHORD_TOKEN_RE, isChordToken, mapChordRoots, splitSpacedTokens } from "./chords";
+import { CHORDPRO_BRACKET_RE } from "./chordpro";
+import { mod12, noteSemitone, type Semitone } from "./notation";
 
-const MAJOR_SCALE_DEGREES: Readonly<Record<number, string>> = {
+const DEGREE_NAMES: Readonly<Record<Semitone, string>> = {
   0: "1",
+  1: "b2",
   2: "2",
+  3: "b3",
   4: "3",
   5: "4",
+  6: "b5",
   7: "5",
+  8: "b6",
   9: "6",
+  10: "b7",
   11: "7",
 };
-const CHROMATIC_DEGREE_NAMES: Readonly<Record<number, string>> = {
-  1: "b2",
-  3: "b3",
-  6: "b5",
-  8: "b6",
-  10: "b7",
-};
-
-const CHORDPRO_BRACKET_RE = /\[([^\]]+)\]/g;
 
 export function noteToNashvilleDegree(
   note: string,
   tonicSemitone: number,
   german: boolean
-): string | undefined {
-  const degree = mod12(Number(noteSemitone(note, german)) - tonicSemitone);
-  if (degree in MAJOR_SCALE_DEGREES) return MAJOR_SCALE_DEGREES[degree];
-  return CHROMATIC_DEGREE_NAMES[degree];
+): string {
+  return DEGREE_NAMES[mod12(noteSemitone(note, german) - tonicSemitone)];
 }
 
 export function chordToNashville(chord: string, tonicSemitone: number, german: boolean): string {
-  const { leading, core, trailing } = splitAffixes(chord);
-  if (core !== chord) {
-    if (!CHORD_TOKEN_RE.test(core)) return chord;
-    return leading + chordToNashville(core, tonicSemitone, german) + trailing;
-  }
-
-  const match = ROOT_MATCH_RE.exec(chord);
-  if (!match) return chord;
-  const root = match[1]!;
-  const remainder = match[2]!;
-  const number = noteToNashvilleDegree(root, tonicSemitone, german);
-
-  const slashIndex = remainder.indexOf("/");
-  if (slashIndex !== -1) {
-    const beforeSlash = remainder.slice(0, slashIndex);
-    const bass = remainder.slice(slashIndex + 1);
-    const bassMatch = ROOT_MATCH_RE.exec(bass);
-    if (bassMatch) {
-      const bassNumber = noteToNashvilleDegree(bassMatch[1]!, tonicSemitone, german);
-      return `${number}${beforeSlash}/${bassNumber}${bassMatch[2]}`;
-    }
-  }
-  return `${number}${remainder}`;
+  return mapChordRoots(chord, (root) => noteToNashvilleDegree(root, tonicSemitone, german));
 }
 
 export function nashvilleLine(line: string, tonicSemitone: number, german: boolean): string {
-  const stripped = line.replace(/^\s+/, "");
-  const leading = line.slice(0, line.length - stripped.length);
+  const { leading, tokens } = splitSpacedTokens(line);
   let result = leading;
-
-  const tokenSplit = /(\S+)(\s*)/g;
-  let match: RegExpExecArray | null;
-  while ((match = tokenSplit.exec(line.slice(leading.length))) !== null) {
-    let token = match[1]!;
-    const trailing = match[2]!;
-    if (isChordToken(token)) token = chordToNashville(token, tonicSemitone, german);
-    result += token + trailing;
+  for (const { token, trailing } of tokens) {
+    const converted = isChordToken(token) ? chordToNashville(token, tonicSemitone, german) : token;
+    result += converted + trailing;
   }
   return result;
 }

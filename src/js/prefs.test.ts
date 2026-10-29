@@ -26,8 +26,9 @@ describe("sanitizePrefs", () => {
     expect(clean).not.toHaveProperty("lyrics");
   });
 
-  it("drops non-primitive values", () => {
+  it("drops values of the wrong type", () => {
     expect(sanitizePrefs({ currentKey: { nested: true }, targetKey: ["D"] })).toEqual({});
+    expect(sanitizePrefs({ currentKey: 5, semitones: "3", notation: true })).toEqual({});
   });
 
   it("returns an empty object for non-object input", () => {

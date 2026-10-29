@@ -9,6 +9,8 @@ import {
   mod12,
   noteSemitone,
   parseKey,
+  SHARP_SPELLING,
+  UnknownNoteError,
 } from "./notation";
 
 describe("ChangeSet.sorted", () => {
@@ -50,32 +52,18 @@ describe("ChangeSet.sorted", () => {
 
 describe("transposeChord affixes", () => {
   it("preserves surrounding punctuation while transposing the core", () => {
-    expect(
-      transposeChord(
-        "(C)",
-        2,
-        ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-        false
-      )
-    ).toBe("(D)");
+    expect(transposeChord("(C)", 2, SHARP_SPELLING, false)).toBe("(D)");
   });
 
   it("returns the token unchanged when the core is not a chord", () => {
-    const spelling = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const spelling = SHARP_SPELLING;
     expect(transposeChord("(xyz)", 2, spelling, false)).toBe("(xyz)");
   });
 });
 
 describe("unmatched roots", () => {
   it("returns a bare non-chord token unchanged from transposeChord", () => {
-    expect(
-      transposeChord(
-        "xyz",
-        2,
-        ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-        false
-      )
-    ).toBe("xyz");
+    expect(transposeChord("xyz", 2, SHARP_SPELLING, false)).toBe("xyz");
   });
 
   it("returns a bare non-chord token unchanged from chordToNashville", () => {
@@ -126,6 +114,10 @@ describe("notation helpers", () => {
 
   it("looks up plain note semitones", () => {
     expect(noteSemitone("C", false)).toBe(0);
+  });
+
+  it("rejects a note that is in no table", () => {
+    expect(() => noteSemitone("Hb", false)).toThrow(UnknownNoteError);
   });
 
   it("returns null for blank keys", () => {

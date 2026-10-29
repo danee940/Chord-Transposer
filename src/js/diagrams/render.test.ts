@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { renderDiagram } from "./render";
-import { parseChordSymbol, type Instrument, type ParsedChord } from "./shapes";
+import { parseChordSymbol, type Instrument } from "./shapes";
 
 function render(symbol: string | null, instrument: Instrument, german = false) {
   return renderDiagram(symbol === null ? null : parseChordSymbol(symbol, german), instrument);
@@ -94,20 +94,5 @@ describe("renderDiagram", () => {
       (r) => r.getAttribute("width") === "10" && r.getAttribute("fill")!.includes("diagram-root")
     );
     expect(rootBlack.length).toBeGreaterThan(0);
-  });
-
-  it("falls back to generic labels for an unknown family", () => {
-    const chord = {
-      raw: "C?",
-      rootName: "C",
-      rootSemitone: 0,
-      quality: "?",
-      family: "mystery",
-      bassName: "",
-      bassSemitone: null,
-      german: false,
-    };
-    const node = renderDiagram(chord as ParsedChord, "piano");
-    expect(node.textContent).toContain("chord");
   });
 });

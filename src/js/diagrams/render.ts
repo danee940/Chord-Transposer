@@ -13,7 +13,13 @@ import {
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const WHITE_PITCH_CLASSES = [0, 2, 4, 5, 7, 9, 11];
-const BLACK_AFTER_WHITE: Readonly<Record<number, number>> = { 0: 1, 2: 3, 5: 6, 7: 8, 9: 10 };
+const BLACK_AFTER_WHITE: Readonly<Partial<Record<number, number>>> = {
+  0: 1,
+  2: 3,
+  5: 6,
+  7: 8,
+  9: 10,
+};
 
 function svgEl(name: string, attributes: Record<string, string | number>): SVGElement {
   const node = document.createElementNS(SVG_NS, name);
@@ -24,8 +30,9 @@ function svgEl(name: string, attributes: Record<string, string | number>): SVGEl
 }
 
 function chordPitchClasses(chord: ParsedChord): Set<number> {
-  const intervals = QUALITY_INTERVALS[chord.family] || QUALITY_INTERVALS.maj;
-  const classes = new Set(intervals.map((interval) => mod12(chord.rootSemitone + interval)));
+  const classes = new Set(
+    QUALITY_INTERVALS[chord.family].map((interval) => mod12(chord.rootSemitone + interval))
+  );
   if (chord.bassSemitone !== null) classes.add(mod12(chord.bassSemitone));
   return classes;
 }
@@ -221,11 +228,10 @@ export function renderDiagram(chord: ParsedChord | null, instrument: Instrument)
   heading.textContent = chord.raw;
   container.appendChild(heading);
 
-  const qualityLabel = QUALITY_LABELS[chord.family] || "chord";
   container.appendChild(
     textLine(
       "text-xs text-muted-light dark:text-muted",
-      `${qualityLabel} · ${INSTRUMENT_LABELS[instrument]}`
+      `${QUALITY_LABELS[chord.family]} · ${INSTRUMENT_LABELS[instrument]}`
     )
   );
 

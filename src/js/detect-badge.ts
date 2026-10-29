@@ -9,14 +9,15 @@ export interface DetectionBadgeOptions {
 }
 
 export interface DetectionBadge {
-  apply(result: KeyDetection | null | undefined): void;
+  apply(result: KeyDetection | null): void;
   detect(text: string): void;
   markUserPick(): void;
   reset(): void;
 }
 
-interface DetectedKey extends KeyDetection {
+interface DetectedKey {
   key: string;
+  alternate: string | null;
 }
 
 export function createDetectionBadge({
@@ -34,7 +35,7 @@ export function createDetectionBadge({
   }
 
   function render(): void {
-    if (!current || !current.key) {
+    if (current === null) {
       wrap.classList.add("hidden");
       wrap.classList.remove("inline-flex");
       label.textContent = "";
@@ -43,7 +44,7 @@ export function createDetectionBadge({
       return;
     }
     label.textContent = `Detected: ${current.key}`;
-    if (current.alternate) {
+    if (current.alternate !== null) {
       altButton.textContent = `or ${current.alternate}?`;
       altButton.classList.remove("hidden");
     } else {
@@ -54,17 +55,17 @@ export function createDetectionBadge({
     wrap.classList.add("inline-flex");
   }
 
-  function apply(result: KeyDetection | null | undefined): void {
-    current = result && result.key ? (result as DetectedKey) : null;
-    if (current && !userPicked && hasOption(current.key)) {
+  function apply(result: KeyDetection | null): void {
+    current = result?.key ? { key: result.key, alternate: result.alternate } : null;
+    if (current !== null && !userPicked && hasOption(current.key)) {
       select.value = current.key;
     }
     render();
   }
 
   altButton.addEventListener("click", () => {
-    if (!current || !current.alternate) return;
-    current = { ...current, key: current.alternate, alternate: current.key };
+    if (current === null || current.alternate === null) return;
+    current = { key: current.alternate, alternate: current.key };
     userPicked = true;
     if (hasOption(current.key)) {
       select.value = current.key;

@@ -14,7 +14,7 @@ export interface TransposedCore {
   changes: Change[];
 }
 
-const CHORDPRO_BRACKET_RE = /\[([^\]]+)\]/g;
+export const CHORDPRO_BRACKET_RE = /\[([^\]]+)\]/g;
 
 export function bracketTokens(text: string): string[] {
   return [...text.matchAll(CHORDPRO_BRACKET_RE)].map((match) => match[1]!);

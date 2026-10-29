@@ -14,7 +14,7 @@ import {
   transposeChordProCore,
   type TransposedCore,
 } from "./chordpro";
-import { detectKey, type KeyDetection } from "./detect";
+import { detectKey, isKeyDetection, type KeyDetection } from "./detect";
 import { nashvilleChordProLine, nashvilleLine } from "./nashville";
 import {
   chooseSpelling,
@@ -23,6 +23,7 @@ import {
   mod12,
   parseKey,
   prefersFlats,
+  UnknownNoteError,
   type ParsedKey,
 } from "./notation";
 
@@ -62,9 +63,7 @@ function textUsesGerman(text: string): boolean {
 }
 
 function keyDistance(current: ParsedKey, target: ParsedKey, german: boolean): number {
-  return mod12(
-    Number(keySemitone(target.note, german)) - Number(keySemitone(current.note, german))
-  );
+  return mod12(keySemitone(target.note, german) - keySemitone(current.note, german));
 }
 
 function transposeTextCore(text: string, semitones: number, useFlats: boolean): TransposedCore {
@@ -151,7 +150,7 @@ export function textToNashville(text: string, tonicKey: string): NashvilleConver
 
   const chordpro = isChordProText(text);
   const german = chordpro ? chordProUsesGerman(text) : textUsesGerman(text);
-  const tonicSemitone = Number(keySemitone(tonic.note, german));
+  const tonicSemitone = keySemitone(tonic.note, german);
 
   let result = "";
   for (const { content, ending } of splitLinesKeepEnds(text)) {
@@ -167,5 +166,5 @@ export function textToNashville(text: string, tonicKey: string): NashvilleConver
   return { text: result, tonic: keyLabel(tonic.note, tonic.minor) };
 }
 
-export { chordProToPlain, detectKey, isChordProText };
+export { chordProToPlain, detectKey, isChordProText, isKeyDetection, UnknownNoteError };
 export type { Change, KeyDetection };

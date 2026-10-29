@@ -1439,3 +1439,13 @@ class TestDetectKey:
         assert result["key"] == "D"
         assert result["alternate"] == "G"
         assert result["ambiguous"] is True
+
+
+class TestUnknownRoots:
+    def test_hb_is_not_a_chord_token(self):
+        assert t.is_chord_token("Hb") is False
+        assert t.is_chord_token("C/Hb") is False
+
+    def test_h_sharp_stays_a_chord_token(self):
+        assert t.is_chord_token("H#") is True
+        assert t.is_chord_token("h") is True

@@ -1,28 +1,24 @@
 const PREFS_STORAGE_KEY = "chord-transposer:prefs";
-const ALLOWED_PREF_KEYS = [
-  "mode",
-  "currentKey",
-  "targetKey",
-  "semitones",
-  "notation",
-  "instrument",
-] as const;
+const STRING_PREF_KEYS = ["mode", "currentKey", "targetKey", "notation", "instrument"] as const;
 
-export type PrefKey = (typeof ALLOWED_PREF_KEYS)[number];
-export type PrefValue = string | number | boolean;
-export type Prefs = Partial<Record<PrefKey, PrefValue>>;
+export interface Prefs {
+  mode?: string;
+  currentKey?: string;
+  targetKey?: string;
+  semitones?: number;
+  notation?: string;
+  instrument?: string;
+}
 
 export function sanitizePrefs(raw: unknown): Prefs {
   const clean: Prefs = {};
   if (typeof raw !== "object" || raw === null) return clean;
   const source = raw as Record<string, unknown>;
-  for (const key of ALLOWED_PREF_KEYS) {
+  for (const key of STRING_PREF_KEYS) {
     const value = source[key];
-    if (value === undefined || value === null) continue;
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-      clean[key] = value;
-    }
+    if (typeof value === "string") clean[key] = value;
   }
+  if (typeof source.semitones === "number") clean.semitones = source.semitones;
   return clean;
 }
 

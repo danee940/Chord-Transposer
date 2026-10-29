@@ -1,24 +1,24 @@
 {
-  "_upload.BTm_zhlz.js": {
-    "file": "upload.BTm_zhlz.js",
+  "_upload.Btob19wB.js": {
+    "file": "upload.Btob19wB.js",
     "name": "upload"
   },
   "landing.ts": {
-    "file": "landing.BD5xBwJD.js",
+    "file": "landing.DkRCzA04.js",
     "name": "landing",
     "src": "landing.ts",
     "isEntry": true,
     "imports": [
-      "_upload.BTm_zhlz.js"
+      "_upload.Btob19wB.js"
     ]
   },
   "main.ts": {
-    "file": "main.B8oU1P-a.js",
+    "file": "main.WwaE6j-2.js",
     "name": "main",
     "src": "main.ts",
     "isEntry": true,
     "imports": [
-      "_upload.BTm_zhlz.js"
+      "_upload.Btob19wB.js"
     ]
   }
 }

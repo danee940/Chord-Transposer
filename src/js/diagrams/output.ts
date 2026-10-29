@@ -6,7 +6,11 @@ import {
   splitAffixes,
 } from "../transpose/chords";
 
-export type ChordActivation = (button: HTMLButtonElement) => void;
+export type ChordActivation = (
+  button: HTMLButtonElement,
+  chordSymbol: string,
+  german: boolean
+) => void;
 
 const TOKEN_SPLIT_RE = /(\s+)|(\S+)/g;
 const BRACKET_RE = /\[([^\]]*)\]/g;
@@ -31,7 +35,7 @@ function chordButton(
   button.dataset.chord = chordSymbol;
   if (german) button.dataset.german = "1";
   button.setAttribute("aria-label", `Show ${chordSymbol} chord diagram`);
-  if (onActivate) button.addEventListener("click", () => onActivate(button));
+  if (onActivate) button.addEventListener("click", () => onActivate(button, chordSymbol, german));
   return button;
 }
 

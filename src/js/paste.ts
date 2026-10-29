@@ -1,7 +1,7 @@
 import { formatCapoSuggestion } from "./capo-suggest";
 import { createDetectionBadge } from "./detect-badge";
 import { initDiagrams } from "./diagrams/index";
-import type { Instrument } from "./diagrams/shapes";
+import { isInstrument, type Instrument } from "./diagrams/shapes";
 import { MODE_ACTIVE_CLASSES, MODE_INACTIVE_CLASSES, requireElement, requireSelector } from "./dom";
 import { loadPrefs, savePrefs } from "./prefs";
 import { createStageView } from "./stage";
@@ -18,9 +18,11 @@ import {
 } from "./transpose/index";
 
 const TRANSPOSE_MODES = ["key", "semitone", "nashville"] as const;
+const DEFAULT_INSTRUMENT: Instrument = "guitar";
+const TRANSPOSE_DEBOUNCE_MS = 250;
+const COPIED_FEEDBACK_MS = 1500;
 
 type TransposeMode = (typeof TRANSPOSE_MODES)[number];
-type Notation = "sharp" | "flat";
 type OutputFormat = "chordpro" | "plain";
 
 interface ChangePair {
@@ -28,26 +30,27 @@ interface ChangePair {
   to: string;
 }
 
-interface ResultBase {
+interface NashvilleResult {
+  kind: "nashville";
   text: string;
-  format?: "chordpro";
-}
-
-interface NashvilleResult extends ResultBase {
   tonic: string;
 }
 
-interface SemitoneResult extends ResultBase {
-  semitones: number;
+interface SemitoneResult {
+  kind: "semitone";
+  text: string;
   label: string;
-  notation: Notation;
   changes: ChangePair[];
+  chordpro: boolean;
 }
 
-interface KeyResult extends ResultBase {
+interface KeyResult {
+  kind: "key";
+  text: string;
   from: string;
   to: string;
   changes: ChangePair[];
+  chordpro: boolean;
 }
 
 type PasteResult = NashvilleResult | SemitoneResult | KeyResult;
@@ -68,6 +71,10 @@ function mapChanges(changes: Change[]): ChangePair[] {
   return changes.map(([from, to]) => ({ from, to }));
 }
 
+function pluralise(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 export function initPaste(): void {
   const textInput = requireElement<HTMLTextAreaElement>("text_input");
   const textOutput = requireElement("text_output");
@@ -75,6 +82,7 @@ export function initPaste(): void {
   const textCopy = requireElement<HTMLButtonElement>("text_copy");
   const textCurrentKey = requireElement<HTMLSelectElement>("text_current_key");
   const textTargetKey = requireElement<HTMLSelectElement>("text_target_key");
+  const textTargetWrap = requireElement("text_target_wrap");
   const textSwap = requireElement("text_swap");
   const textLineCount = requireElement("text_linecount");
   const textSample = requireElement("text_sample");
@@ -110,7 +118,7 @@ export function initPaste(): void {
   const stageView = createStageView();
 
   const panelPaste = requireElement("panel-paste");
-  const MAX_SEMITONES = parseInt(panelPaste.dataset.maxSemitones!, 10);
+  const MAX_SEMITONES = Number(panelPaste.dataset.maxSemitones);
   const diagrams = initDiagrams(() => instrument);
 
   function applyPreselect(select: HTMLSelectElement, value: string | undefined): void {
@@ -130,16 +138,14 @@ export function initPaste(): void {
   let semitones = 0;
   let useFlats = false;
   let outputFormat: OutputFormat = "chordpro";
-  let instrument: Instrument = "guitar";
+  let instrument: Instrument = DEFAULT_INSTRUMENT;
+  let renderedText = "";
+  let changesCount = 0;
   let transposeTimer: ReturnType<typeof setTimeout> | undefined;
   let chosenCurrentKey = textCurrentKey.value;
 
   function rememberCurrentKey(): void {
     chosenCurrentKey = textCurrentKey.value;
-  }
-
-  function outputText(): string {
-    return textOutput.textContent!;
   }
 
   function persistPrefs(): void {
@@ -157,10 +163,26 @@ export function initPaste(): void {
     textStatus.textContent = text;
   }
 
+  function renderOutput(text: string): void {
+    renderedText = text;
+    diagrams.renderInto(textOutput, text);
+    textCopy.disabled = text === "";
+  }
+
+  function clearOutput(): void {
+    renderedText = "";
+    textOutput.textContent = "";
+    textCopy.disabled = true;
+  }
+
+  function hasOutput(): boolean {
+    return renderedText.trim() !== "";
+  }
+
   function updateCapoSuggestion(): void {
     const showCapo = transposeMode === "key" && instrument === "guitar";
     const message = showCapo ? formatCapoSuggestion(textTargetKey.value) : null;
-    if (message && outputText().trim()) {
+    if (message !== null && hasOutput()) {
       capoSuggestion.textContent = message;
       capoSuggestion.classList.remove("hidden");
     } else {
@@ -172,11 +194,11 @@ export function initPaste(): void {
   function updateLineCount(): void {
     const value = textInput.value;
     const lines = value === "" ? 0 : value.split("\n").length;
-    textLineCount.textContent = `${lines} line${lines === 1 ? "" : "s"}`;
+    textLineCount.textContent = pluralise(lines, "line");
   }
 
-  function setModeButtonState(button: HTMLElement, active: boolean): void {
-    button.setAttribute("aria-selected", String(active));
+  function setToggleState(button: HTMLElement, attribute: string, active: boolean): void {
+    button.setAttribute(attribute, String(active));
     button.classList.remove(...MODE_ACTIVE_CLASSES, ...MODE_INACTIVE_CLASSES);
     button.classList.add(...(active ? MODE_ACTIVE_CLASSES : MODE_INACTIVE_CLASSES));
   }
@@ -185,18 +207,17 @@ export function initPaste(): void {
     transposeMode = mode;
     const key = mode === "key";
     const nashville = mode === "nashville";
-    const showKeyControls = key || nashville;
 
-    controlsKey.classList.toggle("hidden", !showKeyControls);
+    controlsKey.classList.toggle("hidden", !(key || nashville));
     controlsSemitone.classList.toggle("hidden", mode !== "semitone");
 
-    textTargetKey.parentElement!.classList.toggle("hidden", nashville);
+    textTargetWrap.classList.toggle("hidden", nashville);
     textSwap.classList.toggle("hidden", nashville);
     textCurrentKeyLabel.textContent = nashville ? "Tonic key" : "Current key";
 
-    setModeButtonState(modeKey, key);
-    setModeButtonState(modeSemitone, mode === "semitone");
-    setModeButtonState(modeNashville, nashville);
+    setToggleState(modeKey, "aria-selected", key);
+    setToggleState(modeSemitone, "aria-selected", mode === "semitone");
+    setToggleState(modeNashville, "aria-selected", nashville);
 
     if (nashville) {
       chordproFormatToggle.classList.add("hidden");
@@ -209,8 +230,12 @@ export function initPaste(): void {
     semitoneValue.textContent = semitones > 0 ? `+${semitones}` : String(semitones);
   }
 
+  function clampSemitones(value: number): number {
+    return Math.max(-MAX_SEMITONES, Math.min(MAX_SEMITONES, value));
+  }
+
   function setSemitones(value: number): void {
-    semitones = Math.max(-MAX_SEMITONES, Math.min(MAX_SEMITONES, value));
+    semitones = clampSemitones(value);
     updateSemitoneDisplay();
     runTextTranspose();
     persistPrefs();
@@ -218,35 +243,31 @@ export function initPaste(): void {
 
   function selectNotation(flat: boolean): void {
     useFlats = flat;
-    notationSharp.setAttribute("aria-pressed", String(!flat));
-    notationFlat.setAttribute("aria-pressed", String(flat));
-    notationSharp.classList.remove(...MODE_ACTIVE_CLASSES, ...MODE_INACTIVE_CLASSES);
-    notationFlat.classList.remove(...MODE_ACTIVE_CLASSES, ...MODE_INACTIVE_CLASSES);
-    notationSharp.classList.add(...(flat ? MODE_INACTIVE_CLASSES : MODE_ACTIVE_CLASSES));
-    notationFlat.classList.add(...(flat ? MODE_ACTIVE_CLASSES : MODE_INACTIVE_CLASSES));
+    setToggleState(notationSharp, "aria-pressed", !flat);
+    setToggleState(notationFlat, "aria-pressed", flat);
     runTextTranspose();
     persistPrefs();
   }
 
   function selectOutputFormat(plain: boolean): void {
     outputFormat = plain ? "plain" : "chordpro";
-    formatChordpro.setAttribute("aria-pressed", String(!plain));
-    formatPlain.setAttribute("aria-pressed", String(plain));
-    formatChordpro.classList.remove(...MODE_ACTIVE_CLASSES, ...MODE_INACTIVE_CLASSES);
-    formatPlain.classList.remove(...MODE_ACTIVE_CLASSES, ...MODE_INACTIVE_CLASSES);
-    formatChordpro.classList.add(...(plain ? MODE_INACTIVE_CLASSES : MODE_ACTIVE_CLASSES));
-    formatPlain.classList.add(...(plain ? MODE_ACTIVE_CLASSES : MODE_INACTIVE_CLASSES));
+    setToggleState(formatChordpro, "aria-pressed", !plain);
+    setToggleState(formatPlain, "aria-pressed", plain);
     runTextTranspose();
   }
 
-  function maybePlain(text: string): string {
-    return outputFormat === "plain" ? chordProToPlain(text) : text;
+  function selectInstrument(value: unknown): void {
+    instrument = isInstrument(value) ? value : DEFAULT_INSTRUMENT;
+  }
+
+  function maybePlain(text: string, chordpro: boolean): string {
+    return chordpro && outputFormat === "plain" ? chordProToPlain(text) : text;
   }
 
   function computeResult(text: string): PasteResult {
     if (transposeMode === "nashville") {
       const result = textToNashville(text, textCurrentKey.value);
-      return { text: result.text, tonic: result.tonic };
+      return { kind: "nashville", text: result.text, tonic: result.tonic };
     }
 
     const chordpro = isChordProText(text);
@@ -255,45 +276,41 @@ export function initPaste(): void {
       const result = chordpro
         ? transposeChordProTextBySemitones(text, semitones, useFlats)
         : transposeTextBySemitones(text, semitones, useFlats);
-      const data: SemitoneResult = {
-        text: chordpro ? maybePlain(result.text) : result.text,
-        semitones,
+      return {
+        kind: "semitone",
+        text: maybePlain(result.text, chordpro),
         label: semitoneLabel(semitones, useFlats),
-        notation: useFlats ? "flat" : "sharp",
         changes: mapChanges(result.changes),
+        chordpro,
       };
-      if (chordpro) data.format = "chordpro";
-      return data;
     }
 
     const result = chordpro
       ? transposeChordProText(text, textCurrentKey.value, textTargetKey.value)
       : transposeText(text, textCurrentKey.value, textTargetKey.value);
-    const data: KeyResult = {
-      text: chordpro ? maybePlain(result.text) : result.text,
+    return {
+      kind: "key",
+      text: maybePlain(result.text, chordpro),
       from: result.from,
       to: result.to,
       changes: mapChanges(result.changes),
+      chordpro,
     };
-    if (chordpro) data.format = "chordpro";
-    return data;
   }
 
   function summariseResult(data: PasteResult): string {
-    if ("tonic" in data) {
+    if (data.kind === "nashville") {
       return `Nashville · key of ${data.tonic}`;
     }
     const count = data.changes.length;
-    const label = "label" in data ? data.label : `${data.from} → ${data.to}`;
+    const label = data.kind === "semitone" ? data.label : `${data.from} → ${data.to}`;
     return count > 0
-      ? `${label} · ${count} chord${count === 1 ? "" : "s"} changed`
+      ? `${label} · ${pluralise(count, "chord")} changed`
       : `${label} · no chords found to change`;
   }
 
-  let changesCount = 0;
-
   function changesLabel(action: string): string {
-    return `${action} ${changesCount} chord change${changesCount === 1 ? "" : "s"}`;
+    return `${action} ${pluralise(changesCount, "chord change")}`;
   }
 
   function collapseChanges(): void {
@@ -317,19 +334,18 @@ export function initPaste(): void {
   }
 
   function renderChanges(data: PasteResult): void {
-    const changes = "changes" in data ? data.changes : [];
+    const changes = data.kind === "nashville" ? [] : data.changes;
     if (changes.length === 0) {
       hideChanges();
       return;
     }
-    const pills: HTMLSpanElement[] = [];
-    for (const { from, to } of changes) {
+    const pills = changes.map(({ from, to }) => {
       const pill = document.createElement("span");
       pill.className =
         "rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-mono text-slate-700 dark:border-app-border dark:bg-bg dark:text-slate-200";
       pill.textContent = `${from} → ${to}`;
-      pills.push(pill);
-    }
+      return pill;
+    });
     textChanges.replaceChildren(...pills);
     changesCount = pills.length;
     textChangesWrap.classList.remove("hidden");
@@ -337,15 +353,14 @@ export function initPaste(): void {
   }
 
   function syncOutputControls(): void {
-    textStage.disabled = !outputText().trim();
+    textStage.disabled = !hasOutput();
     updateCapoSuggestion();
   }
 
   function runTextTranspose(): void {
     const text = textInput.value;
     if (!text.trim()) {
-      textOutput.textContent = "";
-      textCopy.disabled = true;
+      clearOutput();
       setTextStatus("");
       chordproFormatToggle.classList.add("hidden");
       hideChanges();
@@ -359,8 +374,7 @@ export function initPaste(): void {
       return;
     }
     if (transposeMode === "semitone" && semitones === 0) {
-      diagrams.renderInto(textOutput, text);
-      textCopy.disabled = !text;
+      renderOutput(text);
       setTextStatus("No shift · pick a semitone offset to transpose.");
       hideChanges();
       syncOutputControls();
@@ -369,11 +383,10 @@ export function initPaste(): void {
 
     try {
       const data = computeResult(text);
-      const isChordPro = data.format === "chordpro" && transposeMode !== "nashville";
+      const isChordPro = data.kind !== "nashville" && data.chordpro;
       chordproFormatToggle.classList.toggle("hidden", !isChordPro);
 
-      diagrams.renderInto(textOutput, data.text);
-      textCopy.disabled = !data.text;
+      renderOutput(data.text);
       setTextStatus(summariseResult(data));
       renderChanges(data);
     } catch (error) {
@@ -407,7 +420,7 @@ export function initPaste(): void {
     transposeTimer = setTimeout(() => {
       detection.detect(textInput.value);
       runTextTranspose();
-    }, 250);
+    }, TRANSPOSE_DEBOUNCE_MS);
   }
 
   textInput.addEventListener("input", () => {
@@ -436,7 +449,7 @@ export function initPaste(): void {
   });
 
   textInstrument.addEventListener("change", () => {
-    instrument = textInstrument.value as Instrument;
+    selectInstrument(textInstrument.value);
     diagrams.closePopover();
     updateCapoSuggestion();
     persistPrefs();
@@ -451,8 +464,8 @@ export function initPaste(): void {
   });
 
   textStage.addEventListener("click", () => {
-    if (!outputText().trim()) return;
-    stageView.open(outputText());
+    if (!hasOutput()) return;
+    stageView.open(renderedText);
   });
 
   textSample.addEventListener("click", () => {
@@ -487,10 +500,9 @@ export function initPaste(): void {
 
   document.addEventListener("keydown", (event) => {
     if (transposeMode !== "semitone") return;
-    const target = event.target as HTMLElement | null;
+    const target = event.target;
     const typing =
-      target &&
-      (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.tagName === "SELECT");
+      target instanceof HTMLElement && ["TEXTAREA", "INPUT", "SELECT"].includes(target.tagName);
     if (typing) return;
     if (event.key === "[") {
       event.preventDefault();
@@ -503,20 +515,15 @@ export function initPaste(): void {
 
   const savedPrefs = loadPrefs();
   if (!panelPaste.dataset.preselectFrom && savedPrefs.currentKey) {
-    textCurrentKey.value = String(savedPrefs.currentKey);
+    textCurrentKey.value = savedPrefs.currentKey;
   }
   if (!panelPaste.dataset.preselectTo && savedPrefs.targetKey) {
-    textTargetKey.value = String(savedPrefs.targetKey);
+    textTargetKey.value = savedPrefs.targetKey;
   }
-  const pageInstrument = panelPaste.dataset.instrument;
-  if (pageInstrument) {
-    instrument = pageInstrument as Instrument;
-  } else if (savedPrefs.instrument) {
-    instrument = savedPrefs.instrument as Instrument;
-  }
+  selectInstrument(panelPaste.dataset.instrument || savedPrefs.instrument);
   textInstrument.value = instrument;
-  if (typeof savedPrefs.semitones === "number") {
-    semitones = Math.max(-MAX_SEMITONES, Math.min(MAX_SEMITONES, savedPrefs.semitones));
+  if (savedPrefs.semitones !== undefined) {
+    semitones = clampSemitones(savedPrefs.semitones);
   }
 
   rememberCurrentKey();
@@ -530,12 +537,12 @@ export function initPaste(): void {
 
   textCopy.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(outputText());
+      await navigator.clipboard.writeText(renderedText);
       const original = textCopy.textContent;
       textCopy.textContent = "Copied";
       setTimeout(() => {
         textCopy.textContent = original;
-      }, 1500);
+      }, COPIED_FEEDBACK_MS);
     } catch {
       setTextStatus("Could not copy to clipboard.");
     }

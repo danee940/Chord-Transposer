@@ -153,6 +153,16 @@ describe("initUpload", () => {
     expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
   });
 
+  it("ignores a malformed key detection payload", async () => {
+    initUpload();
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ nonsense: true }) });
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [makeFile("song.docx", 2048)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
+  });
+
   it("ignores a key detection network error", async () => {
     initUpload();
     fetchMock.mockRejectedValue(new Error("offline"));
@@ -560,6 +570,14 @@ describe("initUpload", () => {
       headers: { get: () => null },
       json: () => Promise.reject(new Error("nope")),
     });
+    initUpload();
+    setFiles(requireElement<HTMLInputElement>("file"), [makeFile("song.docx", 1024)]);
+    await submitAndWait();
+    expect(message().textContent).toBe("Something went wrong.");
+  });
+
+  it("uses a generic error when the error field is empty", async () => {
+    fetchMock.mockResolvedValue(response({ top: { ok: false }, json: { error: "" } }));
     initUpload();
     setFiles(requireElement<HTMLInputElement>("file"), [makeFile("song.docx", 1024)]);
     await submitAndWait();

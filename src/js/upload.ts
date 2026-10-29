@@ -10,10 +10,12 @@ import {
 import {
   InvalidKeyError,
   isChordProText,
+  isKeyDetection,
   transposeChordProText,
   transposeText,
-  type KeyDetection,
 } from "./transpose/index";
+
+type TextFormat = "pdf" | "txt" | "chordpro";
 
 interface UploadRequest {
   endpoint: string;
@@ -22,8 +24,96 @@ interface UploadRequest {
   fallback: string;
 }
 
-interface ErrorResponse {
-  error?: string;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_BINDER_FILES = 20;
+const MAX_BINDER_TOTAL_BYTES = 40 * 1024 * 1024;
+const TEXT_EXTENSIONS = [".txt", ".pro", ".cho"];
+const TEXT_FORMAT_EXTENSIONS: Readonly<Record<TextFormat, string>> = {
+  pdf: "pdf",
+  txt: "txt",
+  chordpro: "pro",
+};
+const GENERIC_ERROR = "Something went wrong.";
+
+function isTextName(name: string): boolean {
+  return TEXT_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext));
+}
+
+function isDocxName(name: string): boolean {
+  return name.toLowerCase().endsWith(".docx");
+}
+
+function formatBytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function validateFile(file: File): string | null {
+  if (!isDocxName(file.name) && !isTextName(file.name))
+    return "Unsupported file type. Upload .docx, .txt, .pro, or .cho.";
+  if (file.size === 0) return "The selected file is empty.";
+  if (file.size > MAX_UPLOAD_BYTES) return "File is too large. The maximum size is 10 MB.";
+  return null;
+}
+
+function validateFiles(files: File[]): string | null {
+  if (files.length > MAX_BINDER_FILES) return `Too many files. The maximum is ${MAX_BINDER_FILES}.`;
+  let total = 0;
+  for (const file of files) {
+    if (!isDocxName(file.name)) return "The binder accepts .docx files only.";
+    if (file.size === 0) return "One of the selected files is empty.";
+    total += file.size;
+  }
+  if (total > MAX_BINDER_TOTAL_BYTES) return "Files are too large. The combined maximum is 40 MB.";
+  return null;
+}
+
+function errorMessage(payload: unknown): string {
+  const error =
+    typeof payload === "object" && payload !== null && "error" in payload
+      ? payload.error
+      : undefined;
+  return typeof error === "string" && error !== "" ? error : GENERIC_ERROR;
+}
+
+function parseDownloadFilename(disposition: string, fallback: string): string {
+  const extended = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  if (extended !== undefined) {
+    try {
+      return decodeURIComponent(extended);
+    } catch {
+      return fallback;
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(disposition)?.[1];
+  if (quoted !== undefined) return quoted;
+  const bare = /filename=([^;]+)/i.exec(disposition)?.[1];
+  if (bare !== undefined) return bare.trim();
+  return fallback;
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function changePairs(changesRaw: string): [string, string][] {
+  return changesRaw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const separator = entry.indexOf("->");
+      return separator === -1
+        ? [entry, ""]
+        : [entry.slice(0, separator), entry.slice(separator + 2)];
+    });
 }
 
 export function initUpload(): void {
@@ -42,22 +132,8 @@ export function initUpload(): void {
   const detectedLabel = requireElement("upload_detected_label");
   const detectedAlt = requireElement("upload_detected_alt");
 
-  const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-  const MAX_BINDER_FILES = 20;
-  const MAX_BINDER_TOTAL_BYTES = 40 * 1024 * 1024;
-  const TEXT_EXTENSIONS = [".txt", ".pro", ".cho"];
-  const DEFAULT_DROPZONE_HTML =
-    '<span class="font-medium text-slate-800 dark:text-slate-200">Drop your chord sheets here</span> or click to browse';
-
   let textPreviewSource: string | null = null;
-
-  function isTextName(name: string): boolean {
-    return TEXT_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext));
-  }
-
-  function isDocxName(name: string): boolean {
-    return name.toLowerCase().endsWith(".docx");
-  }
+  let fileSelectionId = 0;
 
   function hideMessage(): void {
     message.className = BASE_CLASSES + " hidden";
@@ -69,54 +145,46 @@ export function initUpload(): void {
     message.textContent = text;
   }
 
-  function formatBytes(bytes: number): string {
-    const mb = bytes / (1024 * 1024);
-    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  }
-
-  function validateFile(file: File): string | null {
-    if (!isDocxName(file.name) && !isTextName(file.name))
-      return "Unsupported file type. Upload .docx, .txt, .pro, or .cho.";
-    if (file.size === 0) return "The selected file is empty.";
-    if (file.size > MAX_UPLOAD_BYTES) return "File is too large. The maximum size is 10 MB.";
-    return null;
-  }
-
-  function validateFiles(files: File[]): string | null {
-    if (files.length > MAX_BINDER_FILES)
-      return `Too many files. The maximum is ${MAX_BINDER_FILES}.`;
-    let total = 0;
-    for (const file of files) {
-      if (!isDocxName(file.name)) return "The binder accepts .docx files only.";
-      if (file.size === 0) return "One of the selected files is empty.";
-      total += file.size;
-    }
-    if (total > MAX_BINDER_TOTAL_BYTES)
-      return "Files are too large. The combined maximum is 40 MB.";
-    return null;
+  function showResult(headingText: string, ...details: Node[]): void {
+    message.className = BASE_CLASSES + " " + OK_CLASSES;
+    const heading = document.createElement("div");
+    heading.className = details.length > 0 ? "mb-2 font-semibold" : "font-semibold";
+    heading.textContent = headingText;
+    message.replaceChildren(heading, ...details);
   }
 
   function selectedFiles(): File[] {
     return [...fileInput.files!];
   }
 
-  function updateDropzone(files: File[] | null): void {
-    if (!files || files.length === 0) {
-      dropzoneText.innerHTML = DEFAULT_DROPZONE_HTML;
-      return;
-    }
-    dropzoneText.innerHTML =
-      `<span class="font-medium text-slate-800 dark:text-slate-200"></span>` +
-      `<span class="block text-xs text-muted-light dark:text-muted"></span>`;
+  function dropzoneLine(className: string, text: string): HTMLSpanElement {
+    const line = document.createElement("span");
+    line.className = className;
+    line.textContent = text;
+    return line;
+  }
+
+  function updateDropzone(files: File[]): void {
     const [first] = files;
-    if (files.length === 1 && first) {
-      dropzoneText.firstChild!.textContent = first.name;
-      dropzoneText.lastChild!.textContent = formatBytes(first.size);
+    if (first === undefined) {
+      dropzoneText.replaceChildren(
+        dropzoneLine(
+          "font-medium text-slate-800 dark:text-slate-200",
+          "Drop your chord sheets here"
+        ),
+        document.createTextNode(" or click to browse")
+      );
       return;
     }
+    const single = files.length === 1;
     const total = files.reduce((sum, file) => sum + file.size, 0);
-    dropzoneText.firstChild!.textContent = `${files.length} files selected`;
-    dropzoneText.lastChild!.textContent = formatBytes(total);
+    dropzoneText.replaceChildren(
+      dropzoneLine(
+        "font-medium text-slate-800 dark:text-slate-200",
+        single ? first.name : `${files.length} files selected`
+      ),
+      dropzoneLine("block text-xs text-muted-light dark:text-muted", formatBytes(total))
+    );
   }
 
   function selectedFormat(): string {
@@ -124,18 +192,10 @@ export function initUpload(): void {
   }
 
   function showPreview(from: string, to: string, text: string): void {
-    message.className = BASE_CLASSES + " " + OK_CLASSES;
-    message.replaceChildren();
-
-    const heading = document.createElement("div");
-    heading.className = "mb-2 font-semibold";
-    heading.textContent = `Preview: ${from} to ${to}`;
-    message.appendChild(heading);
-
     const pre = document.createElement("pre");
     pre.className = "overflow-x-auto whitespace-pre font-mono text-xs";
     pre.textContent = text;
-    message.appendChild(pre);
+    showResult(`Preview: ${from} to ${to}`, pre);
   }
 
   const detection = createDetectionBadge({
@@ -146,16 +206,14 @@ export function initUpload(): void {
     onAltPick: runPreview,
   });
 
-  let fileSelectionId = 0;
-
   async function detectDocxKey(file: File, selectionId: number): Promise<void> {
     const data = new FormData();
     data.append("file", file);
     try {
       const response = await fetch("/detect-key", { method: "POST", body: data });
       if (!response.ok) return;
-      const result = (await response.json()) as KeyDetection;
-      if (selectionId !== fileSelectionId) return;
+      const result: unknown = await response.json();
+      if (selectionId !== fileSelectionId || !isKeyDetection(result)) return;
       detection.apply(result);
     } catch {
       return;
@@ -187,19 +245,19 @@ export function initUpload(): void {
     const files = selectedFiles();
     const [first] = files;
     if (first === undefined) {
-      updateDropzone(null);
+      updateDropzone([]);
       return;
     }
     const error = files.length > 1 ? validateFiles(files) : validateFile(first);
-    if (error) {
+    if (error !== null) {
       showError(error);
       fileInput.value = "";
-      updateDropzone(null);
+      updateDropzone([]);
       return;
     }
     updateDropzone(files);
     if (files.length === 1 && isTextName(first.name)) {
-      first.text().then((content) => {
+      void first.text().then((content) => {
         if (selectionId !== fileSelectionId) return;
         textPreviewSource = content;
         detection.detect(content);
@@ -246,20 +304,6 @@ export function initUpload(): void {
   targetKey.addEventListener("change", runPreview);
 
   function showTransposeResult(from: string, to: string, changesRaw: string): void {
-    message.className = BASE_CLASSES + " " + OK_CLASSES;
-    message.replaceChildren();
-
-    const heading = document.createElement("div");
-    heading.className = "mb-2 font-semibold";
-    heading.textContent = `Transposed from ${from} to ${to}`;
-    message.appendChild(heading);
-
-    const pairs = changesRaw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => s.split("->") as [string, string | undefined]);
-
     const table = document.createElement("table");
     table.className = "w-full border-collapse";
 
@@ -272,74 +316,47 @@ export function initUpload(): void {
     table.appendChild(thead);
 
     const tbody = document.createElement("tbody");
-    for (const [orig, transposed] of pairs) {
+    for (const [original, transposed] of changePairs(changesRaw)) {
       const row = document.createElement("tr");
       row.className = "border-t border-app-ok/20";
-      row.appendChild(makeCell(orig, "py-1 pr-4 font-mono"));
-      row.appendChild(makeCell(transposed ?? "", "py-1 font-mono"));
+      row.appendChild(makeCell(original, "py-1 pr-4 font-mono"));
+      row.appendChild(makeCell(transposed, "py-1 font-mono"));
       tbody.appendChild(row);
     }
     table.appendChild(tbody);
 
-    message.appendChild(table);
+    showResult(`Transposed from ${from} to ${to}`, table);
   }
 
-  function showBinderResult(count: number): void {
-    message.className = BASE_CLASSES + " " + OK_CLASSES;
-    message.replaceChildren();
-    const heading = document.createElement("div");
-    heading.className = "font-semibold";
-    heading.textContent = `Binder created from ${count} files`;
-    message.appendChild(heading);
-  }
-
-  function parseDownloadFilename(disposition: string, fallback: string): string {
-    const extendedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-    if (extendedMatch) {
-      try {
-        return decodeURIComponent(extendedMatch[1]!);
-      } catch {
-        return fallback;
-      }
-    }
-    const quotedMatch = disposition.match(/filename="([^"]+)"/i);
-    if (quotedMatch) {
-      return quotedMatch[1]!;
-    }
-    const bareMatch = disposition.match(/filename=([^;]+)/i);
-    if (bareMatch) {
-      return bareMatch[1]!.trim();
-    }
-    return fallback;
-  }
-
-  function textOutputFormat(name: string): string {
+  function textOutputFormat(name: string): TextFormat {
     if (selectedFormat() === "pdf") return "pdf";
     return name.toLowerCase().endsWith(".txt") ? "txt" : "chordpro";
   }
 
-  function buildRequest(files: File[]): UploadRequest {
-    if (files.length > 1) {
-      const data = new FormData();
-      data.append("current_key", currentKey.value);
-      data.append("target_key", targetKey.value);
-      files.forEach((file) => data.append("files", file));
-      return { endpoint: "/binder", body: data, multi: true, fallback: "chord_binder.pdf" };
-    }
-    const file = files[0]!;
+  function keyFormData(): FormData {
+    const data = new FormData();
+    data.append("current_key", currentKey.value);
+    data.append("target_key", targetKey.value);
+    return data;
+  }
+
+  function buildBinderRequest(files: File[]): UploadRequest {
+    const data = keyFormData();
+    files.forEach((file) => data.append("files", file));
+    return { endpoint: "/binder", body: data, multi: true, fallback: "chord_binder.pdf" };
+  }
+
+  function buildSingleRequest(file: File): UploadRequest {
     if (isTextName(file.name)) {
       const format = textOutputFormat(file.name);
-      const data = new FormData();
-      data.append("current_key", currentKey.value);
-      data.append("target_key", targetKey.value);
+      const data = keyFormData();
       data.append("file", file);
       data.append("format", format);
-      const ext = format === "pdf" ? "pdf" : format === "txt" ? "txt" : "pro";
       return {
         endpoint: "/transpose-text",
         body: data,
         multi: false,
-        fallback: `transposed.${ext}`,
+        fallback: `transposed.${TEXT_FORMAT_EXTENSIONS[format]}`,
       };
     }
     return {
@@ -361,13 +378,13 @@ export function initUpload(): void {
     hideMessage();
 
     const files = selectedFiles();
-    const fileError =
-      files.length === 0
-        ? "Please choose a file to upload."
-        : files.length > 1
-          ? validateFiles(files)
-          : validateFile(files[0]!);
-    if (fileError) {
+    const [first] = files;
+    if (first === undefined) {
+      showError("Please choose a file to upload.");
+      return;
+    }
+    const fileError = files.length > 1 ? validateFiles(files) : validateFile(first);
+    if (fileError !== null) {
       showError(fileError);
       return;
     }
@@ -379,14 +396,12 @@ export function initUpload(): void {
     setLoading(true);
 
     try {
-      const request = buildRequest(files);
+      const request = files.length > 1 ? buildBinderRequest(files) : buildSingleRequest(first);
       const response = await fetch(request.endpoint, { method: "POST", body: request.body });
 
       if (!response.ok) {
-        const data = (await response
-          .json()
-          .catch(() => ({ error: "Something went wrong." }))) as ErrorResponse;
-        showError(data.error || "Something went wrong.");
+        const payload: unknown = await response.json().catch(() => null);
+        showError(errorMessage(payload));
         return;
       }
 
@@ -395,20 +410,10 @@ export function initUpload(): void {
       const changes = decodeURIComponent(response.headers.get("X-Transpose-Changes") || "none");
 
       const disposition = response.headers.get("Content-Disposition") || "";
-      const filename = parseDownloadFilename(disposition, request.fallback);
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(await response.blob(), parseDownloadFilename(disposition, request.fallback));
 
       if (request.multi) {
-        showBinderResult(files.length);
+        showResult(`Binder created from ${files.length} files`);
       } else {
         showTransposeResult(from, to, changes);
       }

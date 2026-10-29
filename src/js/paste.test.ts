@@ -27,7 +27,9 @@ function buildDom(attrs: PanelAttrs = {}) {
       <div id="text_status"></div>
       <button id="text_copy"></button>
       <select id="text_current_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option></select>
-      <select id="text_target_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option></select>
+      <div id="text_target_wrap">
+        <select id="text_target_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option></select>
+      </div>
       <div><button id="text_swap"></button></div>
       <span id="text_linecount"></span>
       <button id="text_sample"></button>
@@ -694,6 +696,27 @@ describe("initPaste preferences", () => {
     stubPrefs({ instrument: "piano" });
     initPaste();
     expect(requireElement<HTMLSelectElement>("text_instrument").value).toBe("ukulele");
+  });
+
+  it("falls back to the guitar when the saved instrument is unknown", () => {
+    buildDom();
+    stubPrefs({ instrument: "banjo" });
+    initPaste();
+    expect(requireElement<HTMLSelectElement>("text_instrument").value).toBe("guitar");
+  });
+
+  it("falls back to the guitar when the select reports an unknown instrument", () => {
+    buildDom();
+    const setItem = vi.fn();
+    stubPrefs({}, setItem);
+    initPaste();
+    const select = requireElement<HTMLSelectElement>("text_instrument");
+    const unknown = document.createElement("option");
+    unknown.value = "banjo";
+    select.appendChild(unknown);
+    select.value = "banjo";
+    select.dispatchEvent(new Event("change"));
+    expect(savedKeys(setItem).instrument).toBe("guitar");
   });
 
   it("uses the saved instrument when the page sets none", () => {

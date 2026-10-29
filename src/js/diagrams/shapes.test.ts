@@ -7,7 +7,6 @@ import {
   parseChordSymbol,
   type ChordFamily,
   type FrettedShape,
-  type ParsedChord,
 } from "./shapes";
 
 function guitarFrets(symbol: string) {
@@ -185,17 +184,6 @@ describe("piano and note spelling", () => {
     expect(chord!.bassSemitone).toBe(7);
   });
 
-  it("uses the maj interval fallback for an unknown family in chordNotes", () => {
-    expect(
-      chordNotes({
-        family: "unknown",
-        rootSemitone: 0,
-        bassSemitone: null,
-        german: false,
-      } as unknown as ParsedChord)
-    ).toEqual(["C", "E", "G"]);
-  });
-
   it("returns null when looking up a null chord", () => {
     expect(lookupShape(null, "guitar")).toBeNull();
   });
@@ -210,9 +198,7 @@ describe("roots outside the note tables", () => {
     expect(parseChordSymbol("Hb")).toBeNull();
   });
 
-  it("drops a slash bass whose root has no semitone", () => {
-    const chord = parseChordSymbol("C/Hb")!;
-    expect(chord.bassName).toBe("");
-    expect(chord.bassSemitone).toBeNull();
+  it("rejects a chord whose slash bass has no semitone", () => {
+    expect(parseChordSymbol("C/Hb")).toBeNull();
   });
 });

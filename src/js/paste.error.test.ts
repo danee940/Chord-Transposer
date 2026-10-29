@@ -21,7 +21,9 @@ function buildDom() {
       <div id="text_status"></div>
       <button id="text_copy"></button>
       <select id="text_current_key"><option value="C">C</option><option value="D">D</option></select>
-      <select id="text_target_key"><option value="C">C</option><option value="D">D</option></select>
+      <div id="text_target_wrap">
+        <select id="text_target_key"><option value="C">C</option><option value="D">D</option></select>
+      </div>
       <div><button id="text_swap"></button></div>
       <span id="text_linecount"></span>
       <button id="text_sample"></button>

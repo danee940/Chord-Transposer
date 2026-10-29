@@ -1725,5 +1725,20 @@
       "chords": 4,
       "distinct": 3
     }
+  },
+  {
+    "description": "Hb is not a chord in either notation",
+    "mode": "key",
+    "input": "Hb  C\nla la",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "Hb  C\nla la",
+      "from": "C",
+      "to": "D",
+      "changes": []
+    }
   }
 ]
