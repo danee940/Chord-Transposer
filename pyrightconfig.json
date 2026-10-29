@@ -1,4 +1,13 @@
 {
   "venvPath": ".",
-  "venv": ".venv"
+  "venv": ".venv",
+  "include": ["src"],
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": false,
+  "reportUnknownArgumentType": false,
+  "reportUnknownLambdaType": false,
+  "reportUnknownMemberType": false,
+  "reportUnknownParameterType": false,
+  "reportUnknownVariableType": false,
+  "reportPrivateUsage": false
 }

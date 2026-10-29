@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+from collections.abc import Callable, Iterable
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote, urlencode
@@ -14,7 +15,9 @@ from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
 from dotenv import load_dotenv
 from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_file
+from flask.typing import ResponseReturnValue
 from pypdf import PdfWriter
+from werkzeug.exceptions import NotFound
 
 import seo
 from seo import FAQ_ITEMS, HOWTO_STEPS, SITE_URL
@@ -92,7 +95,7 @@ JS_ENTRY_LANDING = "landing.ts"
 JS_BUNDLE_LANDING_FALLBACK = "/static/js/landing.js"
 
 
-def _compute_css_version():
+def _compute_css_version() -> str:
     """Return a short content hash of the built stylesheet for cache-busting."""
     css_path = Path(__file__).resolve().parent / "static" / "tailwind.css"
     try:
@@ -102,7 +105,7 @@ def _compute_css_version():
     return digest[:12]
 
 
-def _resolve_js_bundle(entry=JS_ENTRY, fallback=JS_BUNDLE_FALLBACK):
+def _resolve_js_bundle(entry: str = JS_ENTRY, fallback: str = JS_BUNDLE_FALLBACK) -> str:
     """Return the hashed frontend entry URL from Vite's build manifest.
 
     Falls back to an unhashed path when the manifest is unavailable so the
@@ -128,7 +131,7 @@ JS_BUNDLE_LANDING = _resolve_js_bundle(JS_ENTRY_LANDING, JS_BUNDLE_LANDING_FALLB
 
 
 @app.context_processor
-def inject_asset_versions():
+def inject_asset_versions() -> dict[str, str]:
     """Expose the stylesheet and script cache-busting references to templates."""
     return {
         "css_version": CSS_VERSION,
@@ -145,20 +148,20 @@ logger.info(
 
 
 @app.before_request
-def log_request_start():
+def log_request_start() -> None:
     """Log the method, path and client for every incoming request."""
     logger.info("--> %s %s from %s", request.method, request.path, request.remote_addr)
 
 
 @app.after_request
-def log_request_end(response):
+def log_request_end(response: Response) -> Response:
     """Log the status code returned for every request."""
     logger.info("<-- %s %s %s", request.method, request.path, response.status_code)
     return response
 
 
 @app.after_request
-def set_cache_headers(response):
+def set_cache_headers(response: Response) -> Response:
     """Cache versioned static assets aggressively and always revalidate HTML pages."""
     if request.path.startswith("/static/"):
         response.headers["Cache-Control"] = f"public, max-age={STATIC_CSS_MAX_AGE}, immutable"
@@ -167,13 +170,13 @@ def set_cache_headers(response):
     return response
 
 
-def _requested_preselect():
+def _requested_preselect() -> dict[str, str]:
     """Return the key preselection asked for by the home page's query string.
 
     Keys are omitted rather than passed as None so the paste panel keeps its own
     defaults when a query string is absent or names a key that is not offered.
     """
-    requested = {}
+    requested: dict[str, str] = {}
     for parameter, field in (("from", "preselect_from"), ("to", "preselect_to")):
         value = request.args.get(parameter)
         if value in KEY_OPTIONS:
@@ -182,7 +185,7 @@ def _requested_preselect():
 
 
 @app.route("/")
-def index():
+def index() -> str:
     """Render the upload page with available key options."""
     return render_template(
         "index.html",
@@ -199,7 +202,7 @@ def index():
 
 
 @app.route("/transpose/<slug>")
-def retired_key_pair(slug):
+def retired_key_pair(slug: str) -> ResponseReturnValue:
     """Redirect a retired key-pair URL to the home page with both keys preselected."""
     pair = seo.key_pair_from_slug(slug, KEY_OPTIONS)
     if pair is None:
@@ -209,40 +212,40 @@ def retired_key_pair(slug):
 
 
 @app.route("/health")
-def health():
+def health() -> Response:
     """Return a lightweight liveness response for container health checks."""
     return jsonify({"status": "ok"})
 
 
 @app.route("/robots.txt")
-def robots():
+def robots() -> Response:
     """Serve robots.txt allowing all crawlers and pointing to the sitemap."""
     body = f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n"
     return Response(body, mimetype="text/plain")
 
 
 @app.route("/favicon.svg")
-def favicon():
+def favicon() -> Response:
     """Serve the SVG favicon."""
     return app.send_static_file("favicon.svg")
 
 
 @app.route("/favicon.ico")
-def favicon_ico():
+def favicon_ico() -> Response:
     """Serve the ICO favicon for crawlers and legacy browsers."""
     return app.send_static_file("favicon.ico")
 
 
 @app.route("/og-image.png")
-def og_image():
+def og_image() -> Response:
     """Serve the branded social share image used for Open Graph and Twitter cards."""
     return app.send_static_file("og-image.png")
 
 
 @app.route("/sitemap.xml")
-def sitemap():
+def sitemap() -> Response:
     """Serve a sitemap generated from the home page and every landing page."""
-    urls = []
+    urls: list[str] = []
     for entry in seo.sitemap_entries():
         path = entry["path"]
         priority = "1.0" if path == "/" else "0.8"
@@ -260,7 +263,7 @@ def sitemap():
 
 
 @app.route("/detect-key", methods=["POST"])
-def detect_key_upload():
+def detect_key_upload() -> ResponseReturnValue:
     """Guess the key of an uploaded .docx chord sheet and return it as JSON."""
     uploaded = request.files.get("file")
 
@@ -282,7 +285,7 @@ def detect_key_upload():
 
 
 @app.route("/transpose", methods=["POST"])
-def transpose():
+def transpose() -> ResponseReturnValue:
     """Transpose an uploaded .docx and return the generated file as a download."""
     uploaded = request.files.get("file")
     current_key = (request.form.get("current_key") or "").strip()
@@ -339,7 +342,7 @@ def transpose():
     return response
 
 
-def _text_to_docx_bytes(text):
+def _text_to_docx_bytes(text: str) -> bytes:
     """Build .docx bytes from plain text, one paragraph per line, for PDF reuse."""
     document = Document()
     for line in text.split("\n"):
@@ -349,7 +352,7 @@ def _text_to_docx_bytes(text):
     return buffer.getvalue()
 
 
-def _merge_pdfs(pdf_documents):
+def _merge_pdfs(pdf_documents: Iterable[bytes]) -> bytes:
     """Merge a sequence of PDF byte strings into a single PDF, preserving order."""
     writer = PdfWriter()
     for pdf_bytes in pdf_documents:
@@ -360,13 +363,13 @@ def _merge_pdfs(pdf_documents):
     return merged.getvalue()
 
 
-def _changes_header(changes):
+def _changes_header(changes: Iterable[tuple[str, str]]) -> str:
     """Format transposition changes as a compact, URL-safe response header value."""
     return ", ".join(f"{a}->{b}" for a, b in changes) if changes else "none"
 
 
 @app.route("/transpose-text", methods=["POST"])
-def transpose_text_upload():
+def transpose_text_upload() -> ResponseReturnValue:
     """Transpose an uploaded .txt/.pro/.cho chord sheet to text or PDF."""
     uploaded = request.files.get("file")
     current_key = (request.form.get("current_key") or "").strip()
@@ -432,7 +435,7 @@ def transpose_text_upload():
 
 
 @app.route("/binder", methods=["POST"])
-def binder():
+def binder() -> ResponseReturnValue:
     """Transpose several .docx files and return them merged into one PDF binder."""
     uploaded_files = [f for f in request.files.getlist("files") if f and f.filename]
     current_key = (request.form.get("current_key") or "").strip()
@@ -448,7 +451,7 @@ def binder():
         if not uploaded.filename or not uploaded.filename.lower().endswith(".docx"):
             return jsonify({"error": "Only .docx files are supported in the binder."}), 400
 
-    documents = []
+    documents: list[bytes] = []
     total_bytes = 0
     for uploaded in uploaded_files:
         data = uploaded.read()
@@ -461,7 +464,7 @@ def binder():
 
     to_label = target_key
     try:
-        pdf_documents = []
+        pdf_documents: list[bytes] = []
         for data in documents:
             docx_bytes, _, to_label, _ = transpose_document_bytes(data, current_key, target_key)
             pdf_documents.append(convert_docx_to_pdf(docx_bytes))
@@ -486,7 +489,7 @@ NOT_FOUND_LINKS = seo.not_found_links()
 
 
 @app.errorhandler(404)
-def not_found(_error):
+def not_found(_error: NotFound) -> ResponseReturnValue:
     """Render the branded 404 page, cross-linking the transposer and landing pages."""
     return (
         render_template(
@@ -505,7 +508,7 @@ def not_found(_error):
     )
 
 
-def _landing_context(page):
+def _landing_context(page: seo.LandingPage) -> dict[str, object]:
     """Return the template context for a single landing page."""
     return {
         "page": page,
@@ -524,10 +527,10 @@ def _landing_context(page):
     }
 
 
-def _make_landing_view(page):
+def _make_landing_view(page: seo.LandingPage) -> Callable[[], str]:
     """Return a view function rendering the shared landing template for a page."""
 
-    def landing_view():
+    def landing_view() -> str:
         return render_template("landing.html", **_landing_context(page))
 
     return landing_view

@@ -10,7 +10,128 @@ the date of a page whenever you change the copy it renders, and leave the others
 alone, so crawlers keep treating the dates as trustworthy.
 """
 
+from collections.abc import Iterable
+from typing import Any, NotRequired, TypedDict
+
 from transpose import SHARP_SPELLING
+
+
+class FaqItem(TypedDict):
+    """A single question/answer pair rendered in a page's FAQ section."""
+
+    question: str
+    answer: str
+
+
+class HowToStep(TypedDict):
+    """A single step of the home page's how-to list."""
+
+    text: str
+
+
+class Breadcrumb(TypedDict):
+    """One crumb of a landing page's breadcrumb trail."""
+
+    name: str
+    url: str
+
+
+class ChartRow(TypedDict):
+    """One row of a chromatic transposition chart."""
+
+    note: str
+    cells: list[str]
+
+
+class ChromaticChart(TypedDict):
+    """A chromatic transposition chart with its headers and rows."""
+
+    shifts: list[int]
+    headers: list[str]
+    rows: list[ChartRow]
+
+
+class IntervalRow(TypedDict):
+    """One row of the semitone-to-interval reference table."""
+
+    semitones: int
+    name: str
+    example: str
+
+
+class KeySignatureRow(TypedDict):
+    """One row of the circle-of-fifths key-signature reference table."""
+
+    key: str
+    accidentals: str
+    relative_minor: str
+
+
+class Instrument(TypedDict):
+    """The source record describing an instrument landing page."""
+
+    instrument: str
+    slug: str
+    lastmod: str
+    name: str
+    title: str
+    description: str
+    h1: str
+    preselect_from: str
+    preselect_to: str
+    preselect_instrument: str
+    faq_items: list[FaqItem]
+    show_capo: bool
+    intro_paragraphs: list[str]
+    features: list[str]
+
+
+class LandingPage(TypedDict):
+    """The full page record a landing page is rendered from."""
+
+    id: str
+    path: str
+    kind: str
+    lastmod: str
+    title: str
+    description: str
+    h1: str
+    intro_paragraphs: list[str]
+    canonical: str
+    preselect_from: str
+    preselect_to: str
+    faq_items: list[FaqItem]
+    show_capo: bool
+    breadcrumbs: list[Breadcrumb]
+    jsonld: list[dict[str, Any]]
+    instrument: NotRequired[str]
+    preselect_instrument: NotRequired[str]
+    features: NotRequired[list[str]]
+    chart: NotRequired[ChromaticChart]
+    interval_reference: NotRequired[list[IntervalRow]]
+    key_signature_reference: NotRequired[list[KeySignatureRow]]
+
+
+class NavLink(TypedDict):
+    """A single internal link offered in the cross-link hub or 404 page."""
+
+    name: str
+    path: str
+
+
+class NavSection(TypedDict):
+    """A heading with its group of internal links in the cross-link hub."""
+
+    heading: str
+    links: list[NavLink]
+
+
+class SitemapEntry(TypedDict):
+    """An indexable path paired with the date its content last changed."""
+
+    path: str
+    lastmod: str
+
 
 SITE_URL = "https://chordtransposer.app"
 
@@ -18,7 +139,7 @@ KEY_PAIR_SLUG_SEPARATOR = "-to-"
 
 HOME_LAST_MODIFIED = "2026-10-24"
 
-FAQ_ITEMS = [
+FAQ_ITEMS: list[FaqItem] = [
     {
         "question": "How do I transpose chords to a different key?",
         "answer": (
@@ -81,7 +202,7 @@ FAQ_ITEMS = [
     },
 ]
 
-GUITAR_FAQ_ITEMS = [
+GUITAR_FAQ_ITEMS: list[FaqItem] = [
     {
         "question": "How do I transpose guitar chords to a new key?",
         "answer": (
@@ -121,7 +242,7 @@ GUITAR_FAQ_ITEMS = [
     },
 ]
 
-UKULELE_FAQ_ITEMS = [
+UKULELE_FAQ_ITEMS: list[FaqItem] = [
     {
         "question": "How do I transpose ukulele chords to a new key?",
         "answer": (
@@ -160,7 +281,7 @@ UKULELE_FAQ_ITEMS = [
     },
 ]
 
-PIANO_FAQ_ITEMS = [
+PIANO_FAQ_ITEMS: list[FaqItem] = [
     {
         "question": "How do I transpose piano chords to a new key?",
         "answer": (
@@ -198,7 +319,7 @@ PIANO_FAQ_ITEMS = [
     },
 ]
 
-FILE_FAQ_ITEMS = [
+FILE_FAQ_ITEMS: list[FaqItem] = [
     {
         "question": "Which file types can I upload?",
         "answer": (
@@ -236,7 +357,7 @@ FILE_FAQ_ITEMS = [
     },
 ]
 
-CHART_FAQ_ITEMS = [
+CHART_FAQ_ITEMS: list[FaqItem] = [
     {
         "question": "How do I use a chromatic transposition chart?",
         "answer": (
@@ -267,14 +388,14 @@ CHART_FAQ_ITEMS = [
     },
 ]
 
-HOWTO_STEPS = [
+HOWTO_STEPS: list[HowToStep] = [
     {"text": "Paste your chords, or upload a chord sheet in .docx format."},
     {"text": "Select the key the song is currently written in."},
     {"text": "Select the key you want to play it in."},
     {"text": "See the result instantly, or download it as a .docx or PDF."},
 ]
 
-WEBAPP_JSONLD = {
+WEBAPP_JSONLD: dict[str, Any] = {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Chord Transposer",
@@ -289,7 +410,7 @@ WEBAPP_JSONLD = {
     "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
 }
 
-INSTRUMENTS = [
+INSTRUMENTS: list[Instrument] = [
     {
         "instrument": "guitar",
         "slug": "guitar-chord-transposer",
@@ -392,12 +513,12 @@ _SHIFT_LABELS = {
 }
 
 
-def key_slug(key):
+def key_slug(key: str) -> str:
     """Return the lowercase URL fragment a key had in the retired key-pair pages."""
     return key.replace("#", "-sharp").lower()
 
 
-def key_pair_from_slug(slug, keys):
+def key_pair_from_slug(slug: str, keys: Iterable[str]) -> tuple[str, str] | None:
     """Return the (current, target) keys a retired key-pair slug named, or None."""
     parts = slug.split(KEY_PAIR_SLUG_SEPARATOR)
     if len(parts) != 2:
@@ -410,7 +531,7 @@ def key_pair_from_slug(slug, keys):
     return from_key, to_key
 
 
-def _breadcrumbs(title, path):
+def _breadcrumbs(title: str, path: str) -> list[Breadcrumb]:
     """Return the breadcrumb trail from the home page to the given landing page."""
     return [
         {"name": "Home", "url": f"{SITE_URL}/"},
@@ -418,7 +539,7 @@ def _breadcrumbs(title, path):
     ]
 
 
-def _breadcrumb_jsonld(breadcrumbs):
+def _breadcrumb_jsonld(breadcrumbs: list[Breadcrumb]) -> dict[str, Any]:
     """Return a BreadcrumbList structured-data block for a landing page."""
     return {
         "@context": "https://schema.org",
@@ -435,12 +556,12 @@ def _breadcrumb_jsonld(breadcrumbs):
     }
 
 
-def home_jsonld():
+def home_jsonld() -> list[dict[str, Any]]:
     """Return the structured-data blocks for the home page."""
     return [WEBAPP_JSONLD]
 
 
-def _instrument_page(instrument):
+def _instrument_page(instrument: Instrument) -> LandingPage:
     """Build the full page record for an instrument landing page."""
     path = f"/{instrument['slug']}"
     breadcrumbs = _breadcrumbs(instrument["name"], path)
@@ -466,22 +587,22 @@ def _instrument_page(instrument):
     }
 
 
-def _chart_rows(shifts):
+def _chart_rows(shifts: list[int]) -> list[ChartRow]:
     """Return chromatic chart rows mapping each note to its shifted spelling."""
-    rows = []
+    rows: list[ChartRow] = []
     for index, note in enumerate(SHARP_SPELLING):
         cells = [SHARP_SPELLING[(index + shift) % 12] for shift in shifts]
         rows.append({"note": note, "cells": cells})
     return rows
 
 
-def chromatic_chart(shifts):
+def chromatic_chart(shifts: list[int]) -> ChromaticChart:
     """Return a chromatic transposition chart for the given semitone shifts."""
     headers = [_SHIFT_LABELS.get(shift, f"+{shift}") for shift in shifts]
     return {"shifts": shifts, "headers": headers, "rows": _chart_rows(shifts)}
 
 
-def compact_chromatic_chart():
+def compact_chromatic_chart() -> ChromaticChart:
     """Return the small chromatic chart embedded on the home page."""
     return chromatic_chart(COMPACT_CHART_SHIFTS)
 
@@ -519,7 +640,7 @@ _INTERVAL_EXAMPLES = {
 }
 
 
-def interval_reference():
+def interval_reference() -> list[IntervalRow]:
     """Return the semitone-to-interval reference rows for the chart page."""
     return [
         {
@@ -531,7 +652,7 @@ def interval_reference():
     ]
 
 
-_KEY_SIGNATURES = [
+_KEY_SIGNATURES: list[KeySignatureRow] = [
     {"key": "C", "accidentals": "none", "relative_minor": "Am"},
     {"key": "G", "accidentals": "1 sharp", "relative_minor": "Em"},
     {"key": "D", "accidentals": "2 sharps", "relative_minor": "Bm"},
@@ -547,12 +668,12 @@ _KEY_SIGNATURES = [
 ]
 
 
-def key_signature_reference():
+def key_signature_reference() -> list[KeySignatureRow]:
     """Return the circle-of-fifths key-signature reference rows for the chart page."""
     return list(_KEY_SIGNATURES)
 
 
-def _chart_page():
+def _chart_page() -> LandingPage:
     """Build the full page record for the chromatic transposition chart page."""
     path = "/chromatic-chart"
     breadcrumbs = _breadcrumbs("Chromatic chart", path)
@@ -588,7 +709,7 @@ def _chart_page():
     }
 
 
-def _file_page():
+def _file_page() -> LandingPage:
     """Build the full page record for the file upload transposer page."""
     path = "/file-chord-transposer"
     breadcrumbs = _breadcrumbs("File transposer", path)
@@ -622,7 +743,7 @@ def _file_page():
     }
 
 
-def landing_pages():
+def landing_pages() -> list[LandingPage]:
     """Return every indexable landing page record in navigation order."""
     pages = [_instrument_page(instrument) for instrument in INSTRUMENTS]
     pages.append(_file_page())
@@ -633,7 +754,7 @@ def landing_pages():
 NOT_FOUND_LINK_IDS = ("guitar_chord_transposer", "file_chord_transposer", "chromatic_chart")
 
 
-def not_found_links():
+def not_found_links() -> list[NavLink]:
     """Return the landing pages offered as shortcut buttons on the 404 page."""
     pages_by_id = {page["id"]: page for page in landing_pages()}
     return [
@@ -642,14 +763,14 @@ def not_found_links():
     ]
 
 
-def nav_sections():
+def nav_sections() -> list[NavSection]:
     """Return grouped internal links for the cross-link hub in nav and footer."""
-    instrument_links = [
+    instrument_links: list[NavLink] = [
         {"name": f"{instrument['name']} transposer", "path": f"/{instrument['slug']}"}
         for instrument in INSTRUMENTS
     ]
-    file_links = [{"name": "File transposer", "path": "/file-chord-transposer"}]
-    reference_links = [{"name": "Chromatic chart", "path": "/chromatic-chart"}]
+    file_links: list[NavLink] = [{"name": "File transposer", "path": "/file-chord-transposer"}]
+    reference_links: list[NavLink] = [{"name": "Chromatic chart", "path": "/chromatic-chart"}]
     return [
         {"heading": "Upload files", "links": file_links},
         {"heading": "By instrument", "links": instrument_links},
@@ -657,9 +778,9 @@ def nav_sections():
     ]
 
 
-def nav_columns():
+def nav_columns() -> list[list[NavSection]]:
     """Split the nav sections into two balanced columns for the cross-link hub."""
-    columns = [[], []]
+    columns: list[list[NavSection]] = [[], []]
     counts = [0, 0]
     for section in nav_sections():
         target = 0 if counts[0] <= counts[1] else 1
@@ -668,13 +789,13 @@ def nav_columns():
     return columns
 
 
-def sitemap_entries():
+def sitemap_entries() -> list[SitemapEntry]:
     """Return every indexable path with the date its content last changed."""
-    entries = [{"path": "/", "lastmod": HOME_LAST_MODIFIED}]
+    entries: list[SitemapEntry] = [{"path": "/", "lastmod": HOME_LAST_MODIFIED}]
     entries.extend({"path": page["path"], "lastmod": page["lastmod"]} for page in landing_pages())
     return entries
 
 
-def sitemap_paths():
+def sitemap_paths() -> list[str]:
     """Return every indexable path, starting with the home page."""
     return [entry["path"] for entry in sitemap_entries()]

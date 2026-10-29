@@ -26,6 +26,9 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
 
+      - name: Pylint (errors only)
+        run: pylint src
+
       - name: Pyright
         run: pyright src/
 

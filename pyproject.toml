@@ -3,7 +3,13 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP", "B"]
+select = ["E", "F", "I", "W", "UP", "B", "ANN"]
+
+[tool.pylint.main]
+# Pylint is a light, errors-only safety net; style and typing are enforced by
+# ruff (incl. ANN annotation rules) and pyright strict.
+disable = ["all"]
+enable = ["E"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=transpose --cov=app --cov=seo --cov-report=term-missing --cov-fail-under=95"

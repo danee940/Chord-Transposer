@@ -17,7 +17,7 @@ before considering the task done. Use the `/check` command, or run directly:
 ```bash
 ruff check .
 ruff format --check .
-pylint
+pylint src
 pyright
 pytest
 ```
@@ -25,9 +25,17 @@ pytest
 - `pytest` is configured (in `pyproject.toml`) to run with coverage and to
   fail if combined coverage of `transpose.py`, `app.py`, and `seo.py` drops
   below 95%.
-- `testpaths` includes four test files: `src/test_transpose.py`,
-  `src/test_app.py`, `src/test_integration.py`, and `src/test_parity.py`. All
-  four must pass. Do not remove any from `testpaths`.
+- `testpaths` includes five test files: `src/test_transpose.py`,
+  `src/test_app.py`, `src/test_integration.py`, `src/test_parity.py`, and
+  `src/test_api_contract.py`. All five must pass. Do not remove any from
+  `testpaths`.
+- `pyright` runs in strict mode (`pyrightconfig.json`; the unknown-type
+  diagnostics are off because third-party libraries are partly untyped) and
+  ruff enforces the `ANN` annotation rules: every function parameter and
+  return type must be annotated, in application code and tests alike. Use
+  Python 3.12 syntax (`list[str]`, `X | None`, `collections.abc` imports);
+  prefer precise types or `typing.cast` over `Any`, and never add
+  `# type: ignore` / `# pyright: ignore` comments.
 - `src/test_integration.py` contains end-to-end integration tests using real
   `.docx` bytes. When adding new behaviour to `src/transpose.py` or
   `src/app.py`, consider whether a corresponding integration test is needed
@@ -105,6 +113,12 @@ npm run test:js
   `src/js/transpose/parity.test.ts` replays it through TypeScript.
 - When you change transpose behaviour, update both implementations and the
   shared cases, then run both `pytest` and `npm run test:js`.
+- The HTTP boundary has its own shared harness:
+  `src/testdata/api_contract_cases.json` records exact request/response pairs
+  for every endpoint the frontend calls. `src/test_api_contract.py` replays
+  them against the Flask app and `src/js/api-contract.test.ts` replays them
+  against the upload frontend. When you change an endpoint's fields, payloads,
+  headers, or messages, update the fixture and keep both suites green.
 
 ## Styling (Tailwind build)
 
