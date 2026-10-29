@@ -239,6 +239,62 @@ export function chooseSpelling(useFlats: boolean, german: boolean): Spelling {
   return useFlats ? FLAT_SPELLING : SHARP_SPELLING;
 }
 
+const NATURAL_LETTER_SEMITONES: Readonly<Record<string, Semitone>> = {
+  C: 0,
+  D: 2,
+  E: 4,
+  F: 5,
+  G: 7,
+  A: 9,
+  B: 11,
+};
+const LETTER_ORDER = "CDEFGAB";
+const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11] as const;
+const MINOR_SCALE_INTERVALS = [0, 2, 3, 5, 7, 8, 10] as const;
+
+function spellLetter(letter: string, accidental: number, german: boolean): string {
+  if (!german) {
+    return letter + (accidental === 1 ? "#" : accidental === -1 ? "b" : "");
+  }
+  if (accidental === 1) return letter === "B" ? "His" : `${letter}is`;
+  if (accidental === -1) {
+    if (letter === "B") return "B";
+    if (letter === "E" || letter === "A") return `${letter}s`;
+    return `${letter}es`;
+  }
+  return letter === "B" ? "H" : letter;
+}
+
+export function keySpelling(note: string, minor: boolean, german: boolean): Spelling {
+  // Diatonic notes of the target key's major or natural minor scale are
+  // spelled by scale degree (e.g. Cb in Gb major, E# in F# major), and minor
+  // keys also spell their harmonic-minor leading tone as a raised seventh
+  // (C# in D minor, E# in F# minor). The rest keep the key's conventional
+  // sharp or flat spelling, and degrees that would need a double accidental
+  // fall back to it.
+  const spelling = [...chooseSpelling(prefersFlats(note, minor), german)];
+  let letter = note.charAt(0).toUpperCase();
+  if (letter === "H") letter = "B";
+  const tonic = keySemitone(note, german);
+  const intervals = minor ? MINOR_SCALE_INTERVALS : MAJOR_SCALE_INTERVALS;
+  const start = LETTER_ORDER.indexOf(letter);
+  const degrees: Array<[degree: number, interval: number]> = intervals.map((interval, degree) => [
+    degree,
+    interval,
+  ]);
+  if (minor) degrees.push([6, 11]);
+  for (const [degree, interval] of degrees) {
+    const semitone = mod12(tonic + interval);
+    const degreeLetter = LETTER_ORDER.charAt((start + degree) % 7);
+    const accidental =
+      (mod12(semitone - NATURAL_LETTER_SEMITONES[degreeLetter]! + 6) as number) - 6;
+    if (accidental >= -1 && accidental <= 1) {
+      spelling[semitone] = spellLetter(degreeLetter, accidental, german);
+    }
+  }
+  return spelling as unknown as Spelling;
+}
+
 export function noteSemitone(note: string, german: boolean): Semitone {
   const table = german ? GERMAN_NOTE_TO_SEMITONE : NOTE_TO_SEMITONE;
   const semitone = table[canonicalNote(note)];

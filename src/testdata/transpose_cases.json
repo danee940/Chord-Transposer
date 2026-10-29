@@ -1740,5 +1740,429 @@
       "to": "D",
       "changes": []
     }
+  },
+  {
+    "description": "key-aware spelling: diatonic scale into Gb major uses Cb",
+    "mode": "key",
+    "input": "C    Dm    Em    F    G    Am    Bdim",
+    "params": {
+      "current_key": "C",
+      "target_key": "Gb"
+    },
+    "expected": {
+      "text": "Gb   Abm   Bbm   Cb   Db   Ebm   Fdim",
+      "from": "C",
+      "to": "Gb",
+      "changes": [
+        [
+          "Am",
+          "Ebm"
+        ],
+        [
+          "Bdim",
+          "Fdim"
+        ],
+        [
+          "C",
+          "Gb"
+        ],
+        [
+          "Dm",
+          "Abm"
+        ],
+        [
+          "Em",
+          "Bbm"
+        ],
+        [
+          "F",
+          "Cb"
+        ],
+        [
+          "G",
+          "Db"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: diatonic scale into F# major uses E#",
+    "mode": "key",
+    "input": "C    Dm    Em    F    G    Am    Bdim",
+    "params": {
+      "current_key": "C",
+      "target_key": "F#"
+    },
+    "expected": {
+      "text": "F#   G#m   A#m   B    C#   D#m   E#dim",
+      "from": "C",
+      "to": "F#",
+      "changes": [
+        [
+          "Am",
+          "D#m"
+        ],
+        [
+          "Bdim",
+          "E#dim"
+        ],
+        [
+          "C",
+          "F#"
+        ],
+        [
+          "Dm",
+          "G#m"
+        ],
+        [
+          "Em",
+          "A#m"
+        ],
+        [
+          "F",
+          "B"
+        ],
+        [
+          "G",
+          "C#"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: Eb minor scale uses Cb",
+    "mode": "key",
+    "input": "Am    Dm    E7    F    G",
+    "params": {
+      "current_key": "Am",
+      "target_key": "Ebm"
+    },
+    "expected": {
+      "text": "Ebm   Abm   Bb7   Cb   Db",
+      "from": "Am",
+      "to": "Ebm",
+      "changes": [
+        [
+          "Am",
+          "Ebm"
+        ],
+        [
+          "Dm",
+          "Abm"
+        ],
+        [
+          "E7",
+          "Bb7"
+        ],
+        [
+          "F",
+          "Cb"
+        ],
+        [
+          "G",
+          "Db"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: slash chord bass notes into Gb major",
+    "mode": "key",
+    "input": "C/E    F/G    G/B",
+    "params": {
+      "current_key": "C",
+      "target_key": "Gb"
+    },
+    "expected": {
+      "text": "Gb/Bb  Cb/Db  Db/F",
+      "from": "C",
+      "to": "Gb",
+      "changes": [
+        [
+          "C/E",
+          "Gb/Bb"
+        ],
+        [
+          "F/G",
+          "Cb/Db"
+        ],
+        [
+          "G/B",
+          "Db/F"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: slash chord bass notes into F# major",
+    "mode": "key",
+    "input": "G/B    Am/G",
+    "params": {
+      "current_key": "C",
+      "target_key": "F#"
+    },
+    "expected": {
+      "text": "C#/E#  D#m/C#",
+      "from": "C",
+      "to": "F#",
+      "changes": [
+        [
+          "Am/G",
+          "D#m/C#"
+        ],
+        [
+          "G/B",
+          "C#/E#"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: German sheet into Gb major uses Ces",
+    "mode": "key",
+    "input": "C    F    G    H",
+    "params": {
+      "current_key": "C",
+      "target_key": "Gb"
+    },
+    "expected": {
+      "text": "Ges  Ces  Des  F",
+      "from": "C",
+      "to": "Gb",
+      "changes": [
+        [
+          "C",
+          "Ges"
+        ],
+        [
+          "F",
+          "Ces"
+        ],
+        [
+          "G",
+          "Des"
+        ],
+        [
+          "H",
+          "F"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: German sheet into F# major uses Eis and H",
+    "mode": "key",
+    "input": "C    F    G    H",
+    "params": {
+      "current_key": "C",
+      "target_key": "F#"
+    },
+    "expected": {
+      "text": "Fis  H    Cis  Eis",
+      "from": "C",
+      "to": "F#",
+      "changes": [
+        [
+          "C",
+          "Fis"
+        ],
+        [
+          "F",
+          "H"
+        ],
+        [
+          "G",
+          "Cis"
+        ],
+        [
+          "H",
+          "Eis"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: D# minor keeps sharp spelling with natural B",
+    "mode": "key",
+    "input": "Am    Dm    E7    F    G",
+    "params": {
+      "current_key": "Am",
+      "target_key": "D#m"
+    },
+    "expected": {
+      "text": "D#m   G#m   A#7   B    C#",
+      "from": "Am",
+      "to": "D#m",
+      "changes": [
+        [
+          "Am",
+          "D#m"
+        ],
+        [
+          "Dm",
+          "G#m"
+        ],
+        [
+          "E7",
+          "A#7"
+        ],
+        [
+          "F",
+          "B"
+        ],
+        [
+          "G",
+          "C#"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: non-diatonic chords into F# keep sharp spelling",
+    "mode": "key",
+    "input": "Bb    E7    D7",
+    "params": {
+      "current_key": "C",
+      "target_key": "F#"
+    },
+    "expected": {
+      "text": "E     A#7   G#7",
+      "from": "C",
+      "to": "F#",
+      "changes": [
+        [
+          "Bb",
+          "E"
+        ],
+        [
+          "D7",
+          "G#7"
+        ],
+        [
+          "E7",
+          "A#7"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: B major scale keeps sharps without E#",
+    "mode": "key",
+    "input": "C    F    G    Am    Bb",
+    "params": {
+      "current_key": "C",
+      "target_key": "B"
+    },
+    "expected": {
+      "text": "B    E    F#   G#m   A ",
+      "from": "C",
+      "to": "B",
+      "changes": [
+        [
+          "Am",
+          "G#m"
+        ],
+        [
+          "Bb",
+          "A"
+        ],
+        [
+          "C",
+          "B"
+        ],
+        [
+          "F",
+          "E"
+        ],
+        [
+          "G",
+          "F#"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: Cb appears in ChordPro brackets too",
+    "mode": "chordpro-key",
+    "input": "Ly[C]rics he[F]re and the[G]re",
+    "params": {
+      "current_key": "C",
+      "target_key": "Gb"
+    },
+    "expected": {
+      "text": "Ly[Gb]rics he[Cb]re and the[Db]re",
+      "from": "C",
+      "to": "Gb",
+      "changes": [
+        [
+          "C",
+          "Gb"
+        ],
+        [
+          "F",
+          "Cb"
+        ],
+        [
+          "G",
+          "Db"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: F# minor leading tone E#dim",
+    "mode": "key",
+    "input": "Am    Dm    E7    G#dim",
+    "params": {
+      "current_key": "Am",
+      "target_key": "F#m"
+    },
+    "expected": {
+      "text": "F#m   Bm    C#7   E#dim",
+      "from": "Am",
+      "to": "F#m",
+      "changes": [
+        [
+          "Am",
+          "F#m"
+        ],
+        [
+          "Dm",
+          "Bm"
+        ],
+        [
+          "E7",
+          "C#7"
+        ],
+        [
+          "G#dim",
+          "E#dim"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "key-aware spelling: G minor leading tone in a bass note",
+    "mode": "key",
+    "input": "Am    E/G#",
+    "params": {
+      "current_key": "Am",
+      "target_key": "Gm"
+    },
+    "expected": {
+      "text": "Gm    D/F#",
+      "from": "Am",
+      "to": "Gm",
+      "changes": [
+        [
+          "Am",
+          "Gm"
+        ],
+        [
+          "E/G#",
+          "D/F#"
+        ]
+      ]
+    }
   }
 ]

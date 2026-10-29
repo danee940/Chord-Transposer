@@ -4,8 +4,10 @@ import { ChangeSet, isChordToken, transposeChord } from "./chords";
 import { chordToNashville, nashvilleLine, noteToNashvilleDegree } from "./nashville";
 import {
   capitalizeFirst,
+  FLAT_SPELLING,
   isMinorSuffix,
   keySemitone,
+  keySpelling,
   mod12,
   noteSemitone,
   parseKey,
@@ -139,5 +141,91 @@ describe("notation helpers", () => {
   it("classifies tokens", () => {
     expect(isChordToken("Cmaj7")).toBe(true);
     expect(isChordToken("chorus")).toBe(false);
+  });
+});
+
+describe("keySpelling", () => {
+  it("spells Cb in Gb major", () => {
+    const spelling = keySpelling("Gb", false, false);
+    expect(spelling[11]).toBe("Cb");
+    expect(spelling[5]).toBe("F");
+    expect(spelling[1]).toBe("Db");
+  });
+
+  it("spells E# in F# major", () => {
+    const spelling = keySpelling("F#", false, false);
+    expect(spelling[5]).toBe("E#");
+    expect(spelling[11]).toBe("B");
+    expect(spelling[10]).toBe("A#");
+  });
+
+  it("spells Cb in Eb minor", () => {
+    const spelling = keySpelling("Eb", true, false);
+    expect(spelling[11]).toBe("Cb");
+    expect(spelling[1]).toBe("Db");
+  });
+
+  it("keeps natural B in D# minor", () => {
+    const spelling = keySpelling("D#", true, false);
+    expect(spelling[11]).toBe("B");
+    expect(spelling[5]).toBe("E#");
+    // The leading tone would be C##; it falls back to the base spelling.
+    expect(spelling[2]).toBe("D");
+  });
+
+  it("spells the raised leading tone in minor keys", () => {
+    expect(keySpelling("D", true, false)[1]).toBe("C#");
+    expect(keySpelling("G", true, false)[6]).toBe("F#");
+    expect(keySpelling("F#", true, false)[5]).toBe("E#");
+  });
+
+  it("spells the German minor leading tone", () => {
+    expect(keySpelling("D", true, true)[1]).toBe("Cis");
+  });
+
+  it("spells B# in A# minor", () => {
+    expect(keySpelling("A#", true, false)[0]).toBe("B#");
+  });
+
+  it("spells His in German A# minor", () => {
+    expect(keySpelling("Ais", true, true)[0]).toBe("His");
+  });
+
+  it("matches the fixed spellings for plain keys", () => {
+    // C major defaults to the flat base; its own notes are all natural.
+    expect(keySpelling("C", false, false)).toEqual([...FLAT_SPELLING]);
+    expect(keySpelling("F", false, false)).toEqual([...FLAT_SPELLING]);
+    expect(keySpelling("G", false, false)).toEqual([...SHARP_SPELLING]);
+  });
+
+  it("spells Ces and B in German Gb major", () => {
+    const spelling = keySpelling("Gb", false, true);
+    expect(spelling[11]).toBe("Ces");
+    expect(spelling[10]).toBe("B");
+    expect(spelling[6]).toBe("Ges");
+  });
+
+  it("spells Eis and H in German F# major", () => {
+    const spelling = keySpelling("F#", false, true);
+    expect(spelling[5]).toBe("Eis");
+    expect(spelling[11]).toBe("H");
+    expect(spelling[8]).toBe("Gis");
+  });
+
+  it("treats a German H key as B major", () => {
+    const spelling = keySpelling("H", false, true);
+    expect(spelling[11]).toBe("H");
+    expect(spelling[1]).toBe("Cis");
+  });
+
+  it("spells As in a German Es key", () => {
+    const spelling = keySpelling("Es", false, true);
+    expect(spelling[8]).toBe("As");
+    expect(spelling[3]).toBe("Es");
+  });
+
+  it("falls back to the base spelling for double accidentals", () => {
+    // G# major would need F## on its seventh degree; keep the base spelling.
+    expect(keySpelling("G#", false, false)[7]).toBe("G");
   });
 });

@@ -5,11 +5,16 @@
 import os
 import re
 import sys
+from collections.abc import Iterator, Sequence
 from io import BytesIO
 from pathlib import Path
+from typing import TypedDict, cast
 
 import requests
 from docx import Document
+from docx.document import Document as DocumentObject
+from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 
 DEFAULT_GOTENBERG_URL = "http://localhost:3000"
 PDF_CONVERSION_TIMEOUT_SECONDS = 120
@@ -98,12 +103,12 @@ MAJOR_SCALE_DEGREES = {0: "1", 2: "2", 4: "3", 5: "4", 7: "5", 9: "6", 11: "7"}
 CHROMATIC_DEGREE_NAMES = {1: "b2", 3: "b3", 6: "b5", 8: "b6", 10: "b7"}
 
 
-def _is_minor_suffix(rest):
+def _is_minor_suffix(rest: str) -> bool:
     """Return True if the trailing text denotes a minor key."""
     return rest.strip().lower() in ("m", "min", "minor")
 
 
-def parse_key(raw):
+def parse_key(raw: str) -> tuple[str, bool] | None:
     """Parse a raw key string into a (note, is_minor) tuple, or None if invalid."""
     text = raw.strip()
     if not text:
@@ -127,12 +132,12 @@ def parse_key(raw):
     return note, _is_minor_suffix(rest)
 
 
-def key_label(note, minor):
+def key_label(note: str, minor: bool) -> str:
     """Return the key label string, appending 'm' for minor keys."""
     return note + ("m" if minor else "")
 
 
-def prefers_flats(target_note, target_minor):
+def prefers_flats(target_note: str, target_minor: bool) -> bool:
     """Return True if the target key conventionally uses flat spelling."""
     label = key_label(target_note, target_minor)
     if label in FLAT_KEYS or target_note in FLAT_KEYS:
@@ -142,21 +147,71 @@ def prefers_flats(target_note, target_minor):
     return True
 
 
-def choose_spelling(use_flats, german):
+def choose_spelling(use_flats: bool, german: bool) -> list[str]:
     """Return the appropriate chromatic spelling list for the given preferences."""
     if german:
         return GERMAN_FLAT_SPELLING if use_flats else GERMAN_SHARP_SPELLING
     return FLAT_SPELLING if use_flats else SHARP_SPELLING
 
 
-def note_semitone(note, german):
+NATURAL_LETTER_SEMITONES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+LETTER_ORDER = "CDEFGAB"
+MAJOR_SCALE_INTERVALS = (0, 2, 4, 5, 7, 9, 11)
+MINOR_SCALE_INTERVALS = (0, 2, 3, 5, 7, 8, 10)
+
+
+def _spell_letter(letter: str, accidental: int, german: bool) -> str:
+    """Spell a letter plus accidental (-1, 0, or 1) in English or German notation."""
+    if not german:
+        return letter + {1: "#", -1: "b", 0: ""}[accidental]
+    if accidental == 1:
+        return "His" if letter == "B" else letter + "is"
+    if accidental == -1:
+        if letter == "B":
+            return "B"
+        if letter in ("E", "A"):
+            return letter + "s"
+        return letter + "es"
+    return "H" if letter == "B" else letter
+
+
+def key_spelling(note: str, minor: bool, german: bool) -> list[str]:
+    """Return a chromatic spelling list tailored to the target key.
+
+    Diatonic notes of the target key's major or natural minor scale are spelled
+    by scale degree (giving e.g. Cb in Gb major or E# in F# major), and minor
+    keys also spell their harmonic-minor leading tone as a raised seventh
+    (C# in D minor, E# in F# minor). The remaining chromatic notes keep the
+    key's conventional sharp or flat spelling, and degrees that would need a
+    double accidental fall back to it.
+    """
+    spelling = list(choose_spelling(prefers_flats(note, minor), german))
+    letter = note[0].upper()
+    if letter == "H":
+        letter = "B"
+    tonic = key_semitone(note, german)
+    intervals = MINOR_SCALE_INTERVALS if minor else MAJOR_SCALE_INTERVALS
+    start = LETTER_ORDER.index(letter)
+    degrees = list(enumerate(intervals))
+    if minor:
+        degrees.append((6, 11))
+    for degree, interval in degrees:
+        semitone = (tonic + interval) % 12
+        degree_letter = LETTER_ORDER[(start + degree) % 7]
+        accidental = (semitone - NATURAL_LETTER_SEMITONES[degree_letter] + 6) % 12 - 6
+        if -1 <= accidental <= 1:
+            spelling[semitone] = _spell_letter(degree_letter, accidental, german)
+    return spelling
+
+
+def note_semitone(note: str, german: bool) -> int:
     """Return the semitone index (0–11) for a note name."""
     key = note[0].upper() + note[1:]
     table = GERMAN_NOTE_TO_SEMITONE if german else NOTE_TO_SEMITONE
     return table[key]
 
 
-def key_semitone(note, german):
+def key_semitone(note: str, german: bool) -> int:
     """Return the semitone index for a parsed key note.
 
     German-only names such as Es or Cis resolve via the German table regardless
@@ -169,7 +224,7 @@ def key_semitone(note, german):
     return note_semitone(note, german)
 
 
-def transpose_note(note, semitones, spelling, german):
+def transpose_note(note: str, semitones: int, spelling: Sequence[str], german: bool) -> str:
     """Transpose a single note name by the given number of semitones."""
     semitone = (note_semitone(note, german) + semitones) % 12
     return spelling[semitone]
@@ -178,7 +233,7 @@ def transpose_note(note, semitones, spelling, german):
 PUNCTUATION = "().,;:…\"'-"
 
 
-def split_affixes(token):
+def split_affixes(token: str) -> tuple[str, str, str]:
     """Split a token into (leading_punctuation, core, trailing_punctuation)."""
     start = 0
     while start < len(token) and token[start] in PUNCTUATION:
@@ -189,7 +244,7 @@ def split_affixes(token):
     return token[:start], token[start:end], token[end:]
 
 
-def transpose_chord(chord, semitones, spelling, german):
+def transpose_chord(chord: str, semitones: int, spelling: Sequence[str], german: bool) -> str:
     """Transpose a chord symbol (including optional bass note) by semitones."""
     leading, core, trailing = split_affixes(chord)
     if core != chord:
@@ -211,13 +266,13 @@ def transpose_chord(chord, semitones, spelling, german):
     return new_root + remainder
 
 
-def is_chord_token(token):
+def is_chord_token(token: str) -> bool:
     """Return True if the bare token (ignoring surrounding punctuation) is a chord symbol."""
     core = token.strip("().,;:…\"'-")
     return bool(core) and bool(CHORD_TOKEN_RE.match(core))
 
 
-def _is_decoration(token):
+def _is_decoration(token: str) -> bool:
     """Return True if a non-chord token is punctuation or a section label, not a lyric word."""
     _, core, _ = split_affixes(token)
     if core == "":
@@ -227,7 +282,7 @@ def _is_decoration(token):
     return core.isupper()
 
 
-def is_chord_line(text):
+def is_chord_line(text: str) -> bool:
     """Return True if the line is a chord line rather than lyrics.
 
     A line qualifies when every token is a chord symbol, or when it contains at
@@ -251,7 +306,7 @@ GERMAN_ONLY_ROOTS = {name.upper() for name in GERMAN_NOTE_NAMES if len(name) > 1
 GERMAN_ONLY_ROOTS.add("H")
 
 
-def _token_roots(token):
+def _token_roots(token: str) -> Iterator[str]:
     """Yield each note root (main and bass) found in a chord token."""
     _, core, _ = split_affixes(token)
     for part in core.split("/"):
@@ -260,7 +315,7 @@ def _token_roots(token):
             yield match.group(1)
 
 
-def line_uses_german(text):
+def line_uses_german(text: str) -> bool:
     """Return True if the line contains an unambiguously German note name (H, Es, As, Cis…)."""
     for token in text.split():
         for root in _token_roots(token):
@@ -269,7 +324,13 @@ def line_uses_german(text):
     return False
 
 
-def transpose_line_text(text, semitones, spelling, german, changes):
+def transpose_line_text(
+    text: str,
+    semitones: int,
+    spelling: Sequence[str],
+    german: bool,
+    changes: set[tuple[str, str]],
+) -> str:
     """Transpose all chord tokens in a line, preserving spacing, and record changes."""
     leading = text[: len(text) - len(text.lstrip())]
     body = text[len(leading) :]
@@ -295,7 +356,7 @@ def transpose_line_text(text, semitones, spelling, german, changes):
     return result
 
 
-def _build_owner_map(runs):
+def _build_owner_map(runs: Sequence[Run]) -> tuple[str, list[int]]:
     """Return the concatenated run text and a list mapping each char to its run index."""
     text = ""
     owners = []
@@ -305,7 +366,13 @@ def _build_owner_map(runs):
     return text, owners
 
 
-def _transpose_token_with_owners(chord, owners, semitones, spelling, german):
+def _transpose_token_with_owners(
+    chord: str,
+    owners: list[int],
+    semitones: int,
+    spelling: Sequence[str],
+    german: bool,
+) -> tuple[str, list[int]]:
     """Transpose a chord and return (new_chord, new_owners) preserving per-char runs.
 
     Owners for the root and bass note come from the original note's first character,
@@ -359,7 +426,14 @@ def _transpose_token_with_owners(chord, owners, semitones, spelling, german):
     return new_chord, new_owners
 
 
-def transpose_line_with_owners(text, owners, semitones, spelling, german, changes=None):
+def transpose_line_with_owners(
+    text: str,
+    owners: list[int],
+    semitones: int,
+    spelling: Sequence[str],
+    german: bool,
+    changes: set[tuple[str, str]] | None = None,
+) -> tuple[str, list[int]]:
     """Transpose a chord line, returning (new_text, new_owners) aligned to source runs.
 
     When a ``changes`` set is supplied, every ``(original, transposed)`` chord
@@ -409,12 +483,18 @@ def transpose_line_with_owners(text, owners, semitones, spelling, german, change
     return result, result_owners
 
 
-def _first_owner(owners):
+def _first_owner(owners: Sequence[int]) -> int:
     """Return the first owner index, defaulting to 0 for empty owner lists."""
     return owners[0] if owners else 0
 
 
-def redistribute_to_runs(paragraph, semitones, spelling, german, changes=None):
+def redistribute_to_runs(
+    paragraph: Paragraph,
+    semitones: int,
+    spelling: Sequence[str],
+    german: bool,
+    changes: set[tuple[str, str]] | None = None,
+) -> None:
     """Transpose chord roots and write text back into runs, preserving formatting."""
     runs = paragraph.runs
     if not runs:
@@ -437,16 +517,21 @@ def redistribute_to_runs(paragraph, semitones, spelling, german, changes=None):
             run.text = run_text
 
 
-def process_paragraph(paragraph, semitones, use_flats, german, changes):
+def process_paragraph(
+    paragraph: Paragraph,
+    semitones: int,
+    spelling: Sequence[str],
+    german: bool,
+    changes: set[tuple[str, str]],
+) -> None:
     """Transpose all chords in a paragraph if it is a chord line."""
     text = paragraph.text
     if not is_chord_line(text):
         return
-    spelling = choose_spelling(use_flats, german)
     redistribute_to_runs(paragraph, semitones, spelling, german, changes)
 
 
-def iter_paragraphs(document):
+def iter_paragraphs(document: DocumentObject) -> Iterator[Paragraph]:
     """Yield every paragraph in the document, including tables, headers, and footers."""
     yield from document.paragraphs
     for table in document.tables:
@@ -458,7 +543,7 @@ def iter_paragraphs(document):
             yield from container.paragraphs
 
 
-def detect_german(document):
+def detect_german(document: DocumentObject) -> bool:
     """Return True if any chord line in the document uses German note notation."""
     for paragraph in iter_paragraphs(document):
         text = paragraph.text
@@ -467,7 +552,7 @@ def detect_german(document):
     return False
 
 
-def find_input_file():
+def find_input_file() -> Path | None:
     """Return the first .docx file in INPUT_DIR, or None if none exists."""
     docx_files = [p for p in INPUT_DIR.glob("*.docx") if not p.name.startswith("~$")]
     if not docx_files:
@@ -475,7 +560,7 @@ def find_input_file():
     return docx_files[0]
 
 
-def _prompt_key(prompt_text):
+def _prompt_key(prompt_text: str) -> tuple[str, bool]:
     """Prompt the user for a key string, parse it, and exit on invalid input."""
     raw = input(prompt_text)
     parsed = parse_key(raw)
@@ -485,19 +570,27 @@ def _prompt_key(prompt_text):
     return parsed
 
 
-def _transpose_document(document, semitones, use_flats, german):
+def _transpose_document(
+    document: DocumentObject, semitones: int, spelling: Sequence[str], german: bool
+) -> set[tuple[str, str]]:
     """Apply transposition to every paragraph in the document and return the change set."""
     changes: set[tuple[str, str]] = set()
     for paragraph in iter_paragraphs(document):
-        process_paragraph(paragraph, semitones, use_flats, german, changes)
+        process_paragraph(paragraph, semitones, spelling, german, changes)
     return changes
 
 
-def _save_and_report(document, input_file, from_label, to_label, changes):
+def _save_and_report(
+    document: DocumentObject,
+    input_file: Path,
+    from_label: str,
+    to_label: str,
+    changes: set[tuple[str, str]],
+) -> None:
     """Save the transposed document and print a summary of chord changes."""
     OUTPUT_DIR.mkdir(exist_ok=True)
     output_file = OUTPUT_DIR / f"{input_file.stem}_{to_label}.docx"
-    document.save(output_file)
+    document.save(cast(str, output_file))
 
     print(f"\nSheet transposed from {from_label} to {to_label}\n")
     if changes:
@@ -516,12 +609,12 @@ class PdfConversionError(RuntimeError):
     """Raised when a .docx cannot be converted to PDF."""
 
 
-def _gotenberg_url():
+def _gotenberg_url() -> str:
     """Return the base URL of the Gotenberg conversion service."""
     return (os.environ.get("GOTENBERG_URL") or DEFAULT_GOTENBERG_URL).rstrip("/")
 
 
-def convert_docx_to_pdf(docx_bytes):
+def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
     """Convert .docx bytes to PDF bytes via the Gotenberg conversion service."""
     endpoint = f"{_gotenberg_url()}/forms/libreoffice/convert"
     files = {
@@ -545,7 +638,7 @@ def convert_docx_to_pdf(docx_bytes):
     return response.content
 
 
-def _text_uses_german(text):
+def _text_uses_german(text: str) -> bool:
     """Return True if any chord line in the text uses German note notation."""
     for line in text.splitlines():
         if is_chord_line(line) and line_uses_german(line):
@@ -553,16 +646,14 @@ def _text_uses_german(text):
     return False
 
 
-def _transpose_text_core(text, semitones, use_flats):
+def _transpose_text_core(
+    text: str, semitones: int, spelling: Sequence[str], german: bool
+) -> tuple[str, list[tuple[str, str]]]:
     """Transpose chord lines in plain text by a semitone count, returning (text, changes).
 
     Only lines detected as chord lines are transposed; lyric and blank lines are
-    left untouched. German H notation is detected from the text so the correct
-    chromatic spelling is used.
+    left untouched.
     """
-    german = _text_uses_german(text)
-    spelling = choose_spelling(use_flats, german)
-
     changes: set[tuple[str, str]] = set()
     result_parts = []
     for segment in text.splitlines(keepends=True):
@@ -575,7 +666,9 @@ def _transpose_text_core(text, semitones, use_flats):
     return "".join(result_parts), sorted(changes)
 
 
-def transpose_text(text, current_key, target_key):
+def transpose_text(
+    text: str, current_key: str, target_key: str
+) -> tuple[str, str, str, list[tuple[str, str]]]:
     """Transpose chord lines in plain text and return (text, from_label, to_label, changes).
 
     Only lines detected as chord lines are transposed; lyric and blank lines are
@@ -593,9 +686,9 @@ def transpose_text(text, current_key, target_key):
 
     german = _text_uses_german(text)
     semitones = (key_semitone(target_note, german) - key_semitone(current_note, german)) % 12
-    use_flats = prefers_flats(target_note, target_minor)
+    spelling = key_spelling(target_note, target_minor, german)
 
-    result, changes = _transpose_text_core(text, semitones, use_flats)
+    result, changes = _transpose_text_core(text, semitones, spelling, german)
 
     from_label = key_label(current_note, current_minor)
     to_label = key_label(target_note, target_minor)
@@ -603,7 +696,9 @@ def transpose_text(text, current_key, target_key):
     return result, from_label, to_label, changes
 
 
-def transpose_text_by_semitones(text, semitones, use_flats):
+def transpose_text_by_semitones(
+    text: str, semitones: int, use_flats: bool
+) -> tuple[str, int, list[tuple[str, str]]]:
     """Transpose chord lines in plain text by a raw semitone shift.
 
     ``semitones`` may be any integer; it is normalised to the 0-11 range. The
@@ -612,11 +707,13 @@ def transpose_text_by_semitones(text, semitones, use_flats):
     ignores musical key context, so the caller chooses the accidental style.
     """
     normalised = semitones % 12
-    result, changes = _transpose_text_core(text, normalised, use_flats)
+    german = _text_uses_german(text)
+    spelling = choose_spelling(use_flats, german)
+    result, changes = _transpose_text_core(text, normalised, spelling, german)
     return result, normalised, changes
 
 
-def is_chordpro_text(text):
+def is_chordpro_text(text: str) -> bool:
     """Return True if any line contains an inline ChordPro chord like ``[C]``."""
     for line in text.splitlines():
         for token in CHORDPRO_BRACKET_RE.findall(line):
@@ -625,7 +722,7 @@ def is_chordpro_text(text):
     return False
 
 
-def _chordpro_uses_german(text):
+def _chordpro_uses_german(text: str) -> bool:
     """Return True if any ChordPro bracket token uses German note notation."""
     for token in CHORDPRO_BRACKET_RE.findall(text):
         stripped = token.strip()
@@ -634,10 +731,16 @@ def _chordpro_uses_german(text):
     return False
 
 
-def _transpose_chordpro_line(line, semitones, spelling, german, changes):
+def _transpose_chordpro_line(
+    line: str,
+    semitones: int,
+    spelling: Sequence[str],
+    german: bool,
+    changes: set[tuple[str, str]],
+) -> str:
     """Transpose each bracketed chord token in a line, leaving other content verbatim."""
 
-    def replace(match):
+    def replace(match: re.Match[str]) -> str:
         token = match.group(1)
         if not CHORD_TOKEN_RE.match(token.strip()):
             return match.group(0)
@@ -649,7 +752,7 @@ def _transpose_chordpro_line(line, semitones, spelling, german, changes):
     return CHORDPRO_BRACKET_RE.sub(replace, line)
 
 
-def _chordpro_to_plain(text):
+def chordpro_to_plain(text: str) -> str:
     """Strip ChordPro brackets, returning only the chord tokens per line."""
     result_parts = []
     for segment in text.splitlines(keepends=True):
@@ -660,9 +763,10 @@ def _chordpro_to_plain(text):
     return "".join(result_parts)
 
 
-def _transpose_chordpro_core(text, semitones, use_flats, german):
+def _transpose_chordpro_core(
+    text: str, semitones: int, spelling: Sequence[str], german: bool
+) -> tuple[str, list[tuple[str, str]]]:
     """Transpose ChordPro chord tokens across all lines, returning (text, changes)."""
-    spelling = choose_spelling(use_flats, german)
     changes: set[tuple[str, str]] = set()
     result_parts = []
     for segment in text.splitlines(keepends=True):
@@ -673,7 +777,9 @@ def _transpose_chordpro_core(text, semitones, use_flats, german):
     return "".join(result_parts), sorted(changes)
 
 
-def transpose_chordpro_text(text, current_key, target_key):
+def transpose_chordpro_text(
+    text: str, current_key: str, target_key: str
+) -> tuple[str, str, str, list[tuple[str, str]]]:
     """Transpose ChordPro chord tokens and return (text, from_label, to_label, changes)."""
     current = parse_key(current_key)
     if current is None:
@@ -687,9 +793,9 @@ def transpose_chordpro_text(text, current_key, target_key):
 
     german = _chordpro_uses_german(text)
     semitones = (key_semitone(target_note, german) - key_semitone(current_note, german)) % 12
-    use_flats = prefers_flats(target_note, target_minor)
+    spelling = key_spelling(target_note, target_minor, german)
 
-    result, changes = _transpose_chordpro_core(text, semitones, use_flats, german)
+    result, changes = _transpose_chordpro_core(text, semitones, spelling, german)
 
     from_label = key_label(current_note, current_minor)
     to_label = key_label(target_note, target_minor)
@@ -697,7 +803,9 @@ def transpose_chordpro_text(text, current_key, target_key):
     return result, from_label, to_label, changes
 
 
-def transpose_chordpro_text_by_semitones(text, semitones, use_flats):
+def transpose_chordpro_text_by_semitones(
+    text: str, semitones: int, use_flats: bool
+) -> tuple[str, int, list[tuple[str, str]]]:
     """Transpose ChordPro chord tokens by a raw semitone shift.
 
     Returns ``(text, normalised_semitones, changes)`` mirroring
@@ -705,7 +813,8 @@ def transpose_chordpro_text_by_semitones(text, semitones, use_flats):
     """
     normalised = semitones % 12
     german = _chordpro_uses_german(text)
-    result, changes = _transpose_chordpro_core(text, normalised, use_flats, german)
+    spelling = choose_spelling(use_flats, german)
+    result, changes = _transpose_chordpro_core(text, normalised, spelling, german)
     return result, normalised, changes
 
 
@@ -718,7 +827,7 @@ DETECT_LINE_END_BONUS = 1
 
 OUT_OF_SCALE_FIT = -3
 
-MAJOR_DEGREE_FITS = {
+MAJOR_DEGREE_FITS: dict[int, dict[str, int]] = {
     0: {"major": 6, "dom7": 4, "other": 4, "minor": 1, "dim": 1},
     2: {"minor": 3, "dom7": 2, "other": 2, "major": 1, "dim": 1},
     4: {"minor": 3, "major": 1, "dom7": 1, "other": 1, "dim": 1},
@@ -729,7 +838,7 @@ MAJOR_DEGREE_FITS = {
     11: {"dim": 3, "major": 1, "minor": 1, "dom7": 1, "other": 1},
 }
 
-MINOR_DEGREE_FITS = {
+MINOR_DEGREE_FITS: dict[int, dict[str, int]] = {
     0: {"minor": 6, "other": 4, "major": 1, "dom7": 1, "dim": 1},
     2: {"dim": 2, "minor": 2, "major": 1, "dom7": 1, "other": 1},
     3: {"major": 4, "other": 2, "dom7": 2, "minor": 1, "dim": 1},
@@ -741,7 +850,7 @@ MINOR_DEGREE_FITS = {
 }
 
 
-def _chord_quality(remainder):
+def _chord_quality(remainder: str) -> str:
     """Classify a chord's quality from the text after its root, ignoring the bass."""
     rem = remainder.split("/", 1)[0]
     if rem == "":
@@ -763,9 +872,9 @@ def _chord_quality(remainder):
     return "other"
 
 
-def _detect_chord_tokens(text):
+def _detect_chord_tokens(text: str) -> tuple[list[tuple[str, bool]], bool]:
     """Return ((core, line_last) tokens in sheet order, german flag) for detection."""
-    tokens = []
+    tokens: list[tuple[str, bool]] = []
     if is_chordpro_text(text):
         german = _chordpro_uses_german(text)
         for line in text.splitlines():
@@ -790,7 +899,7 @@ def _detect_chord_tokens(text):
     return tokens, german
 
 
-def _detect_observations(text):
+def _detect_observations(text: str) -> tuple[list[tuple[int, str, int]], bool, int, int]:
     """Return ((semitone, quality, weight) observations, german, total, distinct roots).
 
     Lowercase roots count as minor chords only when the sheet mixes upper- and
@@ -798,7 +907,7 @@ def _detect_observations(text):
     uniformly lowercase sheet is just sloppy typing and carries no quality cue.
     """
     tokens, german = _detect_chord_tokens(text)
-    parsed = []
+    parsed: list[tuple[str, str, bool]] = []
     for core, line_last in tokens:
         match = ROOT_MATCH_RE.match(core)
         assert match is not None
@@ -807,8 +916,8 @@ def _detect_observations(text):
     has_lower = any(root[0].islower() for root, _, _ in parsed)
     lowercase_means_minor = has_upper and has_lower
 
-    observations = []
-    roots = set()
+    observations: list[tuple[int, str, int]] = []
+    roots: set[int] = set()
     for index, (root, remainder, line_last) in enumerate(parsed):
         semitone = note_semitone(root, german)
         quality = _chord_quality(remainder)
@@ -826,9 +935,11 @@ def _detect_observations(text):
     return observations, german, len(observations), len(roots)
 
 
-def _score_key_candidates(observations):
+def _score_key_candidates(
+    observations: Sequence[tuple[int, str, int]],
+) -> list[tuple[int, bool, int]]:
     """Score all 24 keys, returning (score, minor, tonic) tuples ranked best first."""
-    candidates = []
+    candidates: list[tuple[int, bool, int]] = []
     for minor in (False, True):
         fits = MINOR_DEGREE_FITS if minor else MAJOR_DEGREE_FITS
         for tonic in range(12):
@@ -842,7 +953,7 @@ def _score_key_candidates(observations):
     return candidates
 
 
-def _spell_detected_key(semitone, minor, german):
+def _spell_detected_key(semitone: int, minor: bool, german: bool) -> str:
     """Spell a detected key with the conventional accidental for its signature."""
     flat_label = key_label(FLAT_SPELLING[semitone], minor)
     sharp_label = key_label(SHARP_SPELLING[semitone], minor)
@@ -855,7 +966,17 @@ def _spell_detected_key(semitone, minor, german):
     return key_label(choose_spelling(use_flats, german)[semitone], minor)
 
 
-def detect_key(text):
+class KeyDetection(TypedDict):
+    """Result of guessing a sheet's key from its chords."""
+
+    key: str | None
+    alternate: str | None
+    ambiguous: bool
+    chords: int
+    distinct: int
+
+
+def detect_key(text: str) -> KeyDetection:
     """Guess the key of a chord sheet from its chords.
 
     Returns a dict with ``key`` (label or None), ``alternate`` (runner-up label
@@ -864,7 +985,7 @@ def detect_key(text):
     sheet has too few chords to tell.
     """
     observations, german, total, distinct = _detect_observations(text)
-    result = {
+    result: KeyDetection = {
         "key": None,
         "alternate": None,
         "ambiguous": False,
@@ -884,14 +1005,14 @@ def detect_key(text):
     return result
 
 
-def detect_key_from_docx_bytes(file_bytes):
+def detect_key_from_docx_bytes(file_bytes: bytes) -> KeyDetection:
     """Guess the key of a .docx chord sheet given as bytes (see ``detect_key``)."""
     document = Document(BytesIO(file_bytes))
     text = "\n".join(paragraph.text for paragraph in iter_paragraphs(document))
     return detect_key(text)
 
 
-def note_to_nashville_degree(note, tonic_semitone, german):
+def note_to_nashville_degree(note: str, tonic_semitone: int, german: bool) -> str:
     """Return the Nashville scale-degree string (e.g. '1', '4', 'b7') for a note."""
     degree = (note_semitone(note, german) - tonic_semitone) % 12
     if degree in MAJOR_SCALE_DEGREES:
@@ -899,7 +1020,7 @@ def note_to_nashville_degree(note, tonic_semitone, german):
     return CHROMATIC_DEGREE_NAMES[degree]
 
 
-def chord_to_nashville(chord, tonic_semitone, german):
+def chord_to_nashville(chord: str, tonic_semitone: int, german: bool) -> str:
     """Convert a chord symbol to its Nashville number, preserving quality and bass."""
     leading, core, trailing = split_affixes(chord)
     if core != chord:
@@ -921,7 +1042,7 @@ def chord_to_nashville(chord, tonic_semitone, german):
     return number + remainder
 
 
-def _nashville_line(line, tonic_semitone, german):
+def _nashville_line(line: str, tonic_semitone: int, german: bool) -> str:
     """Convert every chord token in a chord line to Nashville numbers."""
     leading = line[: len(line) - len(line.lstrip())]
     result = leading
@@ -934,10 +1055,10 @@ def _nashville_line(line, tonic_semitone, german):
     return result
 
 
-def _nashville_chordpro_line(line, tonic_semitone, german):
+def _nashville_chordpro_line(line: str, tonic_semitone: int, german: bool) -> str:
     """Convert bracketed ChordPro chord tokens to Nashville numbers."""
 
-    def replace(match):
+    def replace(match: re.Match[str]) -> str:
         token = match.group(1)
         if not CHORD_TOKEN_RE.match(token.strip()):
             return match.group(0)
@@ -946,7 +1067,7 @@ def _nashville_chordpro_line(line, tonic_semitone, german):
     return CHORDPRO_BRACKET_RE.sub(replace, line)
 
 
-def text_to_nashville(text, tonic_key):
+def text_to_nashville(text: str, tonic_key: str) -> tuple[str, str]:
     """Convert chord lines (or ChordPro brackets) in text to Nashville numbers.
 
     Returns ``(result_text, tonic_label)``. Lyric lines are left unchanged.
@@ -973,7 +1094,9 @@ def text_to_nashville(text, tonic_key):
     return "".join(result_parts), key_label(tonic_note, tonic_minor)
 
 
-def transpose_document_bytes(file_bytes, current_key, target_key):
+def transpose_document_bytes(
+    file_bytes: bytes, current_key: str, target_key: str
+) -> tuple[bytes, str, str, list[tuple[str, str]]]:
     """Transpose a .docx given as bytes and return (docx_bytes, from_label, to_label, changes)."""
     current = parse_key(current_key)
     if current is None:
@@ -989,9 +1112,9 @@ def transpose_document_bytes(file_bytes, current_key, target_key):
     german = detect_german(document)
 
     semitones = (key_semitone(target_note, german) - key_semitone(current_note, german)) % 12
-    use_flats = prefers_flats(target_note, target_minor)
+    spelling = key_spelling(target_note, target_minor, german)
 
-    changes = _transpose_document(document, semitones, use_flats, german)
+    changes = _transpose_document(document, semitones, spelling, german)
 
     from_label = key_label(current_note, current_minor)
     to_label = key_label(target_note, target_minor)
@@ -1003,7 +1126,7 @@ def transpose_document_bytes(file_bytes, current_key, target_key):
     return buffer.getvalue(), from_label, to_label, sorted(changes)
 
 
-def main():
+def main() -> None:
     """Entry point: load the input file, prompt for keys, transpose, and save."""
     input_file = find_input_file()
     if input_file is None:
@@ -1019,9 +1142,9 @@ def main():
     german = detect_german(document)
 
     semitones = (key_semitone(target_note, german) - key_semitone(current_note, german)) % 12
-    use_flats = prefers_flats(target_note, target_minor)
+    spelling = key_spelling(target_note, target_minor, german)
 
-    changes = _transpose_document(document, semitones, use_flats, german)
+    changes = _transpose_document(document, semitones, spelling, german)
 
     from_label = key_label(current_note, current_minor)
     to_label = key_label(target_note, target_minor)

@@ -7,7 +7,7 @@ import {
   transposeChord,
   type Change,
 } from "./chords";
-import { chooseSpelling, type Spelling } from "./notation";
+import type { Spelling } from "./notation";
 
 export interface TransposedCore {
   text: string;
@@ -64,10 +64,9 @@ export function chordProToPlain(text: string): string {
 export function transposeChordProCore(
   text: string,
   semitones: number,
-  useFlats: boolean,
+  spelling: Spelling,
   german: boolean
 ): TransposedCore {
-  const spelling = chooseSpelling(useFlats, german);
   const changes = new ChangeSet();
   let result = "";
   for (const { content, ending } of splitLinesKeepEnds(text)) {

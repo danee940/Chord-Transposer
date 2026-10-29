@@ -15,7 +15,7 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       no `H`/`Hm` option at all, so a detected German key (e.g. `H`) can be shown
       but not preselected. Add German-aware options or labels so detection and
       manual selection work for German notation.
-- [ ] **Key-aware enharmonic spelling (M)**: spell chords correctly for the
+- [x] **Key-aware enharmonic spelling (M)**: spell chords correctly for the
       target key (for example `F#` vs `Gb`, `Cb` in `Gb` major) rather than
       choosing between two fixed sharp and flat spellings.
 - [ ] **Broader chord grammar (S)**: support more chord symbols such as `6/9`,

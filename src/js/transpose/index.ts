@@ -20,11 +20,12 @@ import {
   chooseSpelling,
   keyLabel,
   keySemitone,
+  keySpelling,
   mod12,
   parseKey,
-  prefersFlats,
   UnknownNoteError,
   type ParsedKey,
+  type Spelling,
 } from "./notation";
 
 export interface KeyTransposition {
@@ -66,9 +67,12 @@ function keyDistance(current: ParsedKey, target: ParsedKey, german: boolean): nu
   return mod12(keySemitone(target.note, german) - keySemitone(current.note, german));
 }
 
-function transposeTextCore(text: string, semitones: number, useFlats: boolean): TransposedCore {
-  const german = textUsesGerman(text);
-  const spelling = chooseSpelling(useFlats, german);
+function transposeTextCore(
+  text: string,
+  semitones: number,
+  spelling: Spelling,
+  german: boolean
+): TransposedCore {
   const changes = new ChangeSet();
   let result = "";
   for (const { content, ending } of splitLinesKeepEnds(text)) {
@@ -90,9 +94,9 @@ export function transposeText(
 
   const german = textUsesGerman(text);
   const semitones = keyDistance(current, target, german);
-  const useFlats = prefersFlats(target.note, target.minor);
+  const spelling = keySpelling(target.note, target.minor, german);
 
-  const { text: result, changes } = transposeTextCore(text, semitones, useFlats);
+  const { text: result, changes } = transposeTextCore(text, semitones, spelling, german);
 
   return {
     text: result,
@@ -108,7 +112,9 @@ export function transposeTextBySemitones(
   useFlats: boolean
 ): SemitoneTransposition {
   const normalised = mod12(semitones);
-  const { text: result, changes } = transposeTextCore(text, normalised, useFlats);
+  const german = textUsesGerman(text);
+  const spelling = chooseSpelling(useFlats, german);
+  const { text: result, changes } = transposeTextCore(text, normalised, spelling, german);
   return { text: result, semitones: normalised, changes };
 }
 
@@ -122,9 +128,9 @@ export function transposeChordProText(
 
   const german = chordProUsesGerman(text);
   const semitones = keyDistance(current, target, german);
-  const useFlats = prefersFlats(target.note, target.minor);
+  const spelling = keySpelling(target.note, target.minor, german);
 
-  const { text: result, changes } = transposeChordProCore(text, semitones, useFlats, german);
+  const { text: result, changes } = transposeChordProCore(text, semitones, spelling, german);
 
   return {
     text: result,
@@ -141,7 +147,8 @@ export function transposeChordProTextBySemitones(
 ): SemitoneTransposition {
   const normalised = mod12(semitones);
   const german = chordProUsesGerman(text);
-  const { text: result, changes } = transposeChordProCore(text, normalised, useFlats, german);
+  const spelling = chooseSpelling(useFlats, german);
+  const { text: result, changes } = transposeChordProCore(text, normalised, spelling, german);
   return { text: result, semitones: normalised, changes };
 }
 
