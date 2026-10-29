@@ -45,13 +45,14 @@ The `/health` endpoint is used as the deploy healthcheck.
 
 ## Frontend assets
 
-Both the stylesheet and the browser JavaScript are prebuilt and shipped as normal
+Both the stylesheet and the browser bundle are prebuilt and shipped as normal
 static assets, so no CDN runs in the browser. The Docker image ships these files
 as-is and does not run Node.
 
 - **CSS**: Tailwind builds `src/static/tailwind.css` from `src/styles/tailwind.input.css`.
-- **JS**: Vite bundles `src/js/` into hashed assets under `src/static/js/` with a
-  `manifest.json`; `app.py` reads the manifest to inject the correct bundle URL.
+- **JS**: Vite bundles the TypeScript sources under `src/js/` into hashed assets
+  under `src/static/js/` with a `manifest.json`; `app.py` reads the manifest to
+  inject the correct bundle URL.
 
 Both committed outputs are cache-busted (CSS via a `?v=` content hash, JS via
 hashed filenames) and served with a long-lived immutable cache header, while HTML
@@ -79,9 +80,11 @@ pytest
 Combined coverage of `transpose.py`, `app.py`, and `seo.py` must stay at or
 above 95%.
 
-Frontend modules under `src/js/` have their own coverage-gated suite:
+Frontend modules under `src/js/` are strict TypeScript with their own type check
+and coverage-gated suite:
 
 ```bash
+npm run typecheck
 npm run test:js
 ```
 

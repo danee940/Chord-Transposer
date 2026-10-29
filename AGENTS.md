@@ -5,9 +5,9 @@ Core logic lives in `src/transpose.py`; the web layer is `src/app.py`, and the
 SEO landing pages, structured data, and sitemap are built in `src/seo.py`. The
 UI is composed from partial templates under `src/templates/` (`index.html`,
 `landing.html`, and the `_*.html` partials), with a prebuilt Tailwind stylesheet
-and a Vite-bundled frontend under `src/js/` (no runtime CDN). The transpose core
-is mirrored in JavaScript under `src/js/transpose/` and kept in parity with the
-Python implementation via a shared case harness.
+and a Vite-bundled TypeScript frontend under `src/js/` (no runtime CDN). The
+transpose core is mirrored in TypeScript under `src/js/transpose/` and kept in
+parity with the Python implementation via a shared case harness.
 
 ## Mandatory: run all Python checks after any change
 
@@ -39,34 +39,47 @@ pytest
 - Fix all lint, formatting, test, and coverage failures. Never leave the suite red.
 - If a change lowers coverage, add or update tests to restore it.
 
-## Mandatory: run all JavaScript checks after any frontend change
+## Mandatory: run all frontend checks after any frontend change
 
-After ANY change to files under `src/js/`, run the frontend test suite with
-coverage before considering the task done:
+After ANY change to files under `src/js/`, run the type check and the frontend
+test suite with coverage before considering the task done:
 
 ```bash
+npm run typecheck
 npm run test:js
 ```
+
+- `npm run typecheck` runs `tsc -b` over `tsconfig.app.json` (every `.ts` file
+  under `src/js/`, tests included) and `tsconfig.node.json` (`vite.config.ts`).
+  The compiler options follow the strict create-vite baseline plus
+  `noUncheckedIndexedAccess` and `noImplicitOverride`. Keep the code free of
+  `any`; use narrow casts only at I/O boundaries and in test fixtures, and
+  non-null assertions only for regex capture groups that always participate and
+  for fixture-guaranteed elements in tests.
+- Required DOM elements are fetched with `requireElement` / `requireSelector`
+  from `src/js/dom.ts`, which throw a named error when the markup is missing an
+  element, so new panels should use them instead of raw `getElementById`.
 
 - Tests run under Vitest (`jsdom`) with V8 coverage, configured in
   `vite.config.js`. Coverage is enforced with thresholds: statements/lines >= 99,
   functions == 100, branches >= 98. The only uncovered spots are unreachable
   defensive guards; keep everything else fully covered.
-- Every module under `src/js/` has a matching `*.test.js`. When adding a new
+- Every module under `src/js/` has a matching `*.test.ts`. When adding a new
   module or behaviour, add or extend the corresponding test so the thresholds
-  stay green.
+  stay green. Coverage counts the right-hand side of `??` and `||` as a branch,
+  so avoid unreachable fallbacks; the branch threshold has little headroom.
 - Fix all test and coverage failures. Never leave the suite red. If a change
   lowers coverage, add or update tests to restore it.
-- CI runs this in a separate `frontend` job (`.github/workflows/ci.yml`)
+- CI runs both in a separate `frontend` job (`.github/workflows/ci.yml`)
   alongside the Python `checks` job.
 
 ## Frontend bundle (Vite build)
 
-- The browser code under `src/js/` is bundled by Vite (`vite.config.js`) into
-  hashed assets under `src/static/js/`, with a `manifest.json` mapping entries
-  to their hashed filenames. `app.py` reads that manifest (`_resolve_js_bundle`)
-  to inject the correct `js_bundle` URL into templates, falling back to an
-  unhashed path when the manifest is absent.
+- The browser code under `src/js/` is bundled by Vite (`vite.config.ts`) into
+  hashed assets under `src/static/js/`, with a `manifest.json` mapping the
+  entries (`main.ts`, `landing.ts`) to their hashed filenames. `app.py` reads
+  that manifest (`_resolve_js_bundle`) to inject the correct `js_bundle` URL
+  into templates, falling back to an unhashed path when the manifest is absent.
 - After changing any file under `src/js/`, rebuild with `npm run build:js` (or
   `npm run build` to rebuild CSS and JS together) and commit the regenerated
   `src/static/js/` output, including `manifest.json`. The Docker image ships
@@ -77,7 +90,7 @@ npm run test:js
 - `src/transpose.py` and `src/js/transpose/` are two implementations of the same
   core and must stay in lockstep. `src/testdata/transpose_cases.json` is the
   shared case harness: `src/test_parity.py` replays it through Python and
-  `src/js/transpose/parity.test.js` replays it through JS.
+  `src/js/transpose/parity.test.ts` replays it through TypeScript.
 - When you change transpose behaviour, update both implementations and the
   shared cases, then run both `pytest` and `npm run test:js`.
 
