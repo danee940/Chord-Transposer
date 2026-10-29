@@ -1,0 +1,14 @@
+node_modules/
+coverage/
+src/static/
+src/templates/
+src/styles/
+*.py
+*.md
+*.html
+*.css
+*.toml
+*.txt
+*.yml
+*.yaml
+src/testdata/

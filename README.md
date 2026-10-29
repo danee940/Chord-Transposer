@@ -80,10 +80,11 @@ pytest
 Combined coverage of `transpose.py`, `app.py`, and `seo.py` must stay at or
 above 95%.
 
-Frontend modules under `src/js/` are strict TypeScript with their own type check
-and coverage-gated suite:
+Frontend modules under `src/js/` are strict TypeScript with their own format
+check, type check and coverage-gated suite:
 
 ```bash
+npm run format:check
 npm run typecheck
 npm run test:js
 ```

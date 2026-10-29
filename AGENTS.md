@@ -41,13 +41,19 @@ pytest
 
 ## Mandatory: run all frontend checks after any frontend change
 
-After ANY change to files under `src/js/`, run the type check and the frontend
-test suite with coverage before considering the task done:
+After ANY change to files under `src/js/`, run the format check, the type check
+and the frontend test suite with coverage before considering the task done:
 
 ```bash
+npm run format:check
 npm run typecheck
 npm run test:js
 ```
+
+- `npm run format:check` runs Prettier (`.prettierrc`, `.prettierignore`) over
+  the TypeScript sources, tests and frontend config files; `npm run format`
+  rewrites them. Python, templates, Markdown, the parity fixture and the built
+  assets are ignored.
 
 - `npm run typecheck` runs `tsc -b` over `tsconfig.app.json` (every `.ts` file
   under `src/js/`, tests included) and `tsconfig.node.json` (`vite.config.ts`).
@@ -61,16 +67,16 @@ npm run test:js
   element, so new panels should use them instead of raw `getElementById`.
 
 - Tests run under Vitest (`jsdom`) with V8 coverage, configured in
-  `vite.config.js`. Coverage is enforced with thresholds: statements/lines >= 99,
-  functions == 100, branches >= 98. The only uncovered spots are unreachable
-  defensive guards; keep everything else fully covered.
+  `vite.config.ts`. Coverage is enforced at 100% for statements, branches,
+  functions and lines. Cover every new branch with a test rather than adding
+  unreachable defensive guards.
 - Every module under `src/js/` has a matching `*.test.ts`. When adding a new
   module or behaviour, add or extend the corresponding test so the thresholds
-  stay green. Coverage counts the right-hand side of `??` and `||` as a branch,
-  so avoid unreachable fallbacks; the branch threshold has little headroom.
+  stay green. Coverage counts the right-hand side of `??` and `||` and every
+  early-return guard as a branch, so unreachable fallbacks show up as misses.
 - Fix all test and coverage failures. Never leave the suite red. If a change
   lowers coverage, add or update tests to restore it.
-- CI runs both in a separate `frontend` job (`.github/workflows/ci.yml`)
+- CI runs all three in a separate `frontend` job (`.github/workflows/ci.yml`)
   alongside the Python `checks` job.
 
 ## Frontend bundle (Vite build)
