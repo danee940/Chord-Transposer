@@ -134,6 +134,11 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       Actions, plus tagged releases with a `CHANGELOG.md`.
 - [ ] **Accessibility pass (S)**: keyboard navigation and screen-reader labels
       for the diagram popovers, key pickers and drop zone.
+- [ ] **TypeScript frontend (L)**: rewrite the browser code under `src/js/`
+      (about 23 modules and their Vitest tests, including the transpose port in
+      `src/js/transpose/`) in strict TypeScript. Add a `tsc --noEmit` type check
+      to the `frontend` CI job, update the Vite and Vitest globs, and keep the
+      parity cases passing unchanged. The Python backend stays as it is.
 
 ## Reach
 
