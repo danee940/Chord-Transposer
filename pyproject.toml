@@ -12,6 +12,7 @@ testpaths = [
     "src/test_app.py",
     "src/test_integration.py",
     "src/test_parity.py",
+    "src/test_api_contract.py",
 ]
 pythonpath = ["src"]
 

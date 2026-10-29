@@ -1,0 +1,388 @@
+[
+  {
+    "description": "detect-key returns the key guess for a .docx upload",
+    "endpoint": "/detect-key",
+    "trigger": "detect",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "hymn.docx",
+          "content": "D G A7 D\nBm G A7 D",
+          "raw": false
+        }
+      ],
+      "form": {}
+    },
+    "fields": [
+      "file"
+    ],
+    "response": {
+      "status": 200,
+      "json": {
+        "alternate": null,
+        "ambiguous": false,
+        "chords": 8,
+        "distinct": 4,
+        "key": "D"
+      }
+    },
+    "ui": {
+      "detected": "Detected: D"
+    }
+  },
+  {
+    "description": "detect-key rejects a corrupt .docx with an error payload",
+    "endpoint": "/detect-key",
+    "trigger": "detect",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "broken.docx",
+          "content": "not a real docx",
+          "raw": true
+        }
+      ],
+      "form": {}
+    },
+    "fields": [
+      "file"
+    ],
+    "response": {
+      "status": 400,
+      "json": {
+        "error": "Could not read the file as a valid .docx document."
+      }
+    },
+    "ui": {
+      "detection_ignored": true
+    }
+  },
+  {
+    "description": "transpose returns the sheet with key-aware headers",
+    "endpoint": "/transpose",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "song.docx",
+          "content": "C    G    Am   F",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "F#",
+        "format": "docx"
+      }
+    },
+    "fields": [
+      "file",
+      "current_key",
+      "target_key",
+      "format"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "headers": {
+        "X-Transpose-From": "C",
+        "X-Transpose-To": "F%23",
+        "X-Transpose-Changes": "Am-%3ED%23m%2C%20C-%3EF%23%2C%20F-%3EB%2C%20G-%3EC%23",
+        "Content-Disposition": "attachment; filename=song_F#.docx"
+      }
+    },
+    "ui": {
+      "heading": "Transposed from C to F#",
+      "changes": [
+        [
+          "Am",
+          "D#m"
+        ],
+        [
+          "C",
+          "F#"
+        ],
+        [
+          "F",
+          "B"
+        ],
+        [
+          "G",
+          "C#"
+        ]
+      ],
+      "download": "song_F#.docx"
+    }
+  },
+  {
+    "description": "transpose rejects an invalid key with an error payload",
+    "endpoint": "/transpose",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "song.docx",
+          "content": "C    G    Am   F",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "X",
+        "format": "docx"
+      }
+    },
+    "fields": [
+      "file",
+      "current_key",
+      "target_key",
+      "format"
+    ],
+    "response": {
+      "status": 400,
+      "json": {
+        "error": "'X' is not a valid key."
+      }
+    },
+    "ui": {
+      "error": "'X' is not a valid key."
+    }
+  },
+  {
+    "description": "transpose reports an unreachable PDF service",
+    "endpoint": "/transpose",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "song.docx",
+          "content": "C    G    Am   F",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "format": "pdf"
+      }
+    },
+    "fields": [
+      "file",
+      "current_key",
+      "target_key",
+      "format"
+    ],
+    "response": {
+      "status": 503,
+      "json": {
+        "error": "Could not reach the PDF conversion service."
+      }
+    },
+    "ui": {
+      "error": "Could not reach the PDF conversion service."
+    },
+    "backend": {
+      "gotenberg_down": true
+    }
+  },
+  {
+    "description": "transpose-text returns the transposed text download",
+    "endpoint": "/transpose-text",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "hymn.txt",
+          "content": "C    G    Am   F\nAmazing grace how sweet",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "format": "txt"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "file",
+      "format"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "X-Transpose-From": "C",
+        "X-Transpose-To": "D",
+        "X-Transpose-Changes": "Am-%3EBm%2C%20C-%3ED%2C%20F-%3EG%2C%20G-%3EA",
+        "Content-Disposition": "attachment; filename=hymn_D.txt"
+      },
+      "body_text": "D    A    Bm   G\nAmazing grace how sweet"
+    },
+    "ui": {
+      "heading": "Transposed from C to D",
+      "changes": [
+        [
+          "Am",
+          "Bm"
+        ],
+        [
+          "C",
+          "D"
+        ],
+        [
+          "F",
+          "G"
+        ],
+        [
+          "G",
+          "A"
+        ]
+      ],
+      "download": "hymn_D.txt"
+    }
+  },
+  {
+    "description": "transpose-text handles ChordPro files",
+    "endpoint": "/transpose-text",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "grace.pro",
+          "content": "[C]Amazing [G]grace",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "format": "chordpro"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "file",
+      "format"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "X-Transpose-From": "C",
+        "X-Transpose-To": "D",
+        "X-Transpose-Changes": "C-%3ED%2C%20G-%3EA",
+        "Content-Disposition": "attachment; filename=grace_D.pro"
+      },
+      "body_text": "[D]Amazing [A]grace"
+    },
+    "ui": {
+      "heading": "Transposed from C to D",
+      "changes": [
+        [
+          "C",
+          "D"
+        ],
+        [
+          "G",
+          "A"
+        ]
+      ],
+      "download": "grace_D.pro"
+    }
+  },
+  {
+    "description": "binder merges several sheets into one PDF",
+    "endpoint": "/binder",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "files",
+          "filename": "a.docx",
+          "content": "C G Am F",
+          "raw": false
+        },
+        {
+          "field": "files",
+          "filename": "b.docx",
+          "content": "Am F C G",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "files",
+      "files"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "application/pdf",
+      "headers": {
+        "Content-Disposition": "attachment; filename=chord_binder_D.pdf"
+      }
+    },
+    "ui": {
+      "binder_heading": "Binder created from 2 files",
+      "download": "chord_binder_D.pdf"
+    },
+    "backend": {
+      "pdf_stub": true
+    }
+  },
+  {
+    "description": "binder rejects an invalid key with an error payload",
+    "endpoint": "/binder",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "files",
+          "filename": "a.docx",
+          "content": "C G Am F",
+          "raw": false
+        },
+        {
+          "field": "files",
+          "filename": "b.docx",
+          "content": "Am F C G",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "X"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "files",
+      "files"
+    ],
+    "response": {
+      "status": 400,
+      "json": {
+        "error": "'X' is not a valid key."
+      }
+    },
+    "ui": {
+      "error": "'X' is not a valid key."
+    }
+  }
+]
