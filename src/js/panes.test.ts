@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { initSyncedPanes, scaledScrollTop } from "./panes";
 
-function fakePane(scrollTop, scrollHeight, clientHeight) {
+function fakePane(scrollTop: number, scrollHeight: number, clientHeight: number) {
   return { scrollTop, scrollHeight, clientHeight };
 }
 
@@ -24,7 +24,7 @@ describe("scaledScrollTop", () => {
 
 describe("initSyncedPanes", () => {
   beforeEach(() => {
-    vi.stubGlobal("requestAnimationFrame", (cb) => {
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
       cb();
       return 1;
     });
@@ -35,9 +35,9 @@ describe("initSyncedPanes", () => {
     document.body.innerHTML = "";
   });
 
-  function buildPanes(count) {
+  function buildPanes(count: number) {
     document.body.innerHTML = "";
-    const panes = [];
+    const panes: HTMLDivElement[] = [];
     for (let index = 0; index < count; index += 1) {
       const pane = document.createElement("div");
       pane.setAttribute("data-sync-scroll", "");
@@ -50,7 +50,7 @@ describe("initSyncedPanes", () => {
   }
 
   it("does nothing with fewer than two panes", () => {
-    const [pane] = buildPanes(1);
+    const [pane] = buildPanes(1) as [HTMLDivElement];
     initSyncedPanes();
     pane.scrollTop = 100;
     pane.dispatchEvent(new Event("scroll"));
@@ -58,7 +58,7 @@ describe("initSyncedPanes", () => {
   });
 
   it("mirrors scrolling from one pane to the others", () => {
-    const [first, second] = buildPanes(2);
+    const [first, second] = buildPanes(2) as [HTMLDivElement, HTMLDivElement];
     initSyncedPanes();
     first.scrollTop = 150;
     first.dispatchEvent(new Event("scroll"));
@@ -67,7 +67,7 @@ describe("initSyncedPanes", () => {
 
   it("ignores re-entrant scroll events while syncing", () => {
     vi.stubGlobal("requestAnimationFrame", () => 1);
-    const [first, second] = buildPanes(2);
+    const [first, second] = buildPanes(2) as [HTMLDivElement, HTMLDivElement];
     initSyncedPanes();
     first.scrollTop = 150;
     first.dispatchEvent(new Event("scroll"));

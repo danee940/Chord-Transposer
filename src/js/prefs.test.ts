@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { loadPrefs, sanitizePrefs, savePrefs } from "./prefs";
+import { loadPrefs, sanitizePrefs, savePrefs, type Prefs } from "./prefs";
 
 describe("sanitizePrefs", () => {
   it("keeps only the allowed preference keys", () => {
@@ -69,7 +69,7 @@ describe("savePrefs", () => {
   it("writes sanitized preferences to storage", () => {
     const setItem = vi.fn();
     vi.stubGlobal("localStorage", { setItem });
-    savePrefs({ mode: "key", junk: () => {} });
+    savePrefs({ mode: "key", junk: () => {} } as Prefs);
     expect(setItem).toHaveBeenCalledWith("chord-transposer:prefs", JSON.stringify({ mode: "key" }));
   });
 

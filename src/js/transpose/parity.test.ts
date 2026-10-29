@@ -12,7 +12,30 @@ import {
   transposeTextBySemitones,
 } from "./index";
 
-function runCase({ mode, input, params }) {
+interface KeyParams {
+  current_key: string;
+  target_key: string;
+}
+
+interface SemitoneParams {
+  semitones: number;
+  use_flats: boolean;
+}
+
+interface NashvilleParams {
+  tonic_key: string;
+}
+
+type ParityCase = { description: string; input: string; expected: unknown } & (
+  | { mode: "key" | "chordpro-key" | "chordpro-key-plain"; params: KeyParams }
+  | { mode: "semitones" | "chordpro-semitones"; params: SemitoneParams }
+  | { mode: "nashville"; params: NashvilleParams }
+  | { mode: "to-plain" | "is-chordpro" | "detect-key"; params: Record<string, never> }
+);
+
+const parityCases = cases as ParityCase[];
+
+function runCase({ mode, input, params }: ParityCase): unknown {
   if (mode === "key") {
     const { text, from, to, changes } = transposeText(input, params.current_key, params.target_key);
     return { text, from, to, changes };
@@ -67,10 +90,10 @@ function runCase({ mode, input, params }) {
 
 describe("JS transpose core parity", () => {
   it("loads a non-empty fixture", () => {
-    expect(cases.length).toBeGreaterThan(0);
+    expect(parityCases.length).toBeGreaterThan(0);
   });
 
-  for (const testCase of cases) {
+  for (const testCase of parityCases) {
     it(testCase.description, () => {
       expect(runCase(testCase)).toEqual(testCase.expected);
     });

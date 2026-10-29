@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { chordNotes, classifyQuality, lookupShape, parseChordSymbol } from "./shapes";
+import {
+  chordNotes,
+  classifyQuality,
+  lookupShape,
+  parseChordSymbol,
+  type ChordFamily,
+  type FrettedShape,
+  type ParsedChord,
+} from "./shapes";
 
-function guitarFrets(symbol) {
+function guitarFrets(symbol: string) {
   const shape = lookupShape(parseChordSymbol(symbol), "guitar");
-  return shape === null ? null : shape.frets;
+  return shape?.kind === "fretted" ? shape.frets : null;
 }
 
 describe("classifyQuality", () => {
-  const cases = [
+  const cases: [string, ChordFamily][] = [
     ["", "maj"],
     ["m", "min"],
     ["min", "min"],
@@ -95,31 +103,31 @@ describe("movable barre shapes for extended qualities", () => {
 
   it("still resolves the same chord on piano", () => {
     const shape = lookupShape(parseChordSymbol("Cdim"), "piano");
-    expect(shape.kind).toBe("piano");
+    expect(shape!.kind).toBe("piano");
   });
 });
 
 describe("ukulele lookups", () => {
   it("returns the open C shape", () => {
     const shape = lookupShape(parseChordSymbol("C"), "ukulele");
-    expect(shape.frets).toEqual([0, 0, 0, 3]);
+    expect((shape as FrettedShape).frets).toEqual([0, 0, 0, 3]);
   });
 });
 
 describe("piano and note spelling", () => {
   it("returns chord tones for a C major triad", () => {
     const shape = lookupShape(parseChordSymbol("C"), "piano");
-    expect(shape.kind).toBe("piano");
-    expect(chordNotes(parseChordSymbol("C"))).toEqual(["C", "E", "G"]);
+    expect(shape!.kind).toBe("piano");
+    expect(chordNotes(parseChordSymbol("C")!)).toEqual(["C", "E", "G"]);
   });
 
   it("includes the slash bass note", () => {
-    expect(chordNotes(parseChordSymbol("C/G"))).toContain("G");
+    expect(chordNotes(parseChordSymbol("C/G")!)).toContain("G");
   });
 
   it("spells a German H chord as B natural", () => {
     const chord = parseChordSymbol("H", true);
-    expect(chord.rootSemitone).toBe(11);
+    expect(chord!.rootSemitone).toBe(11);
   });
 
   it("rejects non-chord tokens", () => {
@@ -140,23 +148,23 @@ describe("piano and note spelling", () => {
   });
 
   it("spells German chords using the German spelling table", () => {
-    expect(chordNotes(parseChordSymbol("H", true))).toEqual(["H", "Dis", "Fis"]);
+    expect(chordNotes(parseChordSymbol("H", true)!)).toEqual(["H", "Dis", "Fis"]);
   });
 
   it("does not duplicate a bass note already present in the chord", () => {
-    expect(chordNotes(parseChordSymbol("C/E"))).toEqual(["C", "E", "G"]);
+    expect(chordNotes(parseChordSymbol("C/E")!)).toEqual(["C", "E", "G"]);
   });
 
   it("prepends a bass note that is outside the chord tones", () => {
-    expect(chordNotes(parseChordSymbol("C/D"))).toEqual(["D", "C", "E", "G"]);
+    expect(chordNotes(parseChordSymbol("C/D")!)).toEqual(["D", "C", "E", "G"]);
   });
 
   it("builds a movable minor-seventh barre", () => {
-    expect(lookupShape(parseChordSymbol("Bbm7"), "guitar").frets).toEqual([-1, 1, 3, 1, 2, 1]);
+    expect((lookupShape(parseChordSymbol("Bbm7"), "guitar") as FrettedShape).frets).toEqual([-1, 1, 3, 1, 2, 1]);
   });
 
   it("builds a movable major-seventh barre", () => {
-    expect(lookupShape(parseChordSymbol("Bbmaj7"), "guitar").frets).toEqual([-1, 1, 3, 2, 3, 1]);
+    expect((lookupShape(parseChordSymbol("Bbmaj7"), "guitar") as FrettedShape).frets).toEqual([-1, 1, 3, 2, 3, 1]);
   });
 
   it("returns null for an empty core", () => {
@@ -169,12 +177,14 @@ describe("piano and note spelling", () => {
 
   it("parses a slash bass note", () => {
     const chord = parseChordSymbol("C/G");
-    expect(chord.bassName).toBe("G");
-    expect(chord.bassSemitone).toBe(7);
+    expect(chord!.bassName).toBe("G");
+    expect(chord!.bassSemitone).toBe(7);
   });
 
   it("uses the maj interval fallback for an unknown family in chordNotes", () => {
-    expect(chordNotes({ family: "unknown", rootSemitone: 0, bassSemitone: null, german: false })).toEqual([
+    expect(
+      chordNotes({ family: "unknown", rootSemitone: 0, bassSemitone: null, german: false } as unknown as ParsedChord)
+    ).toEqual([
       "C",
       "E",
       "G",

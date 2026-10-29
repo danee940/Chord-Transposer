@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { renderDiagram } from "./render";
-import { parseChordSymbol } from "./shapes";
+import { parseChordSymbol, type Instrument, type ParsedChord } from "./shapes";
 
-function render(symbol, instrument, german = false) {
+function render(symbol: string | null, instrument: Instrument, german = false) {
   return renderDiagram(symbol === null ? null : parseChordSymbol(symbol, german), instrument);
 }
 
@@ -17,9 +17,9 @@ describe("renderDiagram", () => {
     const node = render("C", "guitar");
     const svg = node.querySelector("svg.diagram-fretboard");
     expect(svg).not.toBeNull();
-    expect(node.querySelector("p").textContent).toBe("C");
+    expect(node.querySelector("p")!.textContent).toBe("C");
     expect(node.textContent).toContain("major");
-    expect(node.querySelector("text").textContent).toBe("×");
+    expect(node.querySelector("text")!.textContent).toBe("×");
   });
 
   it("renders open-string and muted markers", () => {
@@ -39,9 +39,9 @@ describe("renderDiagram", () => {
     const node = render("C", "piano");
     const svg = node.querySelector("svg.diagram-keyboard");
     expect(svg).not.toBeNull();
-    const rects = [...svg.querySelectorAll("rect")];
-    expect(rects.some((r) => r.getAttribute("fill").includes("diagram-root"))).toBe(true);
-    expect(rects.some((r) => r.getAttribute("fill").includes("diagram-active"))).toBe(true);
+    const rects = [...svg!.querySelectorAll("rect")];
+    expect(rects.some((r) => r.getAttribute("fill")!.includes("diagram-root"))).toBe(true);
+    expect(rects.some((r) => r.getAttribute("fill")!.includes("diagram-active"))).toBe(true);
   });
 
   it("reports when no stored shape exists for a fretted instrument", () => {
@@ -58,7 +58,7 @@ describe("renderDiagram", () => {
   it("lists the chord tones", () => {
     const node = render("C", "guitar");
     const notes = node.querySelector("p.font-mono");
-    expect(notes.textContent).toBe("C · E · G");
+    expect(notes!.textContent).toBe("C · E · G");
   });
 
   it("renders a keyboard slash chord including the bass note", () => {
@@ -75,14 +75,14 @@ describe("renderDiagram", () => {
   it("renders active non-root keyboard notes for a slash chord", () => {
     const node = render("C/E", "piano");
     const rects = [...node.querySelectorAll("rect")];
-    expect(rects.some((r) => r.getAttribute("fill").includes("diagram-active"))).toBe(true);
+    expect(rects.some((r) => r.getAttribute("fill")!.includes("diagram-active"))).toBe(true);
   });
 
   it("highlights an active black key that is not the root", () => {
     const node = render("C7", "piano");
     const rects = [...node.querySelectorAll("rect")];
     const activeBlack = rects.filter(
-      (r) => r.getAttribute("width") === "10" && r.getAttribute("fill").includes("diagram-active")
+      (r) => r.getAttribute("width") === "10" && r.getAttribute("fill")!.includes("diagram-active")
     );
     expect(activeBlack.length).toBeGreaterThan(0);
   });
@@ -91,7 +91,7 @@ describe("renderDiagram", () => {
     const node = render("Db", "piano");
     const rects = [...node.querySelectorAll("rect")];
     const rootBlack = rects.filter(
-      (r) => r.getAttribute("width") === "10" && r.getAttribute("fill").includes("diagram-root")
+      (r) => r.getAttribute("width") === "10" && r.getAttribute("fill")!.includes("diagram-root")
     );
     expect(rootBlack.length).toBeGreaterThan(0);
   });
@@ -107,7 +107,7 @@ describe("renderDiagram", () => {
       bassSemitone: null,
       german: false,
     };
-    const node = renderDiagram(chord, "piano");
+    const node = renderDiagram(chord as ParsedChord, "piano");
     expect(node.textContent).toContain("chord");
   });
 });

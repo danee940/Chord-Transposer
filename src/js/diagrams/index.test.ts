@@ -19,8 +19,8 @@ describe("initDiagrams", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     diagrams.renderInto(container, "C  G");
-    const button = container.querySelector("button.chord-token");
-    button.getBoundingClientRect = () => ({ left: 0, right: 20, top: 0, bottom: 20, width: 20, height: 20 });
+    const button = container.querySelector<HTMLButtonElement>("button.chord-token")!;
+    button.getBoundingClientRect = () => ({ left: 0, right: 20, top: 0, bottom: 20, width: 20, height: 20 }) as DOMRect;
     button.focus = vi.fn();
     button.dispatchEvent(new Event("click"));
     expect(document.querySelector(".chord-popover")).not.toBeNull();
@@ -36,7 +36,7 @@ describe("initDiagrams", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     diagrams.renderInto(container, "H  Cis");
-    const button = container.querySelector("button.chord-token");
+    const button = container.querySelector<HTMLButtonElement>("button.chord-token")!;
     expect(button.dataset.german).toBe("1");
   });
 });

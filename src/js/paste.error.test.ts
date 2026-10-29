@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { requireElement } from "./dom";
 vi.mock("./transpose/index", async () => {
   const actual = await vi.importActual("./transpose/index");
   return {
@@ -75,12 +76,12 @@ describe("initPaste error handling", () => {
 
   it("shows a generic message for unexpected errors", () => {
     initPaste();
-    document.getElementById("text_current_key").value = "C";
-    document.getElementById("text_target_key").value = "D";
-    const input = document.getElementById("text_input");
+    requireElement<HTMLSelectElement>("text_current_key").value = "C";
+    requireElement<HTMLSelectElement>("text_target_key").value = "D";
+    const input = requireElement<HTMLTextAreaElement>("text_input");
     input.value = "C G Am F";
     input.dispatchEvent(new Event("input"));
     vi.advanceTimersByTime(300);
-    expect(document.getElementById("text_status").textContent).toBe("Something went wrong.");
+    expect(requireElement("text_status").textContent).toBe("Something went wrong.");
   });
 });

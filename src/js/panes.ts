@@ -1,4 +1,10 @@
-export function scaledScrollTop(source: Element, target: Element): number {
+export interface ScrollMetrics {
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+}
+
+export function scaledScrollTop(source: ScrollMetrics, target: ScrollMetrics): number {
   const sourceRange = source.scrollHeight - source.clientHeight;
   const targetRange = target.scrollHeight - target.clientHeight;
   if (sourceRange <= 0 || targetRange <= 0) return 0;

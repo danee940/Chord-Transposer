@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { requireElement } from "./dom";
 import { createDetectionBadge } from "./detect-badge";
+import type { KeyDetection } from "./transpose/index";
 
 function buildDom() {
   document.body.innerHTML = `
@@ -15,15 +17,15 @@ function buildDom() {
     </select>
   `;
   return {
-    wrap: document.getElementById("wrap"),
-    label: document.getElementById("label"),
-    altButton: document.getElementById("alt"),
-    select: document.getElementById("key"),
+    wrap: requireElement("wrap"),
+    label: requireElement("label"),
+    altButton: requireElement<HTMLButtonElement>("alt"),
+    select: requireElement<HTMLSelectElement>("key"),
   };
 }
 
 describe("createDetectionBadge", () => {
-  let elements;
+  let elements: ReturnType<typeof buildDom>;
 
   beforeEach(() => {
     elements = buildDom();
@@ -93,7 +95,7 @@ describe("createDetectionBadge", () => {
 
   it("keeps the select when the clicked alternate has no option", () => {
     const badge = createDetectionBadge(elements);
-    badge.apply({ key: "C", alternate: "H", ambiguous: true });
+    badge.apply({ key: "C", alternate: "H", ambiguous: true } as KeyDetection);
     elements.altButton.dispatchEvent(new Event("click"));
     expect(elements.select.value).toBe("C");
     expect(elements.label.textContent).toBe("Detected: H");

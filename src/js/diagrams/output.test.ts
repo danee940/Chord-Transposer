@@ -2,16 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { buildInteractiveOutput } from "./output";
 
-function stripToPlainText(text) {
+function stripToPlainText(text: string) {
   const container = document.createElement("div");
   container.appendChild(buildInteractiveOutput(text));
   return container.textContent;
 }
 
-function chordButtons(text) {
+function chordButtons(text: string) {
   const container = document.createElement("div");
   container.appendChild(buildInteractiveOutput(text));
-  return [...container.querySelectorAll("button.chord-token")];
+  return [...container.querySelectorAll<HTMLButtonElement>("button.chord-token")];
 }
 
 describe("buildInteractiveOutput round-trip", () => {
@@ -70,13 +70,13 @@ describe("buildInteractiveOutput round-trip", () => {
 
   it("invokes the activation callback when a chord button is clicked", () => {
     const container = document.createElement("div");
-    let activated = null;
+    let activated: string | null | undefined = null;
     container.appendChild(
       buildInteractiveOutput("C G", (button) => {
         activated = button.dataset.chord;
       })
     );
-    container.querySelector("button.chord-token").dispatchEvent(new Event("click"));
+    container.querySelector("button.chord-token")!.dispatchEvent(new Event("click"));
     expect(activated).toBe("C");
   });
 });

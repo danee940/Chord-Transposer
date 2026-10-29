@@ -31,7 +31,7 @@ describe("capoOptions", () => {
     const rows = capoOptions("Am");
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((row) => row.shape.endsWith("m"))).toBe(true);
-    expect(rows[0].fret).toBe(0);
+    expect(rows[0]?.fret).toBe(0);
   });
 
   it("returns nothing for an unknown key", () => {
