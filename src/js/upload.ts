@@ -1,4 +1,9 @@
+import { groupChanges, renderChangeRow } from "./change-groups";
+import { createChangesDisclosure } from "./changes-disclosure";
 import { createDetectionBadge } from "./detect-badge";
+import { extractDocxParagraphs } from "./docx-text";
+import { initKeyPicker } from "./key-picker";
+import { alignEditedParagraphs, lineCount, regroupLines } from "./preview-edits";
 import {
   BASE_CLASSES,
   ERROR_CLASSES,
@@ -7,12 +12,14 @@ import {
   makeHeaderCell,
   requireElement,
 } from "./dom";
+import { splitLineContents } from "./transpose/chords";
 import {
   InvalidKeyError,
   isChordProText,
   isKeyDetection,
   transposeChordProText,
   transposeText,
+  type KeyTransposition,
 } from "./transpose/index";
 
 type TextFormat = "pdf" | "txt" | "chordpro";
@@ -23,6 +30,20 @@ interface UploadRequest {
   multi: boolean;
   fallback: string;
 }
+
+interface PreviewEdit {
+  source: string;
+  text: string;
+}
+
+interface HeldEdits {
+  key: string;
+  paragraphs: string[];
+  changed: boolean[];
+}
+
+const PREVIEW_MIN_ROWS = 8;
+const PREVIEW_MAX_ROWS = 32;
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_BINDER_FILES = 20;
@@ -131,8 +152,22 @@ export function initUpload(): void {
   const detectedWrap = requireElement("upload_detected_wrap");
   const detectedLabel = requireElement("upload_detected_label");
   const detectedAlt = requireElement("upload_detected_alt");
+  const previewWrap = requireElement("upload_preview");
+  const previewStatus = requireElement("upload_preview_status");
+  const previewReset = requireElement<HTMLButtonElement>("upload_preview_reset");
+  const previewText = requireElement<HTMLTextAreaElement>("upload_preview_text");
+  const changes = createChangesDisclosure({
+    wrap: requireElement("upload_changes_wrap"),
+    toggle: requireElement("upload_changes_toggle"),
+    label: requireElement("upload_changes_label"),
+    caret: requireElement("upload_changes_caret"),
+    list: requireElement("upload_changes"),
+  });
 
-  let textPreviewSource: string | null = null;
+  let sourceParagraphs: string[] | null = null;
+  let previewParagraphs: string[] = [];
+  let previewKey = "";
+  let heldEdits: HeldEdits | null = null;
   let fileSelectionId = 0;
 
   function hideMessage(): void {
@@ -191,19 +226,68 @@ export function initUpload(): void {
     return form.querySelector<HTMLInputElement>('input[name="format"]:checked')?.value || "docx";
   }
 
-  function showPreview(from: string, to: string, text: string): void {
-    const pre = document.createElement("pre");
-    pre.className = "overflow-x-auto whitespace-pre font-mono text-xs";
-    pre.textContent = text;
-    showResult(`Preview: ${from} to ${to}`, pre);
+  function previewValue(): string {
+    return previewParagraphs.join("\n");
   }
+
+  function syncResetButton(): void {
+    previewReset.classList.toggle("hidden", previewText.value === previewValue());
+  }
+
+  function hidePreview(): void {
+    previewWrap.classList.add("hidden");
+    previewParagraphs = [];
+    previewText.value = "";
+    changes.hide();
+    syncResetButton();
+  }
+
+  function showPreview(result: KeyTransposition, text: string): void {
+    const count = result.changes.length;
+    previewStatus.textContent =
+      count > 0
+        ? `Preview · ${result.from} → ${result.to}`
+        : `Preview · ${result.from} → ${result.to} · no chords found to change`;
+    previewText.value = text;
+    previewText.rows = Math.min(
+      PREVIEW_MAX_ROWS,
+      Math.max(PREVIEW_MIN_ROWS, lineCount(previewText.value) + 1)
+    );
+    if (count > 0) {
+      changes.show(groupChanges(result.changes).map(renderChangeRow));
+    } else {
+      changes.hide();
+    }
+    previewWrap.classList.remove("hidden");
+    syncResetButton();
+  }
+
+  const keyPicker = initKeyPicker({
+    panel: requireElement("key_picker"),
+    title: requireElement("key_picker_title"),
+    distance: requireElement("key_distance"),
+    fields: [
+      {
+        trigger: requireElement<HTMLButtonElement>("current_key_trigger"),
+        label: requireElement("current_key_label"),
+        select: currentKey,
+        title: "Current key",
+      },
+      {
+        trigger: requireElement<HTMLButtonElement>("target_key_trigger"),
+        label: requireElement("target_key_label"),
+        select: targetKey,
+        title: "Desired key",
+      },
+    ],
+  });
 
   const detection = createDetectionBadge({
     wrap: detectedWrap,
     label: detectedLabel,
     altButton: detectedAlt,
     select: currentKey,
-    onAltPick: runPreview,
+    onAltPick: rerunPreview,
   });
 
   async function detectDocxKey(file: File, selectionId: number): Promise<void> {
@@ -215,30 +299,85 @@ export function initUpload(): void {
       const result: unknown = await response.json();
       if (selectionId !== fileSelectionId || !isKeyDetection(result)) return;
       detection.apply(result);
+      rerunPreview();
     } catch {
       return;
     }
   }
 
+  function transposeSheet(text: string, from: string, to: string): KeyTransposition {
+    return isChordProText(text)
+      ? transposeChordProText(text, from, to)
+      : transposeText(text, from, to);
+  }
+
+  function editedParagraphs(): string[] {
+    return alignEditedParagraphs(previewParagraphs, previewText.value);
+  }
+
+  function captureEdits(): HeldEdits | null {
+    if (previewParagraphs.length === 0) return null;
+    const paragraphs = editedParagraphs();
+    const changed = paragraphs.map((text, index) => text !== previewParagraphs[index]);
+    return changed.includes(true) ? { key: previewKey, paragraphs, changed } : null;
+  }
+
+  function rebaseHeldEdits(target: string): string[] {
+    const held = heldEdits;
+    heldEdits = null;
+    if (held === null) return previewParagraphs;
+    const rebased =
+      held.key === target
+        ? held.paragraphs
+        : regroupLines(
+            transposeSheet(held.paragraphs.join("\n"), held.key, target).text,
+            held.paragraphs
+          );
+    return previewParagraphs.map((text, index) => (held.changed[index] ? rebased[index]! : text));
+  }
+
   function runPreview(): void {
-    if (textPreviewSource === null) return;
+    keyPicker.refresh();
+    if (sourceParagraphs === null) return;
     if (currentKey.value === targetKey.value) {
       hideMessage();
+      hidePreview();
       return;
     }
     try {
-      const result = isChordProText(textPreviewSource)
-        ? transposeChordProText(textPreviewSource, currentKey.value, targetKey.value)
-        : transposeText(textPreviewSource, currentKey.value, targetKey.value);
-      showPreview(result.from, result.to, result.text);
+      const result = transposeSheet(sourceParagraphs.join("\n"), currentKey.value, targetKey.value);
+      previewParagraphs = regroupLines(result.text, sourceParagraphs);
+      previewKey = targetKey.value;
+      showPreview(result, rebaseHeldEdits(targetKey.value).join("\n"));
     } catch (err) {
       if (err instanceof InvalidKeyError) showError(err.message);
     }
   }
 
+  function rerunPreview(): void {
+    heldEdits = captureEdits() ?? heldEdits;
+    runPreview();
+  }
+
+  function loadPreviewSource(paragraphs: string[], selectionId: number): void {
+    if (selectionId !== fileSelectionId || paragraphs.length === 0) return;
+    sourceParagraphs = paragraphs;
+    runPreview();
+  }
+
+  function collectEdits(): PreviewEdit[] {
+    if (sourceParagraphs === null || previewParagraphs.length === 0) return [];
+    const edited = editedParagraphs();
+    return sourceParagraphs.flatMap((source, index) =>
+      edited[index] === previewParagraphs[index] ? [] : [{ source, text: edited[index]! }]
+    );
+  }
+
   fileInput.addEventListener("change", () => {
     hideMessage();
-    textPreviewSource = null;
+    hidePreview();
+    sourceParagraphs = null;
+    heldEdits = null;
     fileSelectionId += 1;
     const selectionId = fileSelectionId;
     detection.reset();
@@ -259,13 +398,24 @@ export function initUpload(): void {
     if (files.length === 1 && isTextName(first.name)) {
       void first.text().then((content) => {
         if (selectionId !== fileSelectionId) return;
-        textPreviewSource = content;
         detection.detect(content);
-        runPreview();
+        loadPreviewSource(splitLineContents(content), selectionId);
       });
     } else if (files.length === 1 && isDocxName(first.name)) {
       void detectDocxKey(first, selectionId);
+      void Promise.resolve()
+        .then(() => first.arrayBuffer())
+        .then(extractDocxParagraphs)
+        .then((paragraphs) => loadPreviewSource(paragraphs, selectionId))
+        .catch(() => undefined);
     }
+  });
+
+  previewText.addEventListener("input", syncResetButton);
+  previewReset.addEventListener("click", () => {
+    previewText.value = previewValue();
+    syncResetButton();
+    previewText.focus();
   });
 
   (["dragenter", "dragover"] as const).forEach((name) =>
@@ -291,6 +441,7 @@ export function initUpload(): void {
 
   swap.addEventListener("click", () => {
     detection.markUserPick();
+    heldEdits = captureEdits() ?? heldEdits;
     const from = currentKey.value;
     currentKey.value = targetKey.value;
     targetKey.value = from;
@@ -299,9 +450,9 @@ export function initUpload(): void {
 
   currentKey.addEventListener("change", () => {
     detection.markUserPick();
-    runPreview();
+    rerunPreview();
   });
-  targetKey.addEventListener("change", runPreview);
+  targetKey.addEventListener("change", rerunPreview);
 
   function showTransposeResult(from: string, to: string, changesRaw: string): void {
     const table = document.createElement("table");
@@ -340,13 +491,18 @@ export function initUpload(): void {
     return data;
   }
 
+  function appendEdits(data: FormData, edits: PreviewEdit[]): FormData {
+    if (edits.length > 0) data.append("edits", JSON.stringify(edits));
+    return data;
+  }
+
   function buildBinderRequest(files: File[]): UploadRequest {
     const data = keyFormData();
     files.forEach((file) => data.append("files", file));
     return { endpoint: "/binder", body: data, multi: true, fallback: "chord_binder.pdf" };
   }
 
-  function buildSingleRequest(file: File): UploadRequest {
+  function buildSingleRequest(file: File, edits: PreviewEdit[]): UploadRequest {
     if (isTextName(file.name)) {
       const format = textOutputFormat(file.name);
       const data = keyFormData();
@@ -354,14 +510,14 @@ export function initUpload(): void {
       data.append("format", format);
       return {
         endpoint: "/transpose-text",
-        body: data,
+        body: appendEdits(data, edits),
         multi: false,
         fallback: `transposed.${TEXT_FORMAT_EXTENSIONS[format]}`,
       };
     }
     return {
       endpoint: "/transpose",
-      body: new FormData(form),
+      body: appendEdits(new FormData(form), edits),
       multi: false,
       fallback: `transposed.${selectedFormat()}`,
     };
@@ -392,11 +548,13 @@ export function initUpload(): void {
       showError("Current and desired keys are the same. Pick a different key to transpose.");
       return;
     }
+    const edits = files.length > 1 ? [] : collectEdits();
 
     setLoading(true);
 
     try {
-      const request = files.length > 1 ? buildBinderRequest(files) : buildSingleRequest(first);
+      const request =
+        files.length > 1 ? buildBinderRequest(files) : buildSingleRequest(first, edits);
       const response = await fetch(request.endpoint, { method: "POST", body: request.body });
 
       if (!response.ok) {
@@ -410,12 +568,15 @@ export function initUpload(): void {
       const changes = decodeURIComponent(response.headers.get("X-Transpose-Changes") || "none");
 
       const disposition = response.headers.get("Content-Disposition") || "";
-      downloadBlob(await response.blob(), parseDownloadFilename(disposition, request.fallback));
+      const filename = parseDownloadFilename(disposition, request.fallback);
+      downloadBlob(await response.blob(), filename);
 
       if (request.multi) {
         showResult(`Binder created from ${files.length} files`);
-      } else {
+      } else if (previewWrap.classList.contains("hidden")) {
         showTransposeResult(from, to, changes);
+      } else {
+        showResult(`Transposed from ${from} to ${to} · downloaded ${filename}`);
       }
     } catch {
       showError("Network error. Please try again.");

@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import { requireElement } from "./dom";
+import { docxFile } from "./testing/docx-fixture";
 import { initUpload } from "./upload";
 
 function setupDom() {
@@ -17,9 +18,13 @@ function setupDom() {
     <form id="form">
       <input id="file" type="file" name="file" multiple />
       <div id="dropzone"><span id="dropzone-text"></span></div>
-      <select id="current_key"><option value="C">C</option><option value="D">D</option></select>
-      <select id="target_key"><option value="C">C</option><option value="D">D</option></select>
+      <select id="current_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
+      <select id="target_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
       <button id="swap" type="button"></button>
+      <button id="current_key_trigger" type="button"><span id="current_key_label"></span></button>
+      <button id="target_key_trigger" type="button"><span id="target_key_label"></span></button>
+      <div id="key_picker" class="hidden"><div id="key_picker_title"></div></div>
+      <p id="key_distance"></p>
       <span id="upload_detected_wrap" class="hidden">
         <span id="upload_detected_label"></span>
         <button id="upload_detected_alt" type="button" class="hidden"></button>
@@ -27,6 +32,15 @@ function setupDom() {
       <label><input type="radio" name="format" value="docx" checked /></label>
       <label><input type="radio" name="format" value="pdf" /></label>
       <button id="submit" type="submit"><span id="submit-label"></span><span id="spinner"></span></button>
+      <div id="upload_preview" class="hidden">
+        <span id="upload_preview_status"></span>
+        <button id="upload_preview_reset" type="button" class="hidden"></button>
+        <textarea id="upload_preview_text"></textarea>
+        <div id="upload_changes_wrap" class="hidden">
+          <button id="upload_changes_toggle" type="button"><svg id="upload_changes_caret"></svg><span id="upload_changes_label"></span></button>
+          <div id="upload_changes" class="hidden"></div>
+        </div>
+      </div>
       <div id="message"></div>
     </form>
   `;
@@ -244,25 +258,263 @@ describe("initUpload", () => {
     await vi.waitFor(() => expect(currentKey.value).toBe("D"));
   });
 
-  it("accepts a .txt file and previews the transposed text", async () => {
-    initUpload();
+  function preview() {
+    return requireElement("upload_preview");
+  }
+
+  function previewText() {
+    return requireElement<HTMLTextAreaElement>("upload_preview_text");
+  }
+
+  function previewStatus() {
+    return requireElement("upload_preview_status").textContent;
+  }
+
+  async function selectAndPreview(file: File) {
     requireElement<HTMLSelectElement>("target_key").value = "D";
     const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeTextFile("hymn.txt", "C G Am F\nlyrics here")]);
+    setFiles(fileInput, [file]);
     fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(message().textContent).toContain("Preview: C to D"));
-    expect(message().querySelector("pre")!.textContent).toContain("D");
+    await vi.waitFor(() => expect(preview().classList.contains("hidden")).toBe(false));
+  }
+
+  it("accepts a .txt file and previews the transposed text with its chord changes", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics here"));
+    expect(previewStatus()).toBe("Preview · C → D");
+    expect(requireElement("upload_changes_label").textContent).toBe("Show 4 chord changes");
+    expect(previewText().value).toBe("D A Bm G\nlyrics here");
+    expect(previewText().rows).toBe(8);
+    const rows = [...requireElement("upload_changes").children].map((row) => row.textContent);
+    expect(rows).toEqual(["A → B · Am", "C → D", "F → G", "G → A"]);
+    expect(requireElement("upload_changes").classList.contains("hidden")).toBe(true);
+    expect(requireElement("upload_changes_wrap").classList.contains("hidden")).toBe(false);
+  });
+
+  it("collapses the chord changes behind a toggle and expands on demand", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    const wrap = requireElement("upload_changes_wrap");
+    const toggle = requireElement("upload_changes_toggle");
+    const list = requireElement("upload_changes");
+    expect(wrap.classList.contains("hidden")).toBe(false);
+    expect(list.classList.contains("hidden")).toBe(true);
+
+    toggle.click();
+    expect(list.classList.contains("hidden")).toBe(false);
+    expect(requireElement("upload_changes_label").textContent).toBe("Hide 4 chord changes");
+    expect(requireElement("upload_changes_caret").classList.contains("rotate-90")).toBe(true);
+
+    toggle.click();
+    expect(list.classList.contains("hidden")).toBe(true);
+    expect(requireElement("upload_changes_label").textContent).toBe("Show 4 chord changes");
+  });
+
+  it("hides the changes toggle when no chords changed", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("notes.txt", "just some words"));
+    expect(requireElement("upload_changes_wrap").classList.contains("hidden")).toBe(true);
+  });
+
+  it("groups the chord changes by root, one root per line", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C C/E C7 Gsus G7 Am"));
+    const rows = [...requireElement("upload_changes").children].map((row) => row.textContent);
+    expect(rows).toEqual(["A → B · Am", "C → D · C/E · C7", "G → A · G7 · Gsus"]);
+    const [first] = requireElement("upload_changes").children;
+    expect(first!.querySelector("span.font-medium")!.textContent).toBe("A → B");
   });
 
   it("previews ChordPro uploads via the chordpro core", async () => {
     initUpload();
-    requireElement<HTMLSelectElement>("target_key").value = "D";
+    await selectAndPreview(makeTextFile("grace.pro", "[C]Amazing [G]grace"));
+    expect(previewText().value).toBe("[D]Amazing [A]grace");
+  });
+
+  it("uses the singular when a single chord changed", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("one.txt", "C"));
+    expect(requireElement("upload_changes_label").textContent).toBe("Show 1 chord change");
+  });
+
+  it("reports when no chords were found to change", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("notes.txt", "just some words"));
+    expect(previewStatus()).toBe("Preview · C → D · no chords found to change");
+    expect(requireElement("upload_changes").classList.contains("hidden")).toBe(true);
+  });
+
+  it("grows the preview with the text up to a maximum height", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("long.txt", Array(60).fill("C G").join("\n")));
+    expect(previewText().rows).toBe(32);
+  });
+
+  it("previews a .docx by extracting its paragraphs in the browser", async () => {
+    fetchMock.mockResolvedValue({ ok: false });
+    initUpload();
+    await selectAndPreview(docxFile("song.docx", ["C G Am F", "lyrics"]));
+    expect(previewText().value).toBe("D A Bm G\nlyrics");
+    expect(fetchMock).toHaveBeenCalledWith("/detect-key", expect.anything());
+  });
+
+  it("shows no preview when the .docx cannot be read in the browser", async () => {
+    fetchMock.mockResolvedValue({ ok: false });
+    initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeTextFile("grace.pro", "[C]Amazing [G]grace")]);
+    setFiles(fileInput, [makeFile("song.docx", 1024)]);
     fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() =>
-      expect(message().querySelector("pre")!.textContent).toContain("[D]Amazing")
-    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(preview().classList.contains("hidden")).toBe(true);
+  });
+
+  it("shows no preview for a .docx without paragraphs", async () => {
+    fetchMock.mockResolvedValue({ ok: false });
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [docxFile("empty.docx", [])]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(preview().classList.contains("hidden")).toBe(true);
+  });
+
+  it("discards a stale .docx extraction after a newer selection", async () => {
+    fetchMock.mockResolvedValue({ ok: false });
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    const slow = docxFile("slow.docx", ["C G"]);
+    const slowBuffer = slow.arrayBuffer();
+    let release: () => void = () => {};
+    slow.arrayBuffer = () =>
+      new Promise((resolve) => {
+        release = () => {
+          void slowBuffer.then(resolve);
+        };
+      });
+    setFiles(fileInput, [slow]);
+    fileInput.dispatchEvent(new Event("change"));
+    setFiles(fileInput, [makeTextFile("fast.txt", "words")]);
+    fileInput.dispatchEvent(new Event("change"));
+    requireElement<HTMLSelectElement>("target_key").value = "D";
+    requireElement<HTMLSelectElement>("target_key").dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(previewText().value).toBe("words"));
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(previewText().value).toBe("words");
+  });
+
+  function setTarget(value: string) {
+    const target = requireElement<HTMLSelectElement>("target_key");
+    target.value = value;
+    target.dispatchEvent(new Event("change"));
+  }
+
+  function editPreview(value: string) {
+    previewText().value = value;
+    previewText().dispatchEvent(new Event("input"));
+  }
+
+  it("rebases edited paragraphs onto a new target key and regenerates the rest", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics\nF C"));
+    editPreview("D A Bm7 G\nlyrics\nG D");
+    setTarget("E");
+    expect(previewText().value).toBe("E B C#m7A\nlyrics\nA E");
+    expect(previewStatus()).toBe("Preview · C → E");
+    expect(requireElement("upload_preview_reset").classList.contains("hidden")).toBe(false);
+  });
+
+  it("keeps edits as they are when only the current key changes", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nF C"));
+    editPreview("D A Bm7 G\nG D");
+    const currentKey = requireElement<HTMLSelectElement>("current_key");
+    currentKey.value = "E";
+    currentKey.dispatchEvent(new Event("change"));
+    expect(previewText().value).toBe("D A Bm7 G\nD#A#");
+  });
+
+  it("rebases edits when the keys are swapped", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    editPreview("D A Bm7 G");
+    requireElement("swap").click();
+    expect(previewText().value).toBe("C G Am7 F");
+  });
+
+  it("holds edits while the keys match and restores them afterwards", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics"));
+    editPreview("D A Bm7 G\nlyrics");
+    setTarget("C");
+    expect(preview().classList.contains("hidden")).toBe(true);
+    setTarget("C");
+    setTarget("E");
+    expect(previewText().value).toBe("E B C#m7A\nlyrics");
+  });
+
+  it("rebases added lines together with their paragraph", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics"));
+    editPreview("D A Bm G\nG D\nlyrics");
+    setTarget("E");
+    expect(previewText().value).toBe("E B C#mA\nA E\nlyrics");
+  });
+
+  it("rebases edits made after a detected alternate key is picked", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    editPreview("D A Bm7 G");
+    requireElement<HTMLSelectElement>("current_key").value = "E";
+    requireElement("upload_detected_alt").click();
+    expect(previewText().value).toBe("D A Bm7 G");
+  });
+
+  it("picks keys from the visual grid and re-runs the preview", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    const panel = requireElement("key_picker");
+    requireElement<HTMLButtonElement>("target_key_trigger").click();
+    expect(panel.classList.contains("hidden")).toBe(false);
+    expect(requireElement("key_picker_title").textContent).toBe("Desired key");
+
+    panel.querySelector<HTMLButtonElement>('button[data-key="E"]')!.click();
+    expect(requireElement<HTMLSelectElement>("target_key").value).toBe("E");
+    expect(panel.classList.contains("hidden")).toBe(true);
+    expect(requireElement("target_key_label").textContent).toBe("E");
+    expect(requireElement("key_distance").textContent).toBe("+4 semitones");
+    expect(previewText().value).toBe("E B C#mA");
+  });
+
+  it("refreshes the key labels and distance when the keys are swapped", async () => {
+    initUpload();
+    requireElement<HTMLSelectElement>("target_key").value = "D";
+    requireElement<HTMLSelectElement>("target_key").dispatchEvent(new Event("change"));
+    requireElement("swap").click();
+    expect(requireElement("current_key_label").textContent).toBe("D");
+    expect(requireElement("target_key_label").textContent).toBe("C");
+    expect(requireElement("key_distance").textContent).toBe("−2 semitones");
+  });
+
+  it("re-runs a stale .docx preview once the detected key arrives", async () => {
+    let resolveDetect: (value: unknown) => void = () => {};
+    fetchMock.mockReturnValue(new Promise((resolve) => (resolveDetect = resolve)));
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    requireElement<HTMLSelectElement>("target_key").value = "E";
+    setFiles(fileInput, [docxFile("song.docx", ["C G Am F"])]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(previewText().value).toBe("E B C#mA"));
+
+    resolveDetect({
+      ok: true,
+      json: async () => ({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 4 }),
+    });
+    await vi.waitFor(() => expect(previewText().value).toBe("D A Bm G"));
+    expect(requireElement("current_key_label").textContent).toBe("D");
   });
 
   it("hides the preview when the keys are the same", async () => {
@@ -273,20 +525,32 @@ describe("initUpload", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(message().className).toContain("hidden");
+    expect(preview().classList.contains("hidden")).toBe(true);
   });
 
   it("re-runs the preview when a key changes and reports invalid keys", async () => {
     initUpload();
-    requireElement<HTMLSelectElement>("target_key").value = "D";
-    const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeTextFile("hymn.txt", "C G Am F")]);
-    fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(message().textContent).toContain("Preview"));
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
 
     const currentKey = requireElement<HTMLSelectElement>("current_key");
     currentKey.value = "";
     currentKey.dispatchEvent(new Event("change"));
     expect(message().textContent).toContain("not a valid key");
+  });
+
+  it("offers to reset edits made in the preview", async () => {
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    const reset = requireElement("upload_preview_reset");
+    expect(reset.classList.contains("hidden")).toBe(true);
+
+    previewText().value = "D A Bm7 G";
+    previewText().dispatchEvent(new Event("input"));
+    expect(reset.classList.contains("hidden")).toBe(false);
+
+    reset.click();
+    expect(previewText().value).toBe("D A Bm G");
+    expect(reset.classList.contains("hidden")).toBe(true);
   });
 
   it("rejects unsupported extensions", () => {
@@ -525,6 +789,94 @@ describe("initUpload", () => {
     expect(fetchMock.mock.calls[0]![1].body.get("format")).toBe("pdf");
     const anchor = anchorSpy.mock.results.map((r) => r.value).find((el) => el.tagName === "A");
     expect(anchor.download).toBe("transposed.pdf");
+  });
+
+  it("sends preview edits with a text upload, keyed by the source line", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics\nF C"));
+    previewText().value = "D A Bm7 G\nlyrics\nG D";
+    previewText().dispatchEvent(new Event("input"));
+    await submitAndWait();
+    const body = fetchMock.mock.calls[0]![1].body as FormData;
+    expect(JSON.parse(body.get("edits") as string)).toEqual([
+      { source: "C G Am F", text: "D A Bm7 G" },
+    ]);
+  });
+
+  it("confirms the download without a change table when the preview is shown", async () => {
+    fetchMock.mockResolvedValue(
+      response({ headers: { "Content-Disposition": 'attachment; filename="hymn_D.txt"' } })
+    );
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    await submitAndWait();
+    expect(message().textContent).toBe("Transposed from C to D · downloaded hymn_D.txt");
+    expect(message().querySelector("table")).toBeNull();
+    expect(preview().classList.contains("hidden")).toBe(false);
+  });
+
+  it("omits the edits field when the preview was not changed", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    await submitAndWait();
+    expect((fetchMock.mock.calls[0]![1].body as FormData).has("edits")).toBe(false);
+  });
+
+  it("sends .docx preview edits with the form data, keeping multi-line paragraphs together", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(docxFile("song.docx", ["C G\nAm F", "lyrics"]));
+    expect(previewText().value).toBe("D A\nBm G\nlyrics");
+    previewText().value = "D A\nBm7 G\nlyrics";
+    previewText().dispatchEvent(new Event("input"));
+    fetchMock.mockClear();
+    await submitAndWait();
+    const [endpoint, options] = fetchMock.mock.calls[0]!;
+    expect(endpoint).toBe("/transpose");
+    expect(JSON.parse(options.body.get("edits") as string)).toEqual([
+      { source: "C G\nAm F", text: "D A\nBm7 G" },
+    ]);
+  });
+
+  it("sends an added preview line as part of the paragraph it follows", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics"));
+    previewText().value = "D A Bm G\nlyrics\nmore lyrics";
+    previewText().dispatchEvent(new Event("input"));
+    await submitAndWait();
+    const body = fetchMock.mock.calls[0]![1].body as FormData;
+    expect(JSON.parse(body.get("edits") as string)).toEqual([
+      { source: "lyrics", text: "lyrics\nmore lyrics" },
+    ]);
+  });
+
+  it("sends a removed preview line as an emptied paragraph", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics"));
+    previewText().value = "D A Bm G";
+    previewText().dispatchEvent(new Event("input"));
+    await submitAndWait();
+    const body = fetchMock.mock.calls[0]![1].body as FormData;
+    expect(JSON.parse(body.get("edits") as string)).toEqual([{ source: "lyrics", text: "" }]);
+  });
+
+  it("sends no edits when the preview could not be generated", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    const currentKey = requireElement<HTMLSelectElement>("current_key");
+    currentKey.value = "";
+    currentKey.dispatchEvent(new Event("change"));
+    requireElement<HTMLSelectElement>("current_key").value = "C";
+    requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
+    await vi.waitFor(() =>
+      expect(requireElement("spinner").classList.contains("hidden")).toBe(true)
+    );
+    expect((fetchMock.mock.calls[0]![1].body as FormData).has("edits")).toBe(false);
   });
 
   it("posts multiple .docx files to /binder and reports the binder result", async () => {

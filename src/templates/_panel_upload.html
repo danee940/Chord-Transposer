@@ -27,7 +27,7 @@
     <div class="mt-4 flex items-end gap-2">
       <div class="flex-1">
         <div class="mb-1.5 flex items-center justify-between gap-2">
-          <label for="current_key" class="block text-sm text-muted-light dark:text-muted">Current key</label>
+          <label for="current_key_trigger" class="block text-sm text-muted-light dark:text-muted">Current key</label>
           <span id="upload_detected_wrap" class="hidden items-center gap-1 text-xs text-muted-light dark:text-muted"
             aria-live="polite">
             <span id="upload_detected_label"></span>
@@ -35,10 +35,17 @@
               class="hidden rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-medium text-slate-700 transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200 dark:hover:text-slate-100"></button>
           </span>
         </div>
-        <select id="current_key" name="current_key" required
-          class="w-full rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
+        <select id="current_key" name="current_key" required hidden aria-hidden="true" tabindex="-1">
           {% for key in keys %}<option value="{{ key }}">{{ key }}</option>{% endfor %}
         </select>
+        <button type="button" id="current_key_trigger" aria-haspopup="dialog" aria-expanded="false"
+          class="flex w-full items-center justify-between gap-2 rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-accent focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
+          <span id="current_key_label" class="font-medium">C</span>
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden="true">
+            <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
       </div>
       <button type="button" id="swap" aria-label="Swap keys" title="Swap keys"
         class="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-border-light bg-bg-light text-muted-light transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-muted dark:hover:text-slate-100">
@@ -51,14 +58,29 @@
         </svg>
       </button>
       <div class="flex-1">
-        <label for="target_key" class="mb-1.5 block text-sm text-muted-light dark:text-muted">Desired key</label>
-        <select id="target_key" name="target_key" required
-          class="w-full rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
+        <label for="target_key_trigger" class="mb-1.5 block text-sm text-muted-light dark:text-muted">Desired key</label>
+        <select id="target_key" name="target_key" required hidden aria-hidden="true" tabindex="-1">
           {% for key in keys %}<option value="{{ key }}" {% if key=="D" %} selected{% endif %}>{{ key }}</option>{%
           endfor %}
         </select>
+        <button type="button" id="target_key_trigger" aria-haspopup="dialog" aria-expanded="false"
+          class="flex w-full items-center justify-between gap-2 rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-accent focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
+          <span id="target_key_label" class="font-medium">D</span>
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden="true">
+            <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
       </div>
     </div>
+
+    <div class="relative">
+      <div id="key_picker" role="dialog" aria-labelledby="key_picker_title"
+        class="absolute left-0 right-0 top-2 z-20 hidden rounded-xl border border-app-border-light bg-card-light p-3 shadow-lg dark:border-app-border dark:bg-card">
+        <div id="key_picker_title" class="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200"></div>
+      </div>
+    </div>
+    <p id="key_distance" class="mt-2 text-center text-xs text-muted-light dark:text-muted"></p>
 
     <span class="mb-1.5 mt-4 block text-sm text-muted-light dark:text-muted">Output format</span>
     <div class="flex gap-3">
@@ -72,6 +94,36 @@
         <input type="radio" name="format" value="pdf" class="accent-accent focus:outline-none" />
         .pdf
       </label>
+    </div>
+
+    <div id="upload_preview" class="mt-4 hidden">
+      <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+        <span id="upload_preview_status" class="text-sm text-muted-light dark:text-muted" aria-live="polite"></span>
+        <button type="button" id="upload_preview_reset"
+          class="hidden rounded-full border border-app-border-light bg-bg-light px-2.5 py-0.5 text-xs font-medium text-slate-700 transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200 dark:hover:text-slate-100">Reset
+          edits</button>
+      </div>
+      <label for="upload_preview_text" class="sr-only">Transposed preview</label>
+      <textarea id="upload_preview_text" wrap="off" spellcheck="false" autocomplete="off" rows="10"
+        class="block max-h-[70vh] min-h-[11rem] w-full resize-y overflow-auto whitespace-pre rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 font-mono text-xs leading-5 text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200"></textarea>
+      <p class="mt-1.5 text-xs text-muted-light dark:text-muted">
+        Spotted a wrong chord? Edit it in the preview and the download will include your change. Edits
+        follow along when you pick another key, and added lines are kept with the paragraph above them.
+      </p>
+      <div id="upload_changes_wrap" class="mt-3 hidden">
+        <button type="button" id="upload_changes_toggle" aria-expanded="false" aria-controls="upload_changes"
+          class="flex items-center gap-1 text-[13px] text-muted-light transition-colors hover:text-accent focus:text-accent focus:outline-none dark:text-muted">
+          <svg id="upload_changes_caret" class="h-3 w-3 transition-transform" viewBox="0 0 12 12" fill="none"
+            aria-hidden="true">
+            <path d="M4 2.5 8 6l-4 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          <span id="upload_changes_label"></span>
+        </button>
+        <div id="upload_changes"
+          class="mt-1.5 hidden divide-y divide-app-border-light rounded-xl border border-app-border-light bg-bg-light px-3 py-1 text-[13px] dark:divide-app-border dark:border-app-border dark:bg-bg"
+          aria-label="Chord changes"></div>
+      </div>
     </div>
 
     <button id="submit" type="submit"

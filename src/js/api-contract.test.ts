@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 
 import cases from "../testdata/api_contract_cases.json";
 import { requireElement } from "./dom";
+import { docxFile } from "./testing/docx-fixture";
 import { initUpload } from "./upload";
 
 interface FileSpec {
@@ -36,18 +37,21 @@ interface ContractCase {
     headers?: Record<string, string>;
     body_text?: string;
   };
+  backend_only?: boolean;
   ui: {
     detected?: string;
     detection_ignored?: boolean;
+    preview?: string;
+    edit_preview?: string;
     heading?: string;
-    changes?: string[][];
+    change_rows?: string[];
     download?: string;
     binder_heading?: string;
     error?: string;
   };
 }
 
-const CASES = cases as ContractCase[];
+const CASES = (cases as ContractCase[]).filter((contractCase) => !contractCase.backend_only);
 
 function setupDom(form: Record<string, string>): void {
   const keyOptions = ["C", form["current_key"] ?? "C", form["target_key"] ?? "D"]
@@ -61,6 +65,10 @@ function setupDom(form: Record<string, string>): void {
       <select id="current_key" name="current_key">${keyOptions}</select>
       <select id="target_key" name="target_key">${keyOptions}</select>
       <button id="swap" type="button"></button>
+      <button id="current_key_trigger" type="button"><span id="current_key_label"></span></button>
+      <button id="target_key_trigger" type="button"><span id="target_key_label"></span></button>
+      <div id="key_picker" class="hidden"><div id="key_picker_title"></div></div>
+      <p id="key_distance"></p>
       <span id="upload_detected_wrap" class="hidden">
         <span id="upload_detected_label"></span>
         <button id="upload_detected_alt" type="button" class="hidden"></button>
@@ -68,12 +76,24 @@ function setupDom(form: Record<string, string>): void {
       <label><input type="radio" name="format" value="docx" checked /></label>
       <label><input type="radio" name="format" value="pdf" /></label>
       <button id="submit" type="submit"><span id="submit-label"></span><span id="spinner"></span></button>
+      <div id="upload_preview" class="hidden">
+        <span id="upload_preview_status"></span>
+        <button id="upload_preview_reset" type="button" class="hidden"></button>
+        <textarea id="upload_preview_text"></textarea>
+        <div id="upload_changes_wrap" class="hidden">
+          <button id="upload_changes_toggle" type="button"><svg id="upload_changes_caret"></svg><span id="upload_changes_label"></span></button>
+          <div id="upload_changes" class="hidden"></div>
+        </div>
+      </div>
       <div id="message"></div>
     </form>
   `;
 }
 
 function makeFile(spec: FileSpec): File {
+  if (!spec.raw && spec.filename.endsWith(".docx")) {
+    return docxFile(spec.filename, spec.content.split("\n"));
+  }
   const file = new File([spec.content], spec.filename);
   Object.defineProperty(file, "size", { value: spec.content.length });
   file.text = () => Promise.resolve(spec.content);
@@ -108,10 +128,19 @@ async function trigger(contractCase: ContractCase): Promise<void> {
     }
     if (targetKey !== undefined) {
       requireElement<HTMLSelectElement>("target_key").value = targetKey;
+      requireElement<HTMLSelectElement>("target_key").dispatchEvent(new Event("change"));
     }
     if (form["format"] === "pdf") {
       document.querySelector<HTMLInputElement>('input[value="docx"]')!.checked = false;
       document.querySelector<HTMLInputElement>('input[value="pdf"]')!.checked = true;
+    }
+    const previewText = requireElement<HTMLTextAreaElement>("upload_preview_text");
+    if (contractCase.ui.preview !== undefined) {
+      await vi.waitFor(() => expect(previewText.value).toBe(contractCase.ui.preview));
+    }
+    if (contractCase.ui.edit_preview !== undefined) {
+      previewText.value = contractCase.ui.edit_preview;
+      previewText.dispatchEvent(new Event("input"));
     }
     requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
     await vi.waitFor(() =>
@@ -168,11 +197,9 @@ function assertUi(contractCase: ContractCase, downloads: string[]): void {
   if (ui.binder_heading !== undefined) {
     expect(message.textContent).toContain(ui.binder_heading);
   }
-  if (ui.changes !== undefined) {
-    const rows = [...message.querySelectorAll("tbody tr")].map((row) =>
-      [...row.querySelectorAll("td")].map((cell) => cell.textContent)
-    );
-    expect(rows).toEqual(ui.changes);
+  if (ui.change_rows !== undefined) {
+    const rows = [...requireElement("upload_changes").children].map((row) => row.textContent);
+    expect(rows).toEqual(ui.change_rows);
   }
   if (ui.download !== undefined) {
     expect(downloads).toEqual([ui.download]);

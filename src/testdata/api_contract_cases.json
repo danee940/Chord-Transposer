@@ -96,25 +96,14 @@
     },
     "ui": {
       "heading": "Transposed from C to F#",
-      "changes": [
-        [
-          "Am",
-          "D#m"
-        ],
-        [
-          "C",
-          "F#"
-        ],
-        [
-          "F",
-          "B"
-        ],
-        [
-          "G",
-          "C#"
-        ]
-      ],
-      "download": "song_F#.docx"
+      "download": "song_F#.docx",
+      "preview": "F#   C#   D#m  B",
+      "change_rows": [
+        "A → D# · Am",
+        "C → F#",
+        "F → B",
+        "G → C#"
+      ]
     }
   },
   {
@@ -191,6 +180,138 @@
     }
   },
   {
+    "description": "transpose applies preview edits to the downloaded .docx",
+    "endpoint": "/transpose",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "song.docx",
+          "content": "C    G    Am   F\nAmazing grace",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "format": "docx",
+        "edits": "[{\"source\":\"C    G    Am   F\",\"text\":\"D    A    Bm7  G\"}]"
+      }
+    },
+    "fields": [
+      "file",
+      "current_key",
+      "target_key",
+      "format",
+      "edits"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "headers": {
+        "X-Transpose-From": "C",
+        "X-Transpose-To": "D",
+        "Content-Disposition": "attachment; filename=song_D.docx"
+      },
+      "docx_paragraphs": [
+        "D    A    Bm7  G",
+        "Amazing grace"
+      ]
+    },
+    "ui": {
+      "preview": "D    A    Bm   G\nAmazing grace",
+      "edit_preview": "D    A    Bm7  G\nAmazing grace",
+      "heading": "Transposed from C to D",
+      "download": "song_D.docx"
+    }
+  },
+  {
+    "description": "transpose turns added preview lines into line breaks in the .docx",
+    "endpoint": "/transpose",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "song.docx",
+          "content": "C    G    Am   F\nAmazing grace",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "format": "docx",
+        "edits": "[{\"source\":\"Amazing grace\",\"text\":\"Amazing grace\\nhow sweet the sound\"}]"
+      }
+    },
+    "fields": [
+      "file",
+      "current_key",
+      "target_key",
+      "format",
+      "edits"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "headers": {
+        "X-Transpose-From": "C",
+        "X-Transpose-To": "D",
+        "Content-Disposition": "attachment; filename=song_D.docx"
+      },
+      "docx_paragraphs": [
+        "D    A    Bm   G",
+        "Amazing grace\nhow sweet the sound"
+      ]
+    },
+    "ui": {
+      "preview": "D    A    Bm   G\nAmazing grace",
+      "edit_preview": "D    A    Bm   G\nAmazing grace\nhow sweet the sound",
+      "heading": "Transposed from C to D",
+      "download": "song_D.docx"
+    }
+  },
+  {
+    "description": "transpose rejects malformed preview edits",
+    "endpoint": "/transpose",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "song.docx",
+          "content": "C    G    Am   F",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "format": "docx",
+        "edits": "not json"
+      }
+    },
+    "fields": [
+      "file",
+      "current_key",
+      "target_key",
+      "format",
+      "edits"
+    ],
+    "response": {
+      "status": 400,
+      "json": {
+        "error": "The preview edits could not be read."
+      }
+    },
+    "ui": {
+      "error": "The preview edits could not be read."
+    },
+    "backend_only": true
+  },
+  {
     "description": "transpose-text returns the transposed text download",
     "endpoint": "/transpose-text",
     "trigger": "submit",
@@ -228,25 +349,14 @@
     },
     "ui": {
       "heading": "Transposed from C to D",
-      "changes": [
-        [
-          "Am",
-          "Bm"
-        ],
-        [
-          "C",
-          "D"
-        ],
-        [
-          "F",
-          "G"
-        ],
-        [
-          "G",
-          "A"
-        ]
-      ],
-      "download": "hymn_D.txt"
+      "download": "hymn_D.txt",
+      "preview": "D    A    Bm   G\nAmazing grace how sweet",
+      "change_rows": [
+        "A → B · Am",
+        "C → D",
+        "F → G",
+        "G → A"
+      ]
     }
   },
   {
@@ -287,17 +397,55 @@
     },
     "ui": {
       "heading": "Transposed from C to D",
-      "changes": [
-        [
-          "C",
-          "D"
-        ],
-        [
-          "G",
-          "A"
-        ]
+      "download": "grace_D.pro",
+      "change_rows": [
+        "C → D",
+        "G → A"
+      ]
+    }
+  },
+  {
+    "description": "transpose-text applies preview edits to the downloaded text",
+    "endpoint": "/transpose-text",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "hymn.txt",
+          "content": "C    G    Am   F\nAmazing grace how sweet",
+          "raw": false
+        }
       ],
-      "download": "grace_D.pro"
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "format": "txt",
+        "edits": "[{\"source\":\"C    G    Am   F\",\"text\":\"D    A    Bm7  G\"}]"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "file",
+      "format",
+      "edits"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "X-Transpose-From": "C",
+        "X-Transpose-To": "D",
+        "Content-Disposition": "attachment; filename=hymn_D.txt"
+      },
+      "body_text": "D    A    Bm7  G\nAmazing grace how sweet"
+    },
+    "ui": {
+      "preview": "D    A    Bm   G\nAmazing grace how sweet",
+      "edit_preview": "D    A    Bm7  G\nAmazing grace how sweet",
+      "heading": "Transposed from C to D",
+      "download": "hymn_D.txt"
     }
   },
   {
