@@ -5,7 +5,7 @@
 import os
 import re
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from io import BytesIO
 from pathlib import Path
 from typing import TypedDict, cast
@@ -531,13 +531,98 @@ def process_paragraph(
     redistribute_to_runs(paragraph, semitones, spelling, german, changes)
 
 
-def iter_paragraphs(document: DocumentObject) -> Iterator[Paragraph]:
-    """Yield every paragraph in the document, including tables, headers, and footers."""
+ParagraphEdits = Mapping[str, str]
+
+
+def _common_affix_lengths(old: str, new: str) -> tuple[int, int]:
+    """Return the lengths of the shared prefix and suffix of two strings."""
+    limit = min(len(old), len(new))
+    prefix = 0
+    while prefix < limit and old[prefix] == new[prefix]:
+        prefix += 1
+    suffix = 0
+    while suffix < limit - prefix and old[-1 - suffix] == new[-1 - suffix]:
+        suffix += 1
+    return prefix, suffix
+
+
+def replace_paragraph_text(paragraph: Paragraph, new_text: str) -> None:
+    """Replace a paragraph's text, keeping the formatting of every run left untouched.
+
+    Only the span that differs between the current and the new text is rewritten,
+    in the run(s) that own it, so an edited chord keeps its surrounding runs intact.
+    Text that replaces alignment whitespace right after a run (a chord that grew)
+    extends that run, so it keeps the chord's formatting. Paragraphs whose text is
+    not fully owned by runs (hyperlinks) are left alone.
+    """
+    runs = paragraph.runs
+    old_text = "".join(run.text for run in runs)
+    if old_text != paragraph.text:
+        return
+    if not runs:
+        paragraph.add_run(new_text)
+        return
+
+    prefix, suffix = _common_affix_lengths(old_text, new_text)
+    start, end = prefix, len(old_text) - suffix
+    replacement = new_text[prefix : len(new_text) - suffix]
+
+    offsets: list[int] = []
+    offset = 0
+    for run in runs:
+        offsets.append(offset)
+        offset += len(run.text)
+
+    first = len(runs) - 1
+    for index, run in enumerate(runs):
+        if offsets[index] + len(run.text) > start:
+            first = index
+            break
+    if start > 0 and not old_text[start:end].strip():
+        while first > 0 and offsets[first] == start:
+            first -= 1
+    last = first
+    while offsets[last] + len(runs[last].text) < end:
+        last += 1
+
+    head = runs[first].text[: start - offsets[first]]
+    tail = runs[last].text[end - offsets[last] :]
+    if first == last:
+        runs[first].text = head + replacement + tail
+        return
+    runs[first].text = head + replacement
+    for middle in runs[first + 1 : last]:
+        middle.text = ""
+    runs[last].text = tail
+
+
+def apply_line_edits(source: str, result: str, edits: ParagraphEdits) -> str:
+    """Replace transposed lines whose source line was edited in the preview."""
+    parts: list[str] = []
+    for original, transposed in zip(
+        source.splitlines(keepends=True), result.splitlines(keepends=True), strict=True
+    ):
+        edited = edits.get(original.splitlines()[0])
+        if edited is None:
+            parts.append(transposed)
+            continue
+        content = transposed.splitlines()[0]
+        parts.append(edited + transposed[len(content) :])
+    return "".join(parts)
+
+
+def iter_body_paragraphs(document: DocumentObject) -> Iterator[Paragraph]:
+    """Yield the body paragraphs, including table cells, that the upload preview shows."""
     yield from document.paragraphs
     for table in document.tables:
         for row in table.rows:
             for cell in row.cells:
                 yield from cell.paragraphs
+
+
+def iter_paragraphs(document: DocumentObject) -> Iterator[Paragraph]:
+    """Yield every paragraph in the document, including tables, headers, and footers."""
+    yield from iter_body_paragraphs(document)
     for section in document.sections:
         for container in (section.header, section.footer):
             yield from container.paragraphs
@@ -1095,9 +1180,16 @@ def text_to_nashville(text: str, tonic_key: str) -> tuple[str, str]:
 
 
 def transpose_document_bytes(
-    file_bytes: bytes, current_key: str, target_key: str
+    file_bytes: bytes,
+    current_key: str,
+    target_key: str,
+    edits: ParagraphEdits | None = None,
 ) -> tuple[bytes, str, str, list[tuple[str, str]]]:
-    """Transpose a .docx given as bytes and return (docx_bytes, from_label, to_label, changes)."""
+    """Transpose a .docx given as bytes and return (docx_bytes, from_label, to_label, changes).
+
+    ``edits`` maps a paragraph's original text to the text it should end up with
+    after transposition, carrying the user's corrections from the preview.
+    """
     current = parse_key(current_key)
     if current is None:
         raise InvalidKeyError(f"'{current_key}' is not a valid key.")
@@ -1114,7 +1206,14 @@ def transpose_document_bytes(
     semitones = (key_semitone(target_note, german) - key_semitone(current_note, german)) % 12
     spelling = key_spelling(target_note, target_minor, german)
 
+    pending = [
+        (paragraph, edits[paragraph.text])
+        for paragraph in iter_body_paragraphs(document)
+        if edits and paragraph.text in edits
+    ]
     changes = _transpose_document(document, semitones, spelling, german)
+    for paragraph, edited_text in pending:
+        replace_paragraph_text(paragraph, edited_text)
 
     from_label = key_label(current_note, current_minor)
     to_label = key_label(target_note, target_minor)

@@ -886,3 +886,57 @@ def test_detect_key_too_few_chords(client: FlaskClient) -> None:
     response = client.post("/detect-key", data=data, content_type="multipart/form-data")
     assert response.status_code == 200
     assert response.get_json()["key"] is None
+
+
+def _edits(*pairs: tuple[str, str]) -> str:
+    return json.dumps([{"source": source, "text": text} for source, text in pairs])
+
+
+def test_transpose_applies_preview_edits(client: FlaskClient) -> None:
+    data = _upload(_chord_docx_bytes())
+    data.update(
+        {
+            "current_key": "C",
+            "target_key": "D",
+            "edits": _edits(("C G Am F", "D A Bm7 G")),
+        }
+    )
+    response = client.post("/transpose", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    paragraphs = [p.text for p in Document(BytesIO(response.data)).paragraphs]
+    assert paragraphs == ["D A Bm7 G", "These are the lyrics"]
+
+
+@pytest.mark.parametrize(
+    "edits",
+    ["not json", '{"source": "a"}', "[1]", '[{"source": 1, "text": "x"}]', '[{"source": "a"}]'],
+)
+def test_transpose_rejects_malformed_edits(client: FlaskClient, edits: str) -> None:
+    data = _upload(_chord_docx_bytes())
+    data.update({"current_key": "C", "target_key": "D", "edits": edits})
+    response = client.post("/transpose", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert response.get_json()["error"] == app_module.EDITS_ERROR
+
+
+def test_transpose_text_applies_preview_edits(client: FlaskClient) -> None:
+    data = _text_upload(b"C G Am F\nlyrics")
+    data.update(
+        {
+            "current_key": "C",
+            "target_key": "D",
+            "format": "txt",
+            "edits": _edits(("C G Am F", "D A Bm7 G")),
+        }
+    )
+    response = client.post("/transpose-text", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert response.get_data(as_text=True) == "D A Bm7 G\nlyrics"
+
+
+def test_transpose_text_rejects_malformed_edits(client: FlaskClient) -> None:
+    data = _text_upload(b"C G Am F")
+    data.update({"current_key": "C", "target_key": "D", "format": "txt", "edits": "[["})
+    response = client.post("/transpose-text", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert response.get_json()["error"] == app_module.EDITS_ERROR

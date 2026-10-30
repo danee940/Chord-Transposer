@@ -93,6 +93,9 @@ def test_contract_case(
         assert response.headers.get(name) == value
     if "body_text" in expected:
         assert response.get_data(as_text=True) == expected["body_text"]
+    if "docx_paragraphs" in expected:
+        document = Document(BytesIO(response.data))
+        assert [paragraph.text for paragraph in document.paragraphs] == expected["docx_paragraphs"]
 
 
 def test_upload_form_uses_the_contract_field_names(client: FlaskClient) -> None:

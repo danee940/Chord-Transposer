@@ -8,6 +8,7 @@ import os
 from collections.abc import Callable, Iterable
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 from urllib.parse import quote, urlencode
 from zipfile import BadZipFile
 
@@ -24,6 +25,7 @@ from seo import FAQ_ITEMS, HOWTO_STEPS, SITE_URL
 from transpose import (
     InvalidKeyError,
     PdfConversionError,
+    apply_line_edits,
     convert_docx_to_pdf,
     detect_key_from_docx_bytes,
     is_chordpro_text,
@@ -262,6 +264,40 @@ def sitemap() -> Response:
     return Response(body, mimetype="application/xml")
 
 
+class InvalidEditsError(ValueError):
+    """Raised when the preview edits sent with an upload are malformed."""
+
+
+EDITS_ERROR = "The preview edits could not be read."
+
+
+def _parse_edits(raw: str | None) -> dict[str, str]:
+    """Parse the optional ``edits`` form field into a source-text to edited-text mapping.
+
+    The browser sends a JSON list of ``{"source": ..., "text": ...}`` entries, one
+    per preview paragraph the user changed, keyed by the paragraph's original text.
+    """
+    if not raw:
+        return {}
+    try:
+        payload: object = json.loads(raw)
+    except ValueError as exc:
+        raise InvalidEditsError(EDITS_ERROR) from exc
+    if not isinstance(payload, list):
+        raise InvalidEditsError(EDITS_ERROR)
+    edits: dict[str, str] = {}
+    for entry in cast(list[object], payload):
+        if not isinstance(entry, dict):
+            raise InvalidEditsError(EDITS_ERROR)
+        fields = cast(dict[str, object], entry)
+        source = fields.get("source")
+        text = fields.get("text")
+        if not isinstance(source, str) or not isinstance(text, str):
+            raise InvalidEditsError(EDITS_ERROR)
+        edits[source] = text
+    return edits
+
+
 @app.route("/detect-key", methods=["POST"])
 def detect_key_upload() -> ResponseReturnValue:
     """Guess the key of an uploaded .docx chord sheet and return it as JSON."""
@@ -306,10 +342,11 @@ def transpose() -> ResponseReturnValue:
         return jsonify({"error": "The uploaded file is empty."}), 400
 
     try:
+        edits = _parse_edits(request.form.get("edits"))
         docx_bytes, from_label, to_label, changes = transpose_document_bytes(
-            file_bytes, current_key, target_key
+            file_bytes, current_key, target_key, edits
         )
-    except InvalidKeyError as exc:
+    except (InvalidKeyError, InvalidEditsError) as exc:
         return jsonify({"error": str(exc)}), 400
     except (PackageNotFoundError, BadZipFile):
         return jsonify({"error": "Could not read the file as a valid .docx document."}), 400
@@ -398,11 +435,13 @@ def transpose_text_upload() -> ResponseReturnValue:
 
     transposer = transpose_chordpro_text if is_chordpro_text(source_text) else transpose_text
     try:
+        edits = _parse_edits(request.form.get("edits"))
         transposed_text, from_label, to_label, changes = transposer(
             source_text, current_key, target_key
         )
-    except InvalidKeyError as exc:
+    except (InvalidKeyError, InvalidEditsError) as exc:
         return jsonify({"error": str(exc)}), 400
+    transposed_text = apply_line_edits(source_text, transposed_text, edits)
 
     stem = uploaded.filename.rsplit(".", 1)[0]
 

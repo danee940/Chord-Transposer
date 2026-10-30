@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from docx import Document
+from docx.oxml import OxmlElement
 from docx.text.run import Run
 
 import transpose as t
@@ -1556,3 +1557,145 @@ class TestUnknownRoots:
     def test_h_sharp_stays_a_chord_token(self) -> None:
         assert t.is_chord_token("H#") is True
         assert t.is_chord_token("h") is True
+
+
+# ---------------------------------------------------------------------------
+# Preview edits: replace_paragraph_text / apply_line_edits
+# ---------------------------------------------------------------------------
+
+
+def _run_texts(paragraph: t.Paragraph) -> list[str]:
+    return [run.text for run in paragraph.runs]
+
+
+class TestReplaceParagraphText:
+    def test_single_run_is_rewritten(self) -> None:
+        paragraph = Document().add_paragraph("D A Bm G")
+        t.replace_paragraph_text(paragraph, "D A Bm7 G")
+        assert _run_texts(paragraph) == ["D A Bm7 G"]
+
+    def test_edit_inside_one_run_keeps_the_other_runs(self) -> None:
+        paragraph = Document().add_paragraph()
+        paragraph.add_run("D ")
+        paragraph.add_run("A ").bold = True
+        paragraph.add_run("Bm G")
+        t.replace_paragraph_text(paragraph, "D A Bm7 G")
+        assert _run_texts(paragraph) == ["D ", "A ", "Bm7 G"]
+        assert paragraph.runs[1].bold is True
+
+    def test_edit_spanning_runs_merges_into_the_first_and_clears_the_middle(self) -> None:
+        paragraph = Document().add_paragraph()
+        paragraph.add_run("D ")
+        paragraph.add_run("A")
+        paragraph.add_run("m")
+        paragraph.add_run("7")
+        paragraph.add_run(" G")
+        t.replace_paragraph_text(paragraph, "D Bb G")
+        assert _run_texts(paragraph) == ["D ", "Bb", "", "", " G"]
+        assert paragraph.text == "D Bb G"
+
+    def test_append_at_the_end_goes_into_the_last_run(self) -> None:
+        paragraph = Document().add_paragraph()
+        paragraph.add_run("D ")
+        paragraph.add_run("A")
+        t.replace_paragraph_text(paragraph, "D A G")
+        assert _run_texts(paragraph) == ["D ", "A G"]
+
+    def test_insertion_at_a_run_boundary_extends_the_preceding_run(self) -> None:
+        paragraph = Document().add_paragraph()
+        paragraph.add_run("D ")
+        paragraph.add_run(" G")
+        t.replace_paragraph_text(paragraph, "D A G")
+        assert paragraph.text == "D A G"
+        assert _run_texts(paragraph) == ["D A", " G"]
+
+    def test_grown_chord_keeps_its_own_run_formatting(self) -> None:
+        paragraph = Document().add_paragraph()
+        paragraph.add_run("D   ")
+        paragraph.add_run("G").bold = True
+        paragraph.add_run("")
+        paragraph.add_run("      D")
+        t.replace_paragraph_text(paragraph, "D   Gmaj7  D")
+        assert _run_texts(paragraph) == ["D   ", "Gmaj7", "", "  D"]
+        assert paragraph.runs[1].bold is True
+
+    def test_replaced_chord_at_a_boundary_stays_in_its_run(self) -> None:
+        paragraph = Document().add_paragraph()
+        paragraph.add_run("D ")
+        paragraph.add_run("A").bold = True
+        t.replace_paragraph_text(paragraph, "D Bb")
+        assert _run_texts(paragraph) == ["D ", "Bb"]
+
+    def test_edits_skip_header_paragraphs(self) -> None:
+        document = Document()
+        document.add_paragraph("C G")
+        document.sections[0].header.paragraphs[0].text = "C G"
+        buffer = BytesIO()
+        document.save(buffer)
+        docx_bytes, _, _, _ = t.transpose_document_bytes(
+            buffer.getvalue(), "C", "D", {"C G": "D A7"}
+        )
+        result = Document(BytesIO(docx_bytes))
+        assert result.paragraphs[0].text == "D A7"
+        assert result.sections[0].header.paragraphs[0].text == "D A"
+
+    def test_unchanged_text_is_left_as_is(self) -> None:
+        paragraph = Document().add_paragraph()
+        paragraph.add_run("D ")
+        paragraph.add_run("A")
+        t.replace_paragraph_text(paragraph, "D A")
+        assert _run_texts(paragraph) == ["D ", "A"]
+
+    def test_empty_paragraph_gets_a_new_run(self) -> None:
+        paragraph = Document().add_paragraph()
+        t.replace_paragraph_text(paragraph, "Chorus")
+        assert _run_texts(paragraph) == ["Chorus"]
+
+    def test_line_breaks_and_tabs_round_trip(self) -> None:
+        paragraph = Document().add_paragraph("D\tA\nBm")
+        t.replace_paragraph_text(paragraph, "D\tA\nBm7")
+        assert paragraph.text == "D\tA\nBm7"
+
+    def test_paragraph_with_hyperlink_is_skipped(self) -> None:
+        paragraph = Document().add_paragraph("D A ")
+        hyperlink = OxmlElement("w:hyperlink")
+        run = OxmlElement("w:r")
+        text = OxmlElement("w:t")
+        text.text = "Bm"
+        run.append(text)
+        hyperlink.append(run)
+        paragraph._p.append(hyperlink)
+        assert paragraph.text == "D A Bm"
+        t.replace_paragraph_text(paragraph, "D A Bm7")
+        assert paragraph.text == "D A Bm"
+
+
+class TestApplyLineEdits:
+    def test_edited_lines_replace_their_transposed_counterpart(self) -> None:
+        source = "C G Am F\nlyrics\n"
+        result = "D A Bm G\nlyrics\n"
+        edited = t.apply_line_edits(source, result, {"C G Am F": "D A Bm7 G"})
+        assert edited == "D A Bm7 G\nlyrics\n"
+
+    def test_line_endings_are_kept(self) -> None:
+        edited = t.apply_line_edits("C\r\nG", "D\r\nA", {"G": "A7"})
+        assert edited == "D\r\nA7"
+
+    def test_unmatched_edits_are_ignored(self) -> None:
+        assert t.apply_line_edits("C G", "D A", {"nope": "x"}) == "D A"
+
+
+class TestTransposeDocumentBytesWithEdits:
+    def test_edits_are_applied_after_transposition(self) -> None:
+        document = Document()
+        document.add_paragraph("C G Am F")
+        document.add_paragraph("lyrics")
+        buffer = BytesIO()
+        document.save(buffer)
+
+        docx_bytes, _, _, changes = t.transpose_document_bytes(
+            buffer.getvalue(), "C", "D", {"C G Am F": "D A Bm7 G", "lyrics": "Lyrics"}
+        )
+        paragraphs = [p.text for p in Document(BytesIO(docx_bytes)).paragraphs]
+        assert paragraphs == ["D A Bm7 G", "Lyrics"]
+        assert ("Am", "Bm") in changes
