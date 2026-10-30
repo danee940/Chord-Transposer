@@ -11,7 +11,7 @@ pip install -r requirements-dev.txt
 flask run
 ```
 
-Open `http://localhost:5000`, upload a `.docx` chord sheet, select the current and target key, and download the transposed file.
+Open `http://localhost:5000`, upload a `.docx` chord sheet and pick the current and target key. A live preview shows the transposed sheet with its chord changes; correct any chord in the preview (edits follow along when you change key) and download the file with your corrections applied.
 
 ### CLI
 
@@ -88,6 +88,8 @@ npm run format:check
 npm run typecheck
 npm run test:js
 ```
+
+Run `python src/samples.py` to write a sample chord sheet (`input/Amazing_Grace_C.docx`) for trying the upload flow locally; the same sheet drives the preview-edit integration tests.
 
 ## Roadmap
 

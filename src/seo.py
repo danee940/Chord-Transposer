@@ -137,7 +137,7 @@ SITE_URL = "https://chordtransposer.app"
 
 KEY_PAIR_SLUG_SEPARATOR = "-to-"
 
-HOME_LAST_MODIFIED = "2026-10-24"
+HOME_LAST_MODIFIED = "2026-10-30"
 
 FAQ_ITEMS: list[FaqItem] = [
     {
@@ -717,7 +717,7 @@ def _file_page() -> LandingPage:
         "id": "file_chord_transposer",
         "path": path,
         "kind": "file",
-        "lastmod": "2026-10-24",
+        "lastmod": "2026-10-30",
         "title": "File Chord Transposer — Transpose .docx, .txt & ChordPro",
         "description": (
             "Upload a chord sheet file and download it transposed to any key. Supports Word "
