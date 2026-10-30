@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ChangeSet, isChordToken, transposeChord } from "./chords";
+import { ChangeSet, chordRoot, isChordToken, transposeChord } from "./chords";
 import { chordToNashville, nashvilleLine, noteToNashvilleDegree } from "./nashville";
 import {
   capitalizeFirst,
@@ -227,5 +227,22 @@ describe("keySpelling", () => {
   it("falls back to the base spelling for double accidentals", () => {
     // G# major would need F## on its seventh degree; keep the base spelling.
     expect(keySpelling("G#", false, false)[7]).toBe("G");
+  });
+});
+
+describe("chordRoot", () => {
+  it("returns the root of plain, slash, and decorated chords", () => {
+    expect(chordRoot("Am7")).toBe("A");
+    expect(chordRoot("C/E")).toBe("C");
+    expect(chordRoot("(Bbmaj7)")).toBe("Bb");
+  });
+
+  it("returns German roots unchanged", () => {
+    expect(chordRoot("Fis7")).toBe("Fis");
+    expect(chordRoot("H")).toBe("H");
+  });
+
+  it("falls back to the full token when it is not a chord", () => {
+    expect(chordRoot("??")).toBe("??");
   });
 });

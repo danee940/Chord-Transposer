@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { makeCell, makeHeaderCell, requireElement, requireSelector } from "./dom";
+import { makeCell, makeHeaderCell, pluralise, requireElement, requireSelector } from "./dom";
 
 describe("dom helpers", () => {
   afterEach(() => {
@@ -30,5 +30,13 @@ describe("dom helpers", () => {
   it("throws a descriptive error when a required element is missing", () => {
     expect(() => requireElement("missing")).toThrow("Missing required element: #missing");
     expect(() => requireSelector(".missing")).toThrow("Missing required element: .missing");
+  });
+});
+
+describe("pluralise", () => {
+  it("adds an s except for exactly one", () => {
+    expect(pluralise(0, "line")).toBe("0 lines");
+    expect(pluralise(1, "line")).toBe("1 line");
+    expect(pluralise(2, "chord change")).toBe("2 chord changes");
   });
 });

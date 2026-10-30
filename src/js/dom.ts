@@ -46,3 +46,7 @@ export function makeHeaderCell(text: string, className: string): HTMLTableCellEl
   cell.textContent = text;
   return cell;
 }
+
+export function pluralise(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}

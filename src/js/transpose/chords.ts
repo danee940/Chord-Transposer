@@ -126,6 +126,11 @@ export function parseChordCore(core: string): ChordParts | null {
   };
 }
 
+export function chordRoot(chord: string): string {
+  const parts = parseChordCore(splitAffixes(chord).core);
+  return parts === null ? chord : parts.root;
+}
+
 export function mapChordRoots(chord: string, mapRoot: (root: string) => string): string {
   const { leading, core, trailing } = splitAffixes(chord);
   const parts = parseChordCore(core);
