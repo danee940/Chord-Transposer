@@ -24,41 +24,66 @@
     </button>
   </div>
 
-  <div id="controls-key" role="tabpanel" aria-labelledby="mode-key" class="flex items-end gap-2">
-    <div class="flex-1">
-      <div class="mb-1.5 flex items-center justify-between gap-2">
-        <label for="text_current_key" class="block text-sm text-muted-light dark:text-muted">Current key</label>
-        <span id="text_detected_wrap" class="hidden items-center gap-1 text-xs text-muted-light dark:text-muted"
-          aria-live="polite">
-          <span id="text_detected_label"></span>
-          <button type="button" id="text_detected_alt"
-            class="hidden rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-medium text-slate-700 transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200 dark:hover:text-slate-100"></button>
-        </span>
+  <div id="controls-key" role="tabpanel" aria-labelledby="mode-key">
+    <div class="flex items-end gap-2">
+      <div class="flex-1">
+        <div class="mb-1.5 flex items-center justify-between gap-2">
+          <label for="text_current_key_trigger" class="block text-sm text-muted-light dark:text-muted">Current key</label>
+          <span id="text_detected_wrap" class="hidden items-center gap-1 text-xs text-muted-light dark:text-muted"
+            aria-live="polite">
+            <span id="text_detected_label"></span>
+            <button type="button" id="text_detected_alt"
+              class="hidden rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-medium text-slate-700 transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200 dark:hover:text-slate-100"></button>
+          </span>
+        </div>
+        <select id="text_current_key" hidden aria-hidden="true" tabindex="-1">
+          {% for key in keys %}<option value="{{ key }}" {% if preselect_from and key==preselect_from %}selected{% endif
+            %}>{{ key }}</option>{% endfor %}
+        </select>
+        <button type="button" id="text_current_key_trigger" aria-haspopup="dialog" aria-expanded="false"
+          class="flex w-full items-center justify-between gap-2 rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-accent focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
+          <span id="text_current_key_label" class="font-medium">{{ preselect_from | default('C') }}</span>
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden="true">
+            <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
       </div>
-      <select id="text_current_key"
-        class="w-full rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
-        {% for key in keys %}<option value="{{ key }}" {% if preselect_from and key==preselect_from %}selected{% endif
-          %}>{{ key }}</option>{% endfor %}
-      </select>
+      <button type="button" id="text_swap" aria-label="Swap keys" title="Swap keys"
+        class="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-border-light bg-bg-light text-muted-light transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-muted dark:hover:text-slate-100">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="17 1 21 5 17 9" />
+          <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+          <polyline points="7 23 3 19 7 15" />
+          <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+        </svg>
+      </button>
+      <div id="text_target_wrap" class="flex-1">
+        <label for="text_target_key_trigger" class="mb-1.5 block text-sm text-muted-light dark:text-muted">Desired key</label>
+        <select id="text_target_key" hidden aria-hidden="true" tabindex="-1">
+          {% for key in keys %}<option value="{{ key }}" {% if key==(preselect_to | default('D')) %} selected{% endif %}>
+            {{ key }}</option>{% endfor %}
+        </select>
+        <button type="button" id="text_target_key_trigger" aria-haspopup="dialog" aria-expanded="false"
+          class="flex w-full items-center justify-between gap-2 rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-accent focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
+          <span id="text_target_key_label" class="font-medium">{{ preselect_to | default('D') }}</span>
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden="true">
+            <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
     </div>
-    <button type="button" id="text_swap" aria-label="Swap keys" title="Swap keys"
-      class="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-border-light bg-bg-light text-muted-light transition-colors hover:border-accent hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-muted dark:hover:text-slate-100">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="17 1 21 5 17 9" />
-        <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-        <polyline points="7 23 3 19 7 15" />
-        <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-      </svg>
-    </button>
-    <div id="text_target_wrap" class="flex-1">
-      <label for="text_target_key" class="mb-1.5 block text-sm text-muted-light dark:text-muted">Desired key</label>
-      <select id="text_target_key"
-        class="w-full rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
-        {% for key in keys %}<option value="{{ key }}" {% if key==(preselect_to | default('D')) %} selected{% endif %}>
-          {{ key }}</option>{% endfor %}
-      </select>
+    <div class="relative">
+      <div id="text_key_picker" role="dialog" aria-labelledby="text_key_picker_title"
+        class="absolute left-0 right-0 top-2 z-20 hidden rounded-xl border border-app-border-light bg-card-light p-3 shadow-lg dark:border-app-border dark:bg-card">
+        <div id="text_key_picker_title" class="mb-2 text-sm font-medium text-slate-800 dark:text-slate-200"></div>
+      </div>
     </div>
+    <p id="text_key_distance_wrap" class="mt-2 text-center text-xs text-muted-light dark:text-muted">
+      <span id="text_key_distance"></span>
+    </p>
   </div>
 
   <div id="controls-semitone" role="tabpanel" aria-labelledby="mode-semitone" class="hidden">

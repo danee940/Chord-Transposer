@@ -1,8 +1,16 @@
 import { formatCapoSuggestion } from "./capo-suggest";
+import { createChangesDisclosure } from "./changes-disclosure";
 import { createDetectionBadge } from "./detect-badge";
 import { initDiagrams } from "./diagrams/index";
 import { isInstrument, type Instrument } from "./diagrams/shapes";
-import { MODE_ACTIVE_CLASSES, MODE_INACTIVE_CLASSES, requireElement, requireSelector } from "./dom";
+import {
+  MODE_ACTIVE_CLASSES,
+  MODE_INACTIVE_CLASSES,
+  pluralise,
+  requireElement,
+  requireSelector,
+} from "./dom";
+import { initKeyPicker } from "./key-picker";
 import { loadPrefs, savePrefs } from "./prefs";
 import { createStageView } from "./stage";
 import {
@@ -71,10 +79,6 @@ function mapChanges(changes: Change[]): ChangePair[] {
   return changes.map(([from, to]) => ({ from, to }));
 }
 
-function pluralise(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
 export function initPaste(): void {
   const textInput = requireElement<HTMLTextAreaElement>("text_input");
   const textOutput = requireElement("text_output");
@@ -96,7 +100,9 @@ export function initPaste(): void {
   const modeNashville = requireElement("mode-nashville");
   const controlsKey = requireElement("controls-key");
   const controlsSemitone = requireElement("controls-semitone");
-  const textCurrentKeyLabel = requireSelector<HTMLLabelElement>('label[for="text_current_key"]');
+  const textCurrentKeyLabel = requireSelector<HTMLLabelElement>(
+    'label[for="text_current_key_trigger"]'
+  );
   const chordproFormatToggle = requireElement("chordpro-format-toggle");
   const formatChordpro = requireElement("format_chordpro");
   const formatPlain = requireElement("format_plain");
@@ -109,11 +115,33 @@ export function initPaste(): void {
   const textInstrument = requireElement<HTMLSelectElement>("text_instrument");
   const textStage = requireElement<HTMLButtonElement>("text_stage");
   const capoSuggestion = requireElement("capo-suggestion");
-  const textChanges = requireElement("text_changes");
-  const textChangesWrap = requireElement("text_changes_wrap");
-  const textChangesToggle = requireElement("text_changes_toggle");
-  const textChangesLabel = requireElement("text_changes_label");
-  const textChangesCaret = requireElement("text_changes_caret");
+  const textKeyDistanceWrap = requireElement("text_key_distance_wrap");
+  const changes = createChangesDisclosure({
+    wrap: requireElement("text_changes_wrap"),
+    toggle: requireElement("text_changes_toggle"),
+    label: requireElement("text_changes_label"),
+    caret: requireElement("text_changes_caret"),
+    list: requireElement("text_changes"),
+  });
+  const keyPicker = initKeyPicker({
+    panel: requireElement("text_key_picker"),
+    title: requireElement("text_key_picker_title"),
+    distance: requireElement("text_key_distance"),
+    fields: [
+      {
+        trigger: requireElement<HTMLButtonElement>("text_current_key_trigger"),
+        label: requireElement("text_current_key_label"),
+        select: textCurrentKey,
+        title: "Current key",
+      },
+      {
+        trigger: requireElement<HTMLButtonElement>("text_target_key_trigger"),
+        label: requireElement("text_target_key_label"),
+        select: textTargetKey,
+        title: "Desired key",
+      },
+    ],
+  });
 
   const stageView = createStageView();
 
@@ -140,7 +168,6 @@ export function initPaste(): void {
   let outputFormat: OutputFormat = "chordpro";
   let instrument: Instrument = DEFAULT_INSTRUMENT;
   let renderedText = "";
-  let changesCount = 0;
   let transposeTimer: ReturnType<typeof setTimeout> | undefined;
   let chosenCurrentKey = textCurrentKey.value;
 
@@ -213,6 +240,7 @@ export function initPaste(): void {
 
     textTargetWrap.classList.toggle("hidden", nashville);
     textSwap.classList.toggle("hidden", nashville);
+    textKeyDistanceWrap.classList.toggle("hidden", nashville);
     textCurrentKeyLabel.textContent = nashville ? "Tonic key" : "Current key";
 
     setToggleState(modeKey, "aria-selected", key);
@@ -309,47 +337,21 @@ export function initPaste(): void {
       : `${label} · no chords found to change`;
   }
 
-  function changesLabel(action: string): string {
-    return `${action} ${pluralise(changesCount, "chord change")}`;
-  }
-
-  function collapseChanges(): void {
-    textChanges.classList.add("hidden");
-    textChangesToggle.setAttribute("aria-expanded", "false");
-    textChangesCaret.classList.remove("rotate-90");
-    textChangesLabel.textContent = changesLabel("Show");
-  }
-
-  function expandChanges(): void {
-    textChanges.classList.remove("hidden");
-    textChangesToggle.setAttribute("aria-expanded", "true");
-    textChangesCaret.classList.add("rotate-90");
-    textChangesLabel.textContent = changesLabel("Hide");
-  }
-
-  function hideChanges(): void {
-    textChanges.replaceChildren();
-    textChangesWrap.classList.add("hidden");
-    collapseChanges();
-  }
-
   function renderChanges(data: PasteResult): void {
-    const changes = data.kind === "nashville" ? [] : data.changes;
-    if (changes.length === 0) {
-      hideChanges();
+    const pairs = data.kind === "nashville" ? [] : data.changes;
+    if (pairs.length === 0) {
+      changes.hide();
       return;
     }
-    const pills = changes.map(({ from, to }) => {
-      const pill = document.createElement("span");
-      pill.className =
-        "rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-mono text-slate-700 dark:border-app-border dark:bg-bg dark:text-slate-200";
-      pill.textContent = `${from} → ${to}`;
-      return pill;
-    });
-    textChanges.replaceChildren(...pills);
-    changesCount = pills.length;
-    textChangesWrap.classList.remove("hidden");
-    collapseChanges();
+    changes.show(
+      pairs.map(({ from, to }) => {
+        const pill = document.createElement("span");
+        pill.className =
+          "rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-mono text-slate-700 dark:border-app-border dark:bg-bg dark:text-slate-200";
+        pill.textContent = `${from} → ${to}`;
+        return pill;
+      })
+    );
   }
 
   function syncOutputControls(): void {
@@ -358,25 +360,26 @@ export function initPaste(): void {
   }
 
   function runTextTranspose(): void {
+    keyPicker.refresh();
     const text = textInput.value;
     if (!text.trim()) {
       clearOutput();
       setTextStatus("");
       chordproFormatToggle.classList.add("hidden");
-      hideChanges();
+      changes.hide();
       syncOutputControls();
       return;
     }
     if (transposeMode === "key" && textCurrentKey.value === textTargetKey.value) {
       setTextStatus("Pick two different keys to transpose.");
-      hideChanges();
+      changes.hide();
       syncOutputControls();
       return;
     }
     if (transposeMode === "semitone" && semitones === 0) {
       renderOutput(text);
       setTextStatus("No shift · pick a semitone offset to transpose.");
-      hideChanges();
+      changes.hide();
       syncOutputControls();
       return;
     }
@@ -390,7 +393,7 @@ export function initPaste(): void {
       setTextStatus(summariseResult(data));
       renderChanges(data);
     } catch (error) {
-      hideChanges();
+      changes.hide();
       if (error instanceof InvalidKeyError) {
         setTextStatus(error.message);
       } else {
@@ -453,14 +456,6 @@ export function initPaste(): void {
     diagrams.closePopover();
     updateCapoSuggestion();
     persistPrefs();
-  });
-
-  textChangesToggle.addEventListener("click", () => {
-    if (textChanges.classList.contains("hidden")) {
-      expandChanges();
-    } else {
-      collapseChanges();
-    }
   });
 
   textStage.addEventListener("click", () => {

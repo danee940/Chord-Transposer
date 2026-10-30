@@ -25,6 +25,10 @@ function buildDom() {
         <select id="text_target_key"><option value="C">C</option><option value="D">D</option></select>
       </div>
       <div><button id="text_swap"></button></div>
+      <button id="text_current_key_trigger" type="button"><span id="text_current_key_label"></span></button>
+      <button id="text_target_key_trigger" type="button"><span id="text_target_key_label"></span></button>
+      <div id="text_key_picker" class="hidden"><div id="text_key_picker_title"></div></div>
+      <p id="text_key_distance_wrap"><span id="text_key_distance"></span></p>
       <span id="text_linecount"></span>
       <button id="text_sample"></button>
       <button id="text_clear"></button>
@@ -33,7 +37,7 @@ function buildDom() {
       <button id="mode-nashville"></button>
       <div id="controls-key"></div>
       <div id="controls-semitone"></div>
-      <label for="text_current_key"></label>
+      <label for="text_current_key_trigger"></label>
       <span id="text_detected_wrap" class="hidden">
         <span id="text_detected_label"></span>
         <button id="text_detected_alt" class="hidden"></button>

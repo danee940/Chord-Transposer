@@ -31,6 +31,10 @@ function buildDom(attrs: PanelAttrs = {}) {
         <select id="text_target_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option></select>
       </div>
       <div><button id="text_swap"></button></div>
+      <button id="text_current_key_trigger" type="button"><span id="text_current_key_label"></span></button>
+      <button id="text_target_key_trigger" type="button"><span id="text_target_key_label"></span></button>
+      <div id="text_key_picker" class="hidden"><div id="text_key_picker_title"></div></div>
+      <p id="text_key_distance_wrap"><span id="text_key_distance"></span></p>
       <span id="text_linecount"></span>
       <button id="text_sample"></button>
       <button id="text_clear"></button>
@@ -39,7 +43,7 @@ function buildDom(attrs: PanelAttrs = {}) {
       <button id="mode-nashville"></button>
       <div id="controls-key"></div>
       <div id="controls-semitone"></div>
-      <label for="text_current_key"></label>
+      <label for="text_current_key_trigger"></label>
       <span id="text_detected_wrap" class="hidden">
         <span id="text_detected_label"></span>
         <button id="text_detected_alt" class="hidden"></button>
@@ -410,6 +414,43 @@ describe("initPaste", () => {
     expect(requireElement<HTMLButtonElement>("format_chordpro").getAttribute("aria-pressed")).toBe(
       "true"
     );
+  });
+
+  it("picks keys from the visual grid, transposes, and saves the choice", () => {
+    initPaste();
+    requireElement<HTMLSelectElement>("text_current_key").value = "C";
+    type("C G Am F");
+    vi.advanceTimersByTime(300);
+    requireElement<HTMLButtonElement>("text_target_key_trigger").click();
+    expect(requireElement("text_key_picker_title").textContent).toBe("Desired key");
+    requireElement("text_key_picker")
+      .querySelector<HTMLButtonElement>('button[data-key="G"]')!
+      .click();
+    expect(requireElement<HTMLSelectElement>("text_target_key").value).toBe("G");
+    expect(requireElement("text_target_key_label").textContent).toBe("G");
+    expect(requireElement("text_key_distance").textContent).toBe("−5 semitones");
+    expect(output().textContent).toContain("G D Em C");
+    expect(JSON.parse(localStorage.getItem("chord-transposer:prefs")!).targetKey).toBe("G");
+  });
+
+  it("refreshes the key labels after detection and swapping", () => {
+    initPaste();
+    requireElement<HTMLSelectElement>("text_current_key").value = "D";
+    requireElement<HTMLSelectElement>("text_target_key").value = "C";
+    type("G C D7 G\nEm C D7 G");
+    vi.advanceTimersByTime(300);
+    expect(requireElement("text_current_key_label").textContent).toBe("G");
+    requireElement<HTMLButtonElement>("text_swap").dispatchEvent(new Event("click"));
+    expect(requireElement("text_current_key_label").textContent).toBe("C");
+    expect(requireElement("text_target_key_label").textContent).toBe("G");
+  });
+
+  it("hides the semitone distance in nashville mode", () => {
+    initPaste();
+    requireElement<HTMLButtonElement>("mode-nashville").dispatchEvent(new Event("click"));
+    expect(requireElement("text_key_distance_wrap").classList.contains("hidden")).toBe(true);
+    requireElement<HTMLButtonElement>("mode-key").dispatchEvent(new Event("click"));
+    expect(requireElement("text_key_distance_wrap").classList.contains("hidden")).toBe(false);
   });
 
   it("swaps keys", () => {
