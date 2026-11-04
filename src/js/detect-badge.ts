@@ -6,6 +6,7 @@ export interface DetectionBadgeOptions {
   altButton: HTMLElement;
   select: HTMLSelectElement;
   onAltPick?: () => void;
+  onNotation?: (german: boolean) => void;
 }
 
 export interface DetectionBadge {
@@ -26,6 +27,7 @@ export function createDetectionBadge({
   altButton,
   select,
   onAltPick,
+  onNotation,
 }: DetectionBadgeOptions): DetectionBadge {
   let userPicked = false;
   let current: DetectedKey | null = null;
@@ -56,6 +58,7 @@ export function createDetectionBadge({
   }
 
   function apply(result: KeyDetection | null): void {
+    if (onNotation) onNotation(result?.german ?? false);
     current = result?.key ? { key: result.key, alternate: result.alternate } : null;
     if (current !== null && !userPicked && hasOption(current.key)) {
       select.value = current.key;
@@ -85,6 +88,7 @@ export function createDetectionBadge({
     reset(): void {
       userPicked = false;
       current = null;
+      if (onNotation) onNotation(false);
       render();
     },
   };

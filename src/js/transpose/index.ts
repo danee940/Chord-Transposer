@@ -87,12 +87,13 @@ function transposeTextCore(
 export function transposeText(
   text: string,
   currentKey: string,
-  targetKey: string
+  targetKey: string,
+  notation?: boolean
 ): KeyTransposition {
   const current = requireKey(currentKey);
   const target = requireKey(targetKey);
 
-  const german = textUsesGerman(text);
+  const german = notation ?? textUsesGerman(text);
   const semitones = keyDistance(current, target, german);
   const spelling = keySpelling(target.note, target.minor, german);
 
@@ -109,10 +110,11 @@ export function transposeText(
 export function transposeTextBySemitones(
   text: string,
   semitones: number,
-  useFlats: boolean
+  useFlats: boolean,
+  notation?: boolean
 ): SemitoneTransposition {
   const normalised = mod12(semitones);
-  const german = textUsesGerman(text);
+  const german = notation ?? textUsesGerman(text);
   const spelling = chooseSpelling(useFlats, german);
   const { text: result, changes } = transposeTextCore(text, normalised, spelling, german);
   return { text: result, semitones: normalised, changes };
@@ -121,12 +123,13 @@ export function transposeTextBySemitones(
 export function transposeChordProText(
   text: string,
   currentKey: string,
-  targetKey: string
+  targetKey: string,
+  notation?: boolean
 ): KeyTransposition {
   const current = requireKey(currentKey);
   const target = requireKey(targetKey);
 
-  const german = chordProUsesGerman(text);
+  const german = notation ?? chordProUsesGerman(text);
   const semitones = keyDistance(current, target, german);
   const spelling = keySpelling(target.note, target.minor, german);
 
@@ -143,20 +146,25 @@ export function transposeChordProText(
 export function transposeChordProTextBySemitones(
   text: string,
   semitones: number,
-  useFlats: boolean
+  useFlats: boolean,
+  notation?: boolean
 ): SemitoneTransposition {
   const normalised = mod12(semitones);
-  const german = chordProUsesGerman(text);
+  const german = notation ?? chordProUsesGerman(text);
   const spelling = chooseSpelling(useFlats, german);
   const { text: result, changes } = transposeChordProCore(text, normalised, spelling, german);
   return { text: result, semitones: normalised, changes };
 }
 
-export function textToNashville(text: string, tonicKey: string): NashvilleConversion {
+export function textToNashville(
+  text: string,
+  tonicKey: string,
+  notation?: boolean
+): NashvilleConversion {
   const tonic = requireKey(tonicKey);
 
   const chordpro = isChordProText(text);
-  const german = chordpro ? chordProUsesGerman(text) : textUsesGerman(text);
+  const german = notation ?? (chordpro ? chordProUsesGerman(text) : textUsesGerman(text));
   const tonicSemitone = keySemitone(tonic.note, german);
 
   let result = "";

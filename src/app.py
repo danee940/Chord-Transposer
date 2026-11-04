@@ -82,6 +82,28 @@ KEY_OPTIONS = [
     "Bm",
 ]
 
+GERMAN_KEY_OPTIONS = [
+    "Cis",
+    "Des",
+    "Dis",
+    "Es",
+    "Fis",
+    "Ges",
+    "Gis",
+    "As",
+    "Ais",
+    "H",
+    "Cism",
+    "Desm",
+    "Dism",
+    "Esm",
+    "Fism",
+    "Gism",
+    "Asm",
+    "Aism",
+    "Hm",
+]
+
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
     format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
@@ -192,6 +214,7 @@ def index() -> str:
     return render_template(
         "index.html",
         keys=KEY_OPTIONS,
+        german_keys=GERMAN_KEY_OPTIONS,
         max_semitones=MAX_SEMITONES,
         faq_items=FAQ_ITEMS,
         howto_steps=HOWTO_STEPS,
@@ -271,6 +294,15 @@ class InvalidEditsError(ValueError):
 EDITS_ERROR = "The preview edits could not be read."
 
 
+def _parse_notation(raw: str | None) -> bool | None:
+    """Read the optional ``notation`` form field, returning None to keep auto-detection."""
+    if raw == "german":
+        return True
+    if raw == "english":
+        return False
+    return None
+
+
 def _parse_edits(raw: str | None) -> dict[str, str]:
     """Parse the optional ``edits`` form field into a source-text to edited-text mapping.
 
@@ -344,7 +376,11 @@ def transpose() -> ResponseReturnValue:
     try:
         edits = _parse_edits(request.form.get("edits"))
         docx_bytes, from_label, to_label, changes = transpose_document_bytes(
-            file_bytes, current_key, target_key, edits
+            file_bytes,
+            current_key,
+            target_key,
+            edits,
+            german=_parse_notation(request.form.get("notation")),
         )
     except (InvalidKeyError, InvalidEditsError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -437,7 +473,10 @@ def transpose_text_upload() -> ResponseReturnValue:
     try:
         edits = _parse_edits(request.form.get("edits"))
         transposed_text, from_label, to_label, changes = transposer(
-            source_text, current_key, target_key
+            source_text,
+            current_key,
+            target_key,
+            german=_parse_notation(request.form.get("notation")),
         )
     except (InvalidKeyError, InvalidEditsError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -503,9 +542,12 @@ def binder() -> ResponseReturnValue:
 
     to_label = target_key
     try:
+        notation = _parse_notation(request.form.get("notation"))
         pdf_documents: list[bytes] = []
         for data in documents:
-            docx_bytes, _, to_label, _ = transpose_document_bytes(data, current_key, target_key)
+            docx_bytes, _, to_label, _ = transpose_document_bytes(
+                data, current_key, target_key, german=notation
+            )
             pdf_documents.append(convert_docx_to_pdf(docx_bytes))
     except InvalidKeyError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -552,6 +594,7 @@ def _landing_context(page: seo.LandingPage) -> dict[str, object]:
     return {
         "page": page,
         "keys": KEY_OPTIONS,
+        "german_keys": GERMAN_KEY_OPTIONS,
         "max_semitones": MAX_SEMITONES,
         "preselect_from": page["preselect_from"],
         "preselect_to": page["preselect_to"],

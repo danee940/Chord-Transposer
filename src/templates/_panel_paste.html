@@ -39,6 +39,7 @@
         <select id="text_current_key" hidden aria-hidden="true" tabindex="-1">
           {% for key in keys %}<option value="{{ key }}" {% if preselect_from and key==preselect_from %}selected{% endif
             %}>{{ key }}</option>{% endfor %}
+          {% for key in german_keys %}<option value="{{ key }}">{{ key }}</option>{% endfor %}
         </select>
         <button type="button" id="text_current_key_trigger" aria-haspopup="dialog" aria-expanded="false"
           class="flex w-full items-center justify-between gap-2 rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-accent focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">
@@ -64,6 +65,7 @@
         <select id="text_target_key" hidden aria-hidden="true" tabindex="-1">
           {% for key in keys %}<option value="{{ key }}" {% if key==(preselect_to | default('D')) %} selected{% endif %}>
             {{ key }}</option>{% endfor %}
+          {% for key in german_keys %}<option value="{{ key }}">{{ key }}</option>{% endfor %}
         </select>
         <button type="button" id="text_target_key_trigger" aria-haspopup="dialog" aria-expanded="false"
           class="flex w-full items-center justify-between gap-2 rounded-xl border border-app-border-light bg-bg-light px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-accent focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200">

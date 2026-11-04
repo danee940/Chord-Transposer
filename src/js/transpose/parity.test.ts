@@ -12,17 +12,21 @@ import {
   transposeTextBySemitones,
 } from "./index";
 
-interface KeyParams {
+interface NotationParam {
+  german?: boolean;
+}
+
+interface KeyParams extends NotationParam {
   current_key: string;
   target_key: string;
 }
 
-interface SemitoneParams {
+interface SemitoneParams extends NotationParam {
   semitones: number;
   use_flats: boolean;
 }
 
-interface NashvilleParams {
+interface NashvilleParams extends NotationParam {
   tonic_key: string;
 }
 
@@ -37,14 +41,20 @@ const parityCases = cases as ParityCase[];
 
 function runCase({ mode, input, params }: ParityCase): unknown {
   if (mode === "key") {
-    const { text, from, to, changes } = transposeText(input, params.current_key, params.target_key);
+    const { text, from, to, changes } = transposeText(
+      input,
+      params.current_key,
+      params.target_key,
+      params.german
+    );
     return { text, from, to, changes };
   }
   if (mode === "semitones") {
     const { text, semitones, changes } = transposeTextBySemitones(
       input,
       params.semitones,
-      params.use_flats
+      params.use_flats,
+      params.german
     );
     return { text, semitones, changes };
   }
@@ -52,7 +62,8 @@ function runCase({ mode, input, params }: ParityCase): unknown {
     const { text, from, to, changes } = transposeChordProText(
       input,
       params.current_key,
-      params.target_key
+      params.target_key,
+      params.german
     );
     return { text, from, to, changes };
   }
@@ -60,7 +71,8 @@ function runCase({ mode, input, params }: ParityCase): unknown {
     const { text, semitones, changes } = transposeChordProTextBySemitones(
       input,
       params.semitones,
-      params.use_flats
+      params.use_flats,
+      params.german
     );
     return { text, semitones, changes };
   }
@@ -68,7 +80,8 @@ function runCase({ mode, input, params }: ParityCase): unknown {
     const { text, from, to, changes } = transposeChordProText(
       input,
       params.current_key,
-      params.target_key
+      params.target_key,
+      params.german
     );
     return { text: chordProToPlain(text), from, to, changes };
   }
@@ -82,7 +95,7 @@ function runCase({ mode, input, params }: ParityCase): unknown {
     return detectKey(input);
   }
   if (mode === "nashville") {
-    const { text, tonic } = textToNashville(input, params.tonic_key);
+    const { text, tonic } = textToNashville(input, params.tonic_key, params.german);
     return { text, tonic };
   }
   throw new Error(`unknown mode: ${mode}`);

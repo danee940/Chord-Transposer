@@ -1,5 +1,12 @@
 const PREFS_STORAGE_KEY = "chord-transposer:prefs";
-const STRING_PREF_KEYS = ["mode", "currentKey", "targetKey", "notation", "instrument"] as const;
+const STRING_PREF_KEYS = [
+  "mode",
+  "currentKey",
+  "targetKey",
+  "notation",
+  "keyNames",
+  "instrument",
+] as const;
 
 export interface Prefs {
   mode?: string;
@@ -7,6 +14,7 @@ export interface Prefs {
   targetKey?: string;
   semitones?: number;
   notation?: string;
+  keyNames?: string;
   instrument?: string;
 }
 

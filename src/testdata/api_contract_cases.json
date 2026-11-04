@@ -20,11 +20,12 @@
     "response": {
       "status": 200,
       "json": {
+        "key": "D",
         "alternate": null,
         "ambiguous": false,
         "chords": 8,
         "distinct": 4,
-        "key": "D"
+        "german": false
       }
     },
     "ui": {
@@ -531,6 +532,102 @@
     },
     "ui": {
       "error": "'X' is not a valid key."
+    }
+  },
+  {
+    "description": "transpose-text keeps Unicode accidentals in the body and change header",
+    "endpoint": "/transpose-text",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "hymn.txt",
+          "content": "B♭   E♭   F\nAmazing grace how sweet",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "Bb",
+        "target_key": "C",
+        "format": "txt"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "file",
+      "format"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "X-Transpose-From": "Bb",
+        "X-Transpose-To": "C",
+        "X-Transpose-Changes": "B%E2%99%AD-%3EC%2C%20E%E2%99%AD-%3EF%2C%20F-%3EG",
+        "Content-Disposition": "attachment; filename=hymn_C.txt"
+      },
+      "body_text": "C    F    G\nAmazing grace how sweet"
+    },
+    "ui": {
+      "heading": "Transposed from Bb to C",
+      "download": "hymn_C.txt",
+      "preview": "C    F    G\nAmazing grace how sweet",
+      "change_rows": [
+        "B♭ → C",
+        "E♭ → F",
+        "F → G"
+      ]
+    }
+  },
+  {
+    "description": "transpose-text applies a forced English notation override",
+    "endpoint": "/transpose-text",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "file",
+          "filename": "lied.txt",
+          "content": "B      Es     As",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "B",
+        "target_key": "C",
+        "format": "txt",
+        "notation": "english"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "file",
+      "format",
+      "notation"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "text/plain; charset=utf-8",
+      "headers": {
+        "X-Transpose-From": "B",
+        "X-Transpose-To": "C",
+        "X-Transpose-Changes": "As-%3EA%2C%20B-%3EC%2C%20Es-%3EE",
+        "Content-Disposition": "attachment; filename=lied_C.txt"
+      },
+      "body_text": "C      E      A "
+    },
+    "ui": {
+      "heading": "Transposed from B to C",
+      "download": "lied_C.txt",
+      "preview": "C      E      A ",
+      "change_rows": [
+        "As → A",
+        "B → C",
+        "Es → E"
+      ]
     }
   }
 ]

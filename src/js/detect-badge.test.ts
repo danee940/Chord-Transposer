@@ -94,7 +94,14 @@ describe("createDetectionBadge", () => {
 
   it("keeps the select when the clicked alternate has no option", () => {
     const badge = createDetectionBadge(elements);
-    badge.apply({ key: "C", alternate: "H", ambiguous: true, chords: 3, distinct: 2 });
+    badge.apply({
+      key: "C",
+      alternate: "H",
+      ambiguous: true,
+      chords: 3,
+      distinct: 2,
+      german: false,
+    });
     elements.altButton.dispatchEvent(new Event("click"));
     expect(elements.select.value).toBe("C");
     expect(elements.label.textContent).toBe("Detected: H");
@@ -110,10 +117,30 @@ describe("createDetectionBadge", () => {
 
   it("applies a server-side detection result", () => {
     const badge = createDetectionBadge(elements);
-    badge.apply({ key: "G", alternate: null, ambiguous: false, chords: 4, distinct: 3 });
+    badge.apply({
+      key: "G",
+      alternate: null,
+      ambiguous: false,
+      chords: 4,
+      distinct: 3,
+      german: false,
+    });
     expect(elements.select.value).toBe("G");
     badge.apply(null);
     expect(elements.wrap.classList.contains("hidden")).toBe(true);
+  });
+
+  it("reports the sheet notation to the picker and resets it", () => {
+    const seen: boolean[] = [];
+    const badge = createDetectionBadge({
+      ...elements,
+      onNotation: (german) => seen.push(german),
+    });
+    badge.detect("H E Fis7 H\nE H Fis7 H");
+    badge.detect("C F G C\nF C G C");
+    badge.apply(null);
+    badge.reset();
+    expect(seen).toEqual([true, false, false, false]);
   });
 
   it("re-enables preselection after reset", () => {

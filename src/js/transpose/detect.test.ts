@@ -10,6 +10,7 @@ describe("detectKey", () => {
       ambiguous: false,
       chords: 4,
       distinct: 3,
+      german: false,
     });
   });
 
@@ -37,6 +38,7 @@ describe("detectKey", () => {
       ambiguous: false,
       chords: 1,
       distinct: 1,
+      german: false,
     });
   });
 
@@ -142,10 +144,24 @@ describe("detectKey tie-breaking", () => {
 describe("isKeyDetection", () => {
   it("accepts the shape returned by the detect endpoint", () => {
     expect(
-      isKeyDetection({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 3 })
+      isKeyDetection({
+        key: "D",
+        alternate: null,
+        ambiguous: false,
+        chords: 4,
+        distinct: 3,
+        german: false,
+      })
     ).toBe(true);
     expect(
-      isKeyDetection({ key: null, alternate: null, ambiguous: false, chords: 0, distinct: 0 })
+      isKeyDetection({
+        key: null,
+        alternate: null,
+        ambiguous: false,
+        chords: 0,
+        distinct: 0,
+        german: true,
+      })
     ).toBe(true);
   });
 

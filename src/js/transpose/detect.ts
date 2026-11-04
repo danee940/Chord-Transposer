@@ -27,6 +27,7 @@ export interface KeyDetection {
   ambiguous: boolean;
   chords: number;
   distinct: number;
+  german: boolean;
 }
 
 type ChordQuality = "major" | "minor" | "dom7" | "dim" | "other";
@@ -89,7 +90,8 @@ export function isKeyDetection(value: unknown): value is KeyDetection {
     isNullableString(record.alternate) &&
     typeof record.ambiguous === "boolean" &&
     typeof record.chords === "number" &&
-    typeof record.distinct === "number"
+    typeof record.distinct === "number" &&
+    typeof record.german === "boolean"
   );
 }
 
@@ -98,8 +100,10 @@ function chordQuality(quality: string): ChordQuality {
   const low = quality.toLowerCase();
   if (low.startsWith("maj")) return "major";
   if (low.startsWith("dim")) return "dim";
+  if (low.startsWith("alt")) return "dom7";
   const first = quality.charAt(0);
   if (first === "°" || first === "ø") return "dim";
+  if (first === "\u0394" || first === "\u2206") return "major";
   if (first === "M") return "major";
   if (first === "m" || first === "-") return "minor";
   if (first === "7" || first === "9" || first === "1") return "dom7";
@@ -208,6 +212,7 @@ export function detectKey(text: string): KeyDetection {
     ambiguous: false,
     chords: total,
     distinct,
+    german,
   };
   if (total < DETECT_MIN_CHORDS || distinct < DETECT_MIN_DISTINCT_ROOTS) return result;
 

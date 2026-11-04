@@ -184,13 +184,25 @@ export function mod12(value: number): Semitone {
   return (((value % 12) + 12) % 12) as Semitone;
 }
 
+const UNICODE_ACCIDENTALS: Readonly<Record<string, string>> = { "\u266f": "#", "\u266d": "b" };
+
+export function asciiAccidentals(note: string): string {
+  return note.replace(/[\u266f\u266d]/g, (sign) => UNICODE_ACCIDENTALS[sign]!);
+}
+
+function matchAccidentalStyle(spelled: string, source: string): string {
+  if (!/[\u266f\u266d]/.test(source)) return spelled;
+  return spelled.replace(/#/g, "\u266f").replace(/b/g, "\u266d");
+}
+
 export function capitalizeFirst(text: string): string {
   if (text === "") return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function canonicalNote(note: string): string {
-  return note.charAt(0).toUpperCase() + note.slice(1);
+  const plain = asciiAccidentals(note);
+  return plain.charAt(0).toUpperCase() + plain.slice(1);
 }
 
 export function isMinorSuffix(rest: string): boolean {
@@ -198,7 +210,7 @@ export function isMinorSuffix(rest: string): boolean {
 }
 
 export function parseKey(raw: string): ParsedKey | null {
-  const text = raw.trim();
+  const text = asciiAccidentals(raw.trim());
   if (!text) return null;
 
   for (const name of GERMAN_ROOT_NAMES) {
@@ -296,8 +308,12 @@ export function keySpelling(note: string, minor: boolean, german: boolean): Spel
 }
 
 export function noteSemitone(note: string, german: boolean): Semitone {
+  // Only B and Bb mean different pitches in the two notations, so a German-only
+  // name such as Es keeps its meaning when the reader forces English notation
+  // rather than failing the lookup.
   const table = german ? GERMAN_NOTE_TO_SEMITONE : NOTE_TO_SEMITONE;
-  const semitone = table[canonicalNote(note)];
+  const canonical = canonicalNote(note);
+  const semitone = table[canonical] ?? GERMAN_NOTE_TO_SEMITONE[canonical];
   if (semitone === undefined) throw new UnknownNoteError(`'${note}' is not a known note.`);
   return semitone;
 }
@@ -313,5 +329,5 @@ export function transposeNote(
   spelling: Spelling,
   german: boolean
 ): string {
-  return spelling[mod12(noteSemitone(note, german) + semitones)];
+  return matchAccidentalStyle(spelling[mod12(noteSemitone(note, german) + semitones)], note);
 }

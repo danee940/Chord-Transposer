@@ -18,6 +18,7 @@ from pypdf import PdfReader, PdfWriter
 
 import app as app_module
 import seo
+import transpose as t
 from app import app
 
 DOCX_MIMETYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -47,6 +48,19 @@ def _chord_docx_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def _docx_bytes(*lines: str) -> bytes:
+    document = Document()
+    for line in lines:
+        document.add_paragraph(line)
+    buffer = BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def _docx_paragraphs(data_bytes: bytes) -> list[str]:
+    return [p.text for p in Document(BytesIO(data_bytes)).paragraphs if p.text]
+
+
 def _upload(data_bytes: bytes, filename: str = "song.docx") -> dict[str, object]:
     return {"file": (BytesIO(data_bytes), filename)}
 
@@ -55,6 +69,133 @@ def test_index_lists_keys(client: FlaskClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert b"Chord Transposer" in response.data
+
+
+def test_index_offers_german_key_options(client: FlaskClient) -> None:
+    html = client.get("/").get_data(as_text=True)
+    for key in ("H", "Hm", "Es", "Cis", "Fism"):
+        assert f'<option value="{key}">' in html
+
+
+def test_landing_page_offers_german_key_options(client: FlaskClient) -> None:
+    html = client.get("/guitar-chord-transposer").get_data(as_text=True)
+    assert '<option value="H">' in html
+
+
+def test_german_key_options_all_parse_and_are_not_english_slugs() -> None:
+    for key in app_module.GERMAN_KEY_OPTIONS:
+        assert t.parse_key(key) is not None
+        assert key not in app_module.KEY_OPTIONS
+
+
+def test_every_detectable_key_can_be_preselected() -> None:
+    """Whatever detect_key spells, the picker's hidden select must offer it."""
+    offered = set(app_module.KEY_OPTIONS) | set(app_module.GERMAN_KEY_OPTIONS)
+    for german in (False, True):
+        for minor in (False, True):
+            for semitone in range(12):
+                label = t._spell_detected_key(semitone, minor, german)
+                assert label in offered, f"{label} is detectable but not selectable"
+
+
+def test_transpose_accepts_a_german_key_from_the_picker(client: FlaskClient) -> None:
+    data = {
+        "file": (BytesIO(_docx_bytes("H E Fis")), "sheet.docx"),
+        "current_key": "H",
+        "target_key": "C",
+        "format": "docx",
+    }
+    response = client.post("/transpose", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert unquote(response.headers["X-Transpose-From"]) == "H"
+    assert [text.strip() for text in _docx_paragraphs(response.data)] == ["C F G"]
+
+
+def test_detect_key_reports_german_notation(client: FlaskClient) -> None:
+    data = {"file": (BytesIO(_docx_bytes("H E Fis7 H\nE H Fis7 H")), "sheet.docx")}
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    payload = response.get_json()
+    assert payload["german"] is True
+    assert payload["key"] == "H"
+
+
+def test_detect_key_reports_english_notation(client: FlaskClient) -> None:
+    data = {"file": (BytesIO(_docx_bytes("C F G C\nF C G C")), "sheet.docx")}
+    response = client.post("/detect-key", data=data, content_type="multipart/form-data")
+    assert response.get_json()["german"] is False
+
+
+def test_notation_field_overrides_the_detected_notation(client: FlaskClient) -> None:
+    sheet = "B      Es     As"
+    results = {}
+    for notation in ("german", "english", "auto"):
+        form: dict[str, object] = {
+            "file": (BytesIO(sheet.encode()), "s.txt"),
+            "current_key": "B",
+            "target_key": "C",
+            "format": "txt",
+        }
+        if notation != "auto":
+            form["notation"] = notation
+        response = client.post("/transpose-text", data=form, content_type="multipart/form-data")
+        assert response.status_code == 200
+        results[notation] = response.get_data(as_text=True).strip()
+    assert results["german"] == "C      F      B"
+    assert results["english"] == "C      E      A"
+    assert results["auto"] == results["german"]
+
+
+def test_unknown_notation_field_falls_back_to_detection(client: FlaskClient) -> None:
+    form = {
+        "file": (BytesIO(b"B      Es     As"), "s.txt"),
+        "current_key": "B",
+        "target_key": "C",
+        "format": "txt",
+        "notation": "klingon",
+    }
+    response = client.post("/transpose-text", data=form, content_type="multipart/form-data")
+    assert response.get_data(as_text=True).strip() == "C      F      B"
+
+
+def test_transpose_docx_honours_the_notation_override(client: FlaskClient) -> None:
+    data = {
+        "file": (BytesIO(_docx_bytes("B      Es     As")), "s.docx"),
+        "current_key": "B",
+        "target_key": "C",
+        "format": "docx",
+        "notation": "english",
+    }
+    response = client.post("/transpose", data=data, content_type="multipart/form-data")
+    assert [text.rstrip() for text in _docx_paragraphs(response.data)] == ["C      E      A"]
+
+
+def test_binder_honours_the_notation_override(
+    client: FlaskClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: list[bool | None] = []
+    original = app_module.transpose_document_bytes
+
+    def spy(
+        file_bytes: bytes,
+        current_key: str,
+        target_key: str,
+        edits: object = None,
+        german: bool | None = None,
+    ) -> tuple[bytes, str, str, list[tuple[str, str]]]:
+        captured.append(german)
+        return original(file_bytes, current_key, target_key, None, german)
+
+    monkeypatch.setattr(app_module, "transpose_document_bytes", spy)
+    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda _: _one_page_pdf())
+    data = {
+        "files": [(BytesIO(_docx_bytes("B Es")), "a.docx")],
+        "current_key": "B",
+        "target_key": "C",
+        "notation": "english",
+    }
+    response = client.post("/binder", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert captured == [False]
 
 
 def test_index_shows_docx_formatting_moat_badge(client: FlaskClient) -> None:

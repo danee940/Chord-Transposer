@@ -263,6 +263,7 @@ export function initUpload(): void {
   }
 
   const keyPicker = initKeyPicker({
+    onNotationPick: () => rerunPreview(),
     panel: requireElement("key_picker"),
     title: requireElement("key_picker_title"),
     distance: requireElement("key_distance"),
@@ -288,6 +289,7 @@ export function initUpload(): void {
     altButton: detectedAlt,
     select: currentKey,
     onAltPick: rerunPreview,
+    onNotation: (german) => keyPicker.setNotation(german),
   });
 
   async function detectDocxKey(file: File, selectionId: number): Promise<void> {
@@ -306,9 +308,10 @@ export function initUpload(): void {
   }
 
   function transposeSheet(text: string, from: string, to: string): KeyTransposition {
+    const notation = keyPicker.notationOverride();
     return isChordProText(text)
-      ? transposeChordProText(text, from, to)
-      : transposeText(text, from, to);
+      ? transposeChordProText(text, from, to, notation)
+      : transposeText(text, from, to, notation);
   }
 
   function editedParagraphs(): string[] {
@@ -491,7 +494,9 @@ export function initUpload(): void {
     return data;
   }
 
-  function appendEdits(data: FormData, edits: PreviewEdit[]): FormData {
+  function appendOverrides(data: FormData, edits: PreviewEdit[]): FormData {
+    const notation = keyPicker.notationOverride();
+    if (notation !== undefined) data.append("notation", notation ? "german" : "english");
     if (edits.length > 0) data.append("edits", JSON.stringify(edits));
     return data;
   }
@@ -510,14 +515,14 @@ export function initUpload(): void {
       data.append("format", format);
       return {
         endpoint: "/transpose-text",
-        body: appendEdits(data, edits),
+        body: appendOverrides(data, edits),
         multi: false,
         fallback: `transposed.${TEXT_FORMAT_EXTENSIONS[format]}`,
       };
     }
     return {
       endpoint: "/transpose",
-      body: appendEdits(new FormData(form), edits),
+      body: appendOverrides(new FormData(form), edits),
       multi: false,
       fallback: `transposed.${selectedFormat()}`,
     };

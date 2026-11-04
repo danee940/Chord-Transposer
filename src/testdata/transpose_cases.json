@@ -1450,7 +1450,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1463,7 +1464,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 8,
-      "distinct": 4
+      "distinct": 4,
+      "german": false
     }
   },
   {
@@ -1476,7 +1478,8 @@
       "alternate": "C",
       "ambiguous": true,
       "chords": 9,
-      "distinct": 4
+      "distinct": 4,
+      "german": false
     }
   },
   {
@@ -1489,7 +1492,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1502,7 +1506,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 8,
-      "distinct": 4
+      "distinct": 4,
+      "german": false
     }
   },
   {
@@ -1515,7 +1520,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1528,7 +1534,8 @@
       "alternate": "G",
       "ambiguous": true,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1541,7 +1548,8 @@
       "alternate": "G",
       "ambiguous": true,
       "chords": 5,
-      "distinct": 4
+      "distinct": 4,
+      "german": false
     }
   },
   {
@@ -1554,7 +1562,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 8,
-      "distinct": 4
+      "distinct": 4,
+      "german": false
     }
   },
   {
@@ -1567,7 +1576,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 1,
-      "distinct": 1
+      "distinct": 1,
+      "german": false
     }
   },
   {
@@ -1580,7 +1590,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 0,
-      "distinct": 0
+      "distinct": 0,
+      "german": false
     }
   },
   {
@@ -1593,7 +1604,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 0,
-      "distinct": 0
+      "distinct": 0,
+      "german": false
     }
   },
   {
@@ -1606,7 +1618,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1619,7 +1632,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 8,
-      "distinct": 3
+      "distinct": 3,
+      "german": true
     }
   },
   {
@@ -1632,7 +1646,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": true
     }
   },
   {
@@ -1645,7 +1660,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1658,7 +1674,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 8,
-      "distinct": 4
+      "distinct": 4,
+      "german": false
     }
   },
   {
@@ -1671,7 +1688,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1684,7 +1702,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1697,7 +1716,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 7,
-      "distinct": 6
+      "distinct": 6,
+      "german": false
     }
   },
   {
@@ -1710,7 +1730,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 8,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -1723,7 +1744,8 @@
       "alternate": null,
       "ambiguous": false,
       "chords": 4,
-      "distinct": 3
+      "distinct": 3,
+      "german": false
     }
   },
   {
@@ -2161,6 +2183,569 @@
         [
           "E/G#",
           "D/F#"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key 6/9 quality",
+    "mode": "key",
+    "input": "C6/9       F6/9       G6/9       C6/9",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "D6/9       G6/9       A6/9       D6/9",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "C6/9",
+          "D6/9"
+        ],
+        [
+          "F6/9",
+          "G6/9"
+        ],
+        [
+          "G6/9",
+          "A6/9"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key 6/9 over a bass note",
+    "mode": "key",
+    "input": "C6/9/E     Am7        G7         C",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "D6/9/F#    Bm7        A7         D",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "Am7",
+          "Bm7"
+        ],
+        [
+          "C",
+          "D"
+        ],
+        [
+          "C6/9/E",
+          "D6/9/F#"
+        ],
+        [
+          "G7",
+          "A7"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key alt dominant",
+    "mode": "key",
+    "input": "Calt       F7alt      G7alt      C",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "Dalt       G7alt      A7alt      D",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "C",
+          "D"
+        ],
+        [
+          "Calt",
+          "Dalt"
+        ],
+        [
+          "F7alt",
+          "G7alt"
+        ],
+        [
+          "G7alt",
+          "A7alt"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key triangle major seventh",
+    "mode": "key",
+    "input": "CΔ7      Am7        Dm7        G7",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "DΔ7      Bm7        Em7        A7",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "Am7",
+          "Bm7"
+        ],
+        [
+          "CΔ7",
+          "DΔ7"
+        ],
+        [
+          "Dm7",
+          "Em7"
+        ],
+        [
+          "G7",
+          "A7"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key increment-sign triangle variant",
+    "mode": "key",
+    "input": "C∆7      F∆7      G7",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "D∆7      G∆7      A7",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "C∆7",
+          "D∆7"
+        ],
+        [
+          "F∆7",
+          "G∆7"
+        ],
+        [
+          "G7",
+          "A7"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key unicode flat root keeps the unicode sign",
+    "mode": "key",
+    "input": "B♭     E♭     A♭",
+    "params": {
+      "current_key": "Bb",
+      "target_key": "C"
+    },
+    "expected": {
+      "text": "C      F      B♭",
+      "from": "Bb",
+      "to": "C",
+      "changes": [
+        [
+          "A♭",
+          "B♭"
+        ],
+        [
+          "B♭",
+          "C"
+        ],
+        [
+          "E♭",
+          "F"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key unicode sharp root keeps the unicode sign",
+    "mode": "key",
+    "input": "C♯m      F♯       G♯",
+    "params": {
+      "current_key": "C#m",
+      "target_key": "Dm"
+    },
+    "expected": {
+      "text": "Dm       G        A ",
+      "from": "C#m",
+      "to": "Dm",
+      "changes": [
+        [
+          "C♯m",
+          "Dm"
+        ],
+        [
+          "F♯",
+          "G"
+        ],
+        [
+          "G♯",
+          "A"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key unicode accidental in the quality",
+    "mode": "key",
+    "input": "C7♭9     F7♯9     G7",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "D7♭9     G7♯9     A7",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "C7♭9",
+          "D7♭9"
+        ],
+        [
+          "F7♯9",
+          "G7♯9"
+        ],
+        [
+          "G7",
+          "A7"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "by-key time signature is not a chord line",
+    "mode": "key",
+    "input": "4/4\nC          G",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "4/4\nD          A",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "C",
+          "D"
+        ],
+        [
+          "G",
+          "A"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "semitone 6/9 and alt",
+    "mode": "semitones",
+    "input": "C6/9  G7alt",
+    "params": {
+      "semitones": 2,
+      "use_flats": false
+    },
+    "expected": {
+      "text": "D6/9  A7alt",
+      "semitones": 2,
+      "changes": [
+        [
+          "C6/9",
+          "D6/9"
+        ],
+        [
+          "G7alt",
+          "A7alt"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "semitone unicode flat root",
+    "mode": "semitones",
+    "input": "B♭  E♭",
+    "params": {
+      "semitones": 1,
+      "use_flats": true
+    },
+    "expected": {
+      "text": "B   E ",
+      "semitones": 1,
+      "changes": [
+        [
+          "B♭",
+          "B"
+        ],
+        [
+          "E♭",
+          "E"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "chordpro 6/9 and triangle",
+    "mode": "chordpro-key",
+    "input": "[C6/9]word [AΔ7]word",
+    "params": {
+      "current_key": "C",
+      "target_key": "D"
+    },
+    "expected": {
+      "text": "[D6/9]word [BΔ7]word",
+      "from": "C",
+      "to": "D",
+      "changes": [
+        [
+          "AΔ7",
+          "BΔ7"
+        ],
+        [
+          "C6/9",
+          "D6/9"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "chordpro unicode accidentals",
+    "mode": "chordpro-key",
+    "input": "[B♭]word [C♯m]word",
+    "params": {
+      "current_key": "Bb",
+      "target_key": "C"
+    },
+    "expected": {
+      "text": "[C]word [E♭m]word",
+      "from": "Bb",
+      "to": "C",
+      "changes": [
+        [
+          "B♭",
+          "C"
+        ],
+        [
+          "C♯m",
+          "E♭m"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "nashville 6/9 and alt",
+    "mode": "nashville",
+    "input": "C6/9  F6/9  G7alt",
+    "params": {
+      "tonic_key": "C"
+    },
+    "expected": {
+      "text": "16/9  46/9  57alt",
+      "tonic": "C"
+    }
+  },
+  {
+    "description": "nashville unicode flat root",
+    "mode": "nashville",
+    "input": "B♭  E♭  F",
+    "params": {
+      "tonic_key": "Bb"
+    },
+    "expected": {
+      "text": "1  4  5",
+      "tonic": "Bb"
+    }
+  },
+  {
+    "description": "detect triangle major sevenths",
+    "mode": "detect-key",
+    "input": "CΔ7 Am7 Dm7 G7\nCΔ7 Am7 Dm7 G7",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 4,
+      "german": false
+    }
+  },
+  {
+    "description": "detect unicode accidental roots",
+    "mode": "detect-key",
+    "input": "E♭ B♭ Cm A♭\nE♭ B♭ A♭ E♭",
+    "params": {},
+    "expected": {
+      "key": "Eb",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 4,
+      "german": false
+    }
+  },
+  {
+    "description": "is-chordpro 6/9 bracket token",
+    "mode": "is-chordpro",
+    "input": "[C6/9]word",
+    "params": {},
+    "expected": {
+      "result": true
+    }
+  },
+  {
+    "description": "detect bare alt dominant",
+    "mode": "detect-key",
+    "input": "C Am F Galt\nC Am Dm Galt",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 5,
+      "german": false
+    }
+  },
+  {
+    "description": "detect increment-sign triangle",
+    "mode": "detect-key",
+    "input": "C∆7 Am7 Dm7 G7\nC∆7 Am7 Dm7 G7",
+    "params": {},
+    "expected": {
+      "key": "C",
+      "alternate": null,
+      "ambiguous": false,
+      "chords": 8,
+      "distinct": 4,
+      "german": false
+    }
+  },
+  {
+    "description": "by-key reader forces English notation on a German-looking sheet",
+    "mode": "key",
+    "input": "B      Es     As",
+    "params": {
+      "current_key": "B",
+      "target_key": "C",
+      "german": false
+    },
+    "expected": {
+      "text": "C      E      A ",
+      "from": "B",
+      "to": "C",
+      "changes": [
+        [
+          "As",
+          "A"
+        ],
+        [
+          "B",
+          "C"
+        ],
+        [
+          "Es",
+          "E"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "semitone forced English notation",
+    "mode": "semitones",
+    "input": "H  B",
+    "params": {
+      "semitones": 1,
+      "use_flats": false,
+      "german": false
+    },
+    "expected": {
+      "text": "C  C",
+      "semitones": 1,
+      "changes": [
+        [
+          "B",
+          "C"
+        ],
+        [
+          "H",
+          "C"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "chordpro forced English notation",
+    "mode": "chordpro-key",
+    "input": "[B]word [Es]word",
+    "params": {
+      "current_key": "B",
+      "target_key": "C",
+      "german": false
+    },
+    "expected": {
+      "text": "[C]word [E]word",
+      "from": "B",
+      "to": "C",
+      "changes": [
+        [
+          "B",
+          "C"
+        ],
+        [
+          "Es",
+          "E"
+        ]
+      ]
+    }
+  },
+  {
+    "description": "nashville forced English notation",
+    "mode": "nashville",
+    "input": "B  Es  As",
+    "params": {
+      "tonic_key": "B",
+      "german": false
+    },
+    "expected": {
+      "text": "1  3  6",
+      "tonic": "B"
+    }
+  },
+  {
+    "description": "by-key reader forces German notation on an English sheet",
+    "mode": "key",
+    "input": "C      F      G",
+    "params": {
+      "current_key": "C",
+      "target_key": "Es",
+      "german": true
+    },
+    "expected": {
+      "text": "Es     As     B",
+      "from": "C",
+      "to": "Es",
+      "changes": [
+        [
+          "C",
+          "Es"
+        ],
+        [
+          "F",
+          "As"
+        ],
+        [
+          "G",
+          "B"
         ]
       ]
     }

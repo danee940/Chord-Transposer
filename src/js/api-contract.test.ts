@@ -130,6 +130,12 @@ async function trigger(contractCase: ContractCase): Promise<void> {
       requireElement<HTMLSelectElement>("target_key").value = targetKey;
       requireElement<HTMLSelectElement>("target_key").dispatchEvent(new Event("change"));
     }
+    const notation = form["notation"];
+    if (notation !== undefined) {
+      requireElement("key_picker")
+        .querySelector<HTMLButtonElement>(`button[data-notation="${notation}"]`)!
+        .click();
+    }
     if (form["format"] === "pdf") {
       document.querySelector<HTMLInputElement>('input[value="docx"]')!.checked = false;
       document.querySelector<HTMLInputElement>('input[value="pdf"]')!.checked = true;

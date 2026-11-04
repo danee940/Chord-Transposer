@@ -27,10 +27,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     mode = case["mode"]
     text = case["input"]
     params = case["params"]
+    german = cast("bool | None", params.get("german"))
 
     if mode == "key":
         result, from_label, to_label, changes = t.transpose_text(
-            text, params["current_key"], params["target_key"]
+            text, params["current_key"], params["target_key"], german
         )
         return {
             "text": result,
@@ -40,12 +41,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         }
     if mode == "semitones":
         result, normalised, changes = t.transpose_text_by_semitones(
-            text, params["semitones"], params["use_flats"]
+            text, params["semitones"], params["use_flats"], german
         )
         return {"text": result, "semitones": normalised, "changes": _changes(changes)}
     if mode == "chordpro-key":
         result, from_label, to_label, changes = t.transpose_chordpro_text(
-            text, params["current_key"], params["target_key"]
+            text, params["current_key"], params["target_key"], german
         )
         return {
             "text": result,
@@ -55,12 +56,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         }
     if mode == "chordpro-semitones":
         result, normalised, changes = t.transpose_chordpro_text_by_semitones(
-            text, params["semitones"], params["use_flats"]
+            text, params["semitones"], params["use_flats"], german
         )
         return {"text": result, "semitones": normalised, "changes": _changes(changes)}
     if mode == "chordpro-key-plain":
         result, from_label, to_label, changes = t.transpose_chordpro_text(
-            text, params["current_key"], params["target_key"]
+            text, params["current_key"], params["target_key"], german
         )
         return {
             "text": t.chordpro_to_plain(result),
@@ -75,7 +76,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if mode == "detect-key":
         return dict(t.detect_key(text))
     if mode == "nashville":
-        result, tonic = t.text_to_nashville(text, params["tonic_key"])
+        result, tonic = t.text_to_nashville(text, params["tonic_key"], german)
         return {"text": result, "tonic": tonic}
     raise AssertionError(f"unknown mode: {mode}")
 

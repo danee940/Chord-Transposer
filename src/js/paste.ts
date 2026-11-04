@@ -79,6 +79,17 @@ function mapChanges(changes: Change[]): ChangePair[] {
   return changes.map(([from, to]) => ({ from, to }));
 }
 
+function savedKeyNames(stored: string | undefined): boolean | undefined {
+  if (stored === "german") return true;
+  if (stored === "english") return false;
+  return undefined;
+}
+
+function keyNamesPref(german: boolean | undefined): string | undefined {
+  if (german === undefined) return undefined;
+  return german ? "german" : "english";
+}
+
 export function initPaste(): void {
   const textInput = requireElement<HTMLTextAreaElement>("text_input");
   const textOutput = requireElement("text_output");
@@ -123,7 +134,13 @@ export function initPaste(): void {
     caret: requireElement("text_changes_caret"),
     list: requireElement("text_changes"),
   });
+  const savedPrefs = loadPrefs();
   const keyPicker = initKeyPicker({
+    savedNotation: savedKeyNames(savedPrefs.keyNames),
+    onNotationPick: () => {
+      persistPrefs();
+      runTextTranspose();
+    },
     panel: requireElement("text_key_picker"),
     title: requireElement("text_key_picker_title"),
     distance: requireElement("text_key_distance"),
@@ -182,6 +199,7 @@ export function initPaste(): void {
       targetKey: textTargetKey.value,
       semitones,
       notation: useFlats ? "flat" : "sharp",
+      keyNames: keyNamesPref(keyPicker.notationOverride()),
       instrument,
     });
   }
@@ -293,8 +311,10 @@ export function initPaste(): void {
   }
 
   function computeResult(text: string): PasteResult {
+    const notation = keyPicker.notationOverride();
+
     if (transposeMode === "nashville") {
-      const result = textToNashville(text, textCurrentKey.value);
+      const result = textToNashville(text, textCurrentKey.value, notation);
       return { kind: "nashville", text: result.text, tonic: result.tonic };
     }
 
@@ -302,8 +322,8 @@ export function initPaste(): void {
 
     if (transposeMode === "semitone") {
       const result = chordpro
-        ? transposeChordProTextBySemitones(text, semitones, useFlats)
-        : transposeTextBySemitones(text, semitones, useFlats);
+        ? transposeChordProTextBySemitones(text, semitones, useFlats, notation)
+        : transposeTextBySemitones(text, semitones, useFlats, notation);
       return {
         kind: "semitone",
         text: maybePlain(result.text, chordpro),
@@ -314,8 +334,8 @@ export function initPaste(): void {
     }
 
     const result = chordpro
-      ? transposeChordProText(text, textCurrentKey.value, textTargetKey.value)
-      : transposeText(text, textCurrentKey.value, textTargetKey.value);
+      ? transposeChordProText(text, textCurrentKey.value, textTargetKey.value, notation)
+      : transposeText(text, textCurrentKey.value, textTargetKey.value, notation);
     return {
       kind: "key",
       text: maybePlain(result.text, chordpro),
@@ -413,6 +433,7 @@ export function initPaste(): void {
       runTextTranspose();
       persistPrefs();
     },
+    onNotation: (german) => keyPicker.setNotation(german),
   });
   if (panelPaste.dataset.preselectFrom) {
     detection.markUserPick();
@@ -508,7 +529,6 @@ export function initPaste(): void {
     }
   });
 
-  const savedPrefs = loadPrefs();
   if (!panelPaste.dataset.preselectFrom && savedPrefs.currentKey) {
     textCurrentKey.value = savedPrefs.currentKey;
   }

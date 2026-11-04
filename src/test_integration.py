@@ -6,10 +6,17 @@
 import json
 from collections.abc import Iterator
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from docx import Document
+from docx.document import Document as DocumentObject
+from docx.enum.section import WD_SECTION
+from docx.opc.constants import CONTENT_TYPE, RELATIONSHIP_TYPE
+from docx.opc.packuri import PackURI
+from docx.oxml import parse_xml
+from docx.oxml.text.run import CT_R
+from docx.parts.story import StoryPart
 from flask.testing import FlaskClient
 from pypdf import PdfReader, PdfWriter
 
@@ -50,6 +57,116 @@ def _make_docx_with_header_footer(body_text: str, header_text: str, footer_text:
     buf = BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+WORD_NAMESPACES = (
+    'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+    'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+    'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" '
+    'xmlns:v="urn:schemas-microsoft-com:vml"'
+)
+
+
+def _xml_paragraphs(*lines: str) -> str:
+    """Return WordprocessingML paragraphs, one single-run paragraph per line."""
+    runs = (f'<w:r><w:t xml:space="preserve">{line}</w:t></w:r>' for line in lines)
+    return "".join(f"<w:p>{run}</w:p>" for run in runs)
+
+
+def _vml_text_box(*lines: str) -> str:
+    """Return a legacy VML text box holding the given lines."""
+    return (
+        '<w:pict><v:shape style="width:216pt;height:72pt" strokeweight=".5pt">'
+        f"<v:textbox><w:txbxContent>{_xml_paragraphs(*lines)}</w:txbxContent></v:textbox>"
+        "</v:shape></w:pict>"
+    )
+
+
+def _drawing_text_box(*lines: str) -> str:
+    """Return a text box as Word saves it: a drawing shape with a VML fallback copy."""
+    return (
+        '<mc:AlternateContent><mc:Choice Requires="wps"><w:drawing>'
+        '<wp:inline distT="0" distB="0" distL="0" distR="0">'
+        '<wp:extent cx="2743200" cy="914400"/><wp:effectExtent l="0" t="0" r="0" b="0"/>'
+        '<wp:docPr id="1" name="Text Box 1"/><wp:cNvGraphicFramePr/>'
+        '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/'
+        'wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr>'
+        '<a:xfrm><a:off x="0" y="0"/><a:ext cx="2743200" cy="914400"/></a:xfrm>'
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+        '<a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>'
+        f"</wps:spPr><wps:txbx><w:txbxContent>{_xml_paragraphs(*lines)}</w:txbxContent>"
+        "</wps:txbx><wps:bodyPr/></wps:wsp></a:graphicData></a:graphic></wp:inline>"
+        f"</w:drawing></mc:Choice><mc:Fallback>{_vml_text_box(*lines)}</mc:Fallback>"
+        "</mc:AlternateContent>"
+    )
+
+
+def _shape_run(shape_xml: str, text: str = "") -> CT_R:
+    """Return a run element holding an optional text followed by a shape."""
+    text_xml = f'<w:t xml:space="preserve">{text}</w:t>' if text else ""
+    return cast(CT_R, parse_xml(f"<w:r {WORD_NAMESPACES}>{text_xml}{shape_xml}</w:r>"))
+
+
+def _notes_xml(kind: str, *lines: str) -> str:
+    """Return a footnotes or endnotes part with separators and one note holding the lines."""
+    return (
+        f"<w:{kind}s {WORD_NAMESPACES}>"
+        f'<w:{kind} w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:{kind}>'
+        f'<w:{kind} w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/>'
+        f'</w:r></w:p></w:{kind}><w:{kind} w:id="1">{_xml_paragraphs(*lines)}</w:{kind}>'
+        f"</w:{kind}s>"
+    )
+
+
+def _add_notes(document: DocumentObject, kind: str, *lines: str) -> None:
+    """Attach a footnotes or endnotes part to the document and reference its note in the body."""
+    content_type, reltype = {
+        "footnote": (CONTENT_TYPE.WML_FOOTNOTES, RELATIONSHIP_TYPE.FOOTNOTES),
+        "endnote": (CONTENT_TYPE.WML_ENDNOTES, RELATIONSHIP_TYPE.ENDNOTES),
+    }[kind]
+    package = document.part.package
+    assert package is not None
+    part = StoryPart(
+        PackURI(f"/word/{kind}s.xml"), content_type, parse_xml(_notes_xml(kind, *lines)), package
+    )
+    document.part.relate_to(part, reltype)
+    reference = parse_xml(
+        f'<w:r {WORD_NAMESPACES}><w:rPr><w:vertAlign w:val="superscript"/></w:rPr>'
+        f'<w:{kind}Reference w:id="1"/></w:r>'
+    )
+    document.add_paragraph(f"See the {kind}")._p.append(reference)
+
+
+def _add_content_control(document: DocumentObject, *lines: str) -> None:
+    """Append a block content control holding the given lines to the body."""
+    control = parse_xml(
+        f"<w:sdt {WORD_NAMESPACES}><w:sdtPr/><w:sdtContent>{_xml_paragraphs(*lines)}"
+        "</w:sdtContent></w:sdt>"
+    )
+    document.element.body.insert(len(document.element.body) - 1, control)
+
+
+def _save(document: DocumentObject) -> bytes:
+    """Return a document's bytes."""
+    buffer = BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def _story_texts(docx_bytes: bytes) -> list[str]:
+    """Return the text of every non-empty paragraph in every part, fallback copies included."""
+    document = Document(BytesIO(docx_bytes))
+    texts = (p.text for p in t.iter_paragraphs(document, include_fallbacks=True))
+    return [text for text in texts if text]
+
+
+def _part_names(docx_bytes: bytes) -> list[str]:
+    """Return the sorted names of every part in a .docx package."""
+    package = Document(BytesIO(docx_bytes)).part.package
+    assert package is not None
+    return sorted(str(part.partname) for part in package.iter_parts())
 
 
 def _paragraphs(docx_bytes: bytes) -> list[str]:
@@ -402,6 +519,134 @@ class TestDocumentStructure:
         file_bytes = _make_docx("", "", "")
         _, _, _, changes = t.transpose_document_bytes(file_bytes, "C", "D")
         assert changes == []
+
+
+class TestDocxMatchesPlainText:
+    """The run-preserving .docx rewrite must agree with the plain-text one."""
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "C6/9/E     Am7",
+            "B\u266d     C\u266fm",
+            "C\u03947      A\u22067",
+            "H      Es     As",
+            "C/E    G/B",
+            "Calt   G7alt",
+            "C      G      Am     F",
+        ],
+    )
+    def test_same_result_for_a_single_paragraph(self, line: str) -> None:
+        expected, _, _, _ = t.transpose_text(line, "C", "D")
+        out, _, _, _ = t.transpose_document_bytes(_make_docx(line), "C", "D")
+        assert _paragraphs(out) == [expected]
+
+
+# ---------------------------------------------------------------------------
+# Document structure: text boxes, shapes, notes, and header/footer variants
+# ---------------------------------------------------------------------------
+
+
+class TestDocxCoverage:
+    def test_text_box_and_its_fallback_copy_are_both_transposed(self) -> None:
+        document = Document()
+        document.add_paragraph()._p.append(_shape_run(_drawing_text_box("C G Am F")))
+        out, _, _, changes = t.transpose_document_bytes(_save(document), "C", "D")
+        assert ("C", "D") in changes
+        assert _story_texts(out).count("D A Bm G") == 2
+        assert "C G Am F" not in _story_texts(out)
+
+    def test_legacy_vml_shape_is_transposed(self) -> None:
+        document = Document()
+        document.add_paragraph()._p.append(_shape_run(_vml_text_box("Am F C G")))
+        out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D")
+        assert _story_texts(out) == ["Bm G D A"]
+
+    def test_footnotes_and_endnotes_are_transposed(self) -> None:
+        document = Document()
+        _add_notes(document, "footnote", "C G")
+        _add_notes(document, "endnote", "F C")
+        out, _, _, changes = t.transpose_document_bytes(_save(document), "C", "D")
+        assert ("F", "G") in changes
+        texts = _story_texts(out)
+        assert "D A" in texts
+        assert "G D" in texts
+        assert "/word/footnotes.xml" in _part_names(out)
+        assert "/word/endnotes.xml" in _part_names(out)
+
+    def test_first_page_and_even_page_headers_and_footers_are_transposed(self) -> None:
+        document = Document()
+        document.settings.odd_and_even_pages_header_footer = True
+        section = document.sections[0]
+        section.different_first_page_header_footer = True
+        section.first_page_header.paragraphs[0].add_run("C G")
+        section.first_page_footer.paragraphs[0].add_run("Am F")
+        section.even_page_header.paragraphs[0].add_run("F C")
+        section.even_page_footer.paragraphs[0].add_run("G C")
+        out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D")
+        result = Document(BytesIO(out)).sections[0]
+        assert result.first_page_header.paragraphs[0].text == "D A"
+        assert result.first_page_footer.paragraphs[0].text == "Bm G"
+        assert result.even_page_header.paragraphs[0].text == "G D"
+        assert result.even_page_footer.paragraphs[0].text == "A D"
+
+    def test_header_shared_by_several_sections_is_transposed_once(self) -> None:
+        document = Document()
+        document.add_paragraph("C G")
+        document.sections[0].header.paragraphs[0].add_run("C G")
+        document.add_section(WD_SECTION.NEW_PAGE)
+        document.add_paragraph("Am F")
+        source = _save(document)
+        out, _, _, _ = t.transpose_document_bytes(source, "C", "D")
+        assert Document(BytesIO(out)).sections[0].header.paragraphs[0].text == "D A"
+        assert _part_names(out) == _part_names(source)
+
+    def test_missing_headers_and_footers_are_not_created(self) -> None:
+        source = _make_docx("C G", "", "Am F")
+        out, _, _, _ = t.transpose_document_bytes(source, "C", "D")
+        assert _part_names(out) == _part_names(source)
+
+    def test_content_control_is_transposed_and_takes_preview_edits(self) -> None:
+        document = Document()
+        _add_content_control(document, "C G", "Am F")
+        out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D", {"Am F": "Bm7 G"})
+        assert _story_texts(out) == ["D A", "Bm7 G"]
+
+    def test_nested_table_is_transposed(self) -> None:
+        document = Document()
+        outer = document.add_table(rows=1, cols=1).rows[0].cells[0]
+        outer.add_table(rows=1, cols=1).rows[0].cells[0].paragraphs[0].add_run("C G")
+        out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D")
+        assert "D A" in _story_texts(out)
+
+    def test_chord_sharing_a_run_with_a_text_box_keeps_the_text_box(self) -> None:
+        document = Document()
+        document.add_paragraph()._p.append(_shape_run(_drawing_text_box("Am F"), "C G"))
+        out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D")
+        result = Document(BytesIO(out))
+        assert result.paragraphs[0].text == "D A"
+        assert _story_texts(out) == ["D A", "Bm G", "Bm G"]
+
+    def test_german_notation_in_a_footnote_sets_the_sheet_notation(self) -> None:
+        document = Document()
+        document.add_paragraph("B F")
+        _add_notes(document, "footnote", "H Fis")
+        out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D")
+        assert _paragraphs(out)[0] == "C G"
+
+    def test_key_detection_counts_a_text_box_once(self) -> None:
+        document = Document()
+        document.add_paragraph()._p.append(_shape_run(_drawing_text_box("G C D G")))
+        detection = t.detect_key_from_docx_bytes(_save(document))
+        assert detection["key"] == "G"
+        assert detection["chords"] == 4
+
+    def test_preview_paragraphs_leave_out_text_boxes(self) -> None:
+        document = Document()
+        document.add_paragraph("C G")
+        document.add_paragraph()._p.append(_shape_run(_drawing_text_box("Am F")))
+        result = Document(BytesIO(_save(document)))
+        assert [p.text for p in t.iter_body_paragraphs(result)] == ["C G", ""]
 
 
 # ---------------------------------------------------------------------------

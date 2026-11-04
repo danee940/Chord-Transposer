@@ -9,7 +9,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from docx import Document
+from docx.document import Document as DocumentObject
+from docx.opc.constants import RELATIONSHIP_TYPE
+from docx.opc.packuri import PackURI
+from docx.opc.part import Part
 from docx.oxml import OxmlElement
+from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
 import transpose as t
@@ -517,18 +522,18 @@ class TestTransposeLineWithOwners:
 
 
 class TestRedistributeToRuns:
-    def _make_run(self, text: str) -> MagicMock:
-        run = MagicMock()
-        run.text = text
-        return run
-
-    def _make_paragraph(self, texts: list[str]) -> MagicMock:
-        para = MagicMock()
-        para.runs = [self._make_run(t_) for t_ in texts]
+    def _make_paragraph(self, texts: list[str]) -> Paragraph:
+        para = Document().add_paragraph()
+        for text in texts:
+            para.add_run(text)
         return para
 
     def _redistribute(
-        self, para: MagicMock, semitones: int = 3, use_flats: bool = False, german: bool = False
+        self,
+        para: Paragraph | MagicMock,
+        semitones: int = 3,
+        use_flats: bool = False,
+        german: bool = False,
     ) -> None:
         spelling = t.choose_spelling(use_flats, german)
         t.redistribute_to_runs(para, semitones, spelling, german)
@@ -666,33 +671,20 @@ class TestIterParagraphs:
         table_texts: list[str] | None = None,
         header_texts: list[str] | None = None,
         footer_texts: list[str] | None = None,
-    ) -> MagicMock:
-        doc = MagicMock()
-
-        doc.paragraphs = [self._make_para(t_) for t_ in body_texts]
-
+    ) -> DocumentObject:
+        doc = Document()
+        for text in body_texts:
+            doc.add_paragraph(text)
         if table_texts:
-            cell = MagicMock()
-            cell.paragraphs = [self._make_para(t_) for t_ in table_texts]
-            row = MagicMock()
-            row.cells = [cell]
-            table = MagicMock()
-            table.rows = [row]
-            doc.tables = [table]
-        else:
-            doc.tables = []
-
-        section = MagicMock()
-        section.header.paragraphs = [self._make_para(t_) for t_ in (header_texts or [])]
-        section.footer.paragraphs = [self._make_para(t_) for t_ in (footer_texts or [])]
-        doc.sections = [section]
-
+            cell = doc.add_table(rows=1, cols=1).rows[0].cells[0]
+            for text in table_texts:
+                cell.add_paragraph(text)
+        section = doc.sections[0]
+        for text in header_texts or []:
+            section.header.add_paragraph(text)
+        for text in footer_texts or []:
+            section.footer.add_paragraph(text)
         return doc
-
-    def _make_para(self, text: str) -> MagicMock:
-        para = MagicMock()
-        para.text = text
-        return para
 
     def test_yields_body_paragraphs(self) -> None:
         doc = self._make_document(["C G", "lyrics"])
@@ -715,6 +707,43 @@ class TestIterParagraphs:
         texts = [p.text for p in t.iter_paragraphs(doc)]
         assert "G D" in texts
 
+    def test_skips_external_relationships(self) -> None:
+        doc = self._make_document(["C G"])
+        doc.part.relate_to("https://example.com", RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+        assert [p.text for p in t.iter_paragraphs(doc)] == ["C G"]
+
+    def test_skips_story_relationships_to_unparsed_parts(self) -> None:
+        doc = self._make_document(["C G"])
+        part = Part(PackURI("/word/comments.xml"), "application/xml", b"", doc.part.package)
+        doc.part.relate_to(part, RELATIONSHIP_TYPE.FOOTNOTES)
+        assert [p.text for p in t.iter_paragraphs(doc)] == ["C G"]
+
+
+# ---------------------------------------------------------------------------
+# write_run_text
+# ---------------------------------------------------------------------------
+
+
+class TestWriteRunText:
+    def test_replaces_text_in_a_plain_run(self) -> None:
+        run = Document().add_paragraph().add_run("C\tG")
+        t.write_run_text(run, "D A")
+        assert run.text == "D A"
+
+    def test_keeps_non_text_content_in_place(self) -> None:
+        run = Document().add_paragraph().add_run("C")
+        run.element.append(OxmlElement("w:footnoteReference"))
+        run.element.append(OxmlElement("w:t"))
+        t.write_run_text(run, "D")
+        assert [child.tag.split("}")[1] for child in run.element] == ["t", "footnoteReference"]
+        assert run.text == "D"
+
+    def test_appends_text_to_a_run_without_text(self) -> None:
+        run = Document().add_paragraph().add_run()
+        run.element.append(OxmlElement("w:footnoteReference"))
+        t.write_run_text(run, "D")
+        assert [child.tag.split("}")[1] for child in run.element] == ["footnoteReference", "t"]
+
 
 # ---------------------------------------------------------------------------
 # detect_german
@@ -722,16 +751,9 @@ class TestIterParagraphs:
 
 
 class TestDetectGerman:
-    def _make_document_with_para(self, text: str) -> MagicMock:
-        para = MagicMock()
-        para.text = text
-        doc = MagicMock()
-        doc.paragraphs = [para]
-        doc.tables = []
-        section = MagicMock()
-        section.header.paragraphs = []
-        section.footer.paragraphs = []
-        doc.sections = [section]
+    def _make_document_with_para(self, text: str) -> DocumentObject:
+        doc = Document()
+        doc.add_paragraph(text)
         return doc
 
     def test_detects_german_notation(self) -> None:
@@ -745,6 +767,47 @@ class TestDetectGerman:
     def test_lyric_line_with_h_word_ignored(self) -> None:
         doc = self._make_document_with_para("Hello world")
         assert t.detect_german(doc) is False
+
+
+# ---------------------------------------------------------------------------
+# notation override
+# ---------------------------------------------------------------------------
+
+
+class TestNotationOverride:
+    def test_german_only_name_keeps_its_pitch_under_forced_english(self) -> None:
+        assert t.note_semitone("Es", False) == 3
+        assert t.note_semitone("Cis", False) == 1
+
+    def test_only_b_differs_between_the_two_notations(self) -> None:
+        differing = {
+            name
+            for name in t.GERMAN_NOTE_TO_SEMITONE
+            if t.note_semitone(name, False) != t.note_semitone(name, True)
+        }
+        assert differing == {"B", "Bb"}
+
+    def test_unknown_name_still_raises(self) -> None:
+        with pytest.raises(KeyError):
+            t.note_semitone("Q", False)
+
+    def test_forced_english_reads_b_as_b_natural(self) -> None:
+        text, _, _, _ = t.transpose_text("B      Es     As", "B", "C", german=False)
+        assert text.rstrip() == "C      E      A"
+
+    def test_forced_german_spells_the_output_in_german(self) -> None:
+        text, _, _, _ = t.transpose_text("C      F      G", "C", "Es", german=True)
+        assert text.rstrip() == "Es     As     B"
+
+    def test_none_keeps_the_detected_notation(self) -> None:
+        detected, _, _, _ = t.transpose_text("B Es As", "B", "C")
+        explicit, _, _, _ = t.transpose_text("B Es As", "B", "C", german=None)
+        assert detected == explicit
+
+    def test_document_override_beats_the_detected_notation(self) -> None:
+        file_bytes = _make_docx_bytes(["B      Es     As"])
+        out, _, _, _ = t.transpose_document_bytes(file_bytes, "B", "C", None, False)
+        assert [p.text.rstrip() for p in Document(BytesIO(out)).paragraphs] == ["C      E      A"]
 
 
 # ---------------------------------------------------------------------------
@@ -832,19 +895,8 @@ class TestSaveAndReport:
 
 class TestTransposeDocument:
     def test_returns_changes(self) -> None:
-        para = MagicMock()
-        para.text = "C G Am F"
-        run = MagicMock()
-        run.text = "C G Am F"
-        para.runs = [run]
-
-        doc = MagicMock()
-        doc.paragraphs = [para]
-        doc.tables = []
-        section = MagicMock()
-        section.header.paragraphs = []
-        section.footer.paragraphs = []
-        doc.sections = [section]
+        doc = Document()
+        doc.add_paragraph("C G Am F")
 
         changes = t._transpose_document(doc, 2, t.SHARP_SPELLING, False)
         assert isinstance(changes, set)
@@ -857,19 +909,9 @@ class TestTransposeDocument:
 
 
 class TestMain:
-    def _make_mock_document(self, para_text: str = "C G Am F") -> MagicMock:
-        para = MagicMock()
-        para.text = para_text
-        run = MagicMock()
-        run.text = para_text
-        para.runs = [run]
-        doc = MagicMock()
-        doc.paragraphs = [para]
-        doc.tables = []
-        section = MagicMock()
-        section.header.paragraphs = []
-        section.footer.paragraphs = []
-        doc.sections = [section]
+    def _make_document(self, para_text: str = "C G Am F") -> DocumentObject:
+        doc = Document()
+        doc.add_paragraph(para_text)
         return doc
 
     def test_exits_when_no_input_file(self, tmp_path: Path) -> None:
@@ -883,17 +925,18 @@ class TestMain:
         docx_file = input_dir / "song.docx"
         docx_file.touch()
 
-        mock_doc = self._make_mock_document()
+        document = self._make_document()
 
         with (
             patch.object(t, "INPUT_DIR", input_dir),
             patch.object(t, "OUTPUT_DIR", output_dir),
-            patch("transpose.Document", return_value=mock_doc),
+            patch("transpose.Document", return_value=document),
             patch("builtins.input", side_effect=["C", "D"]),
         ):
             t.main()
 
-        mock_doc.save.assert_called_once()
+        saved = Document(str(output_dir / "song_D.docx"))
+        assert saved.paragraphs[0].text == "D A Bm G"
 
 
 # ---------------------------------------------------------------------------
@@ -1495,7 +1538,13 @@ class TestDetectKey:
             "ambiguous": False,
             "chords": 1,
             "distinct": 1,
+            "german": False,
         }
+
+    def test_reports_german_notation_even_without_a_key_guess(self) -> None:
+        result = t.detect_key("H")
+        assert result["key"] is None
+        assert result["german"] is True
 
     def test_single_repeated_root_returns_none(self) -> None:
         assert t.detect_key("C C C C")["key"] is None

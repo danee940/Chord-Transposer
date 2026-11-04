@@ -137,7 +137,7 @@ SITE_URL = "https://chordtransposer.app"
 
 KEY_PAIR_SLUG_SEPARATOR = "-to-"
 
-HOME_LAST_MODIFIED = "2026-10-30"
+HOME_LAST_MODIFIED = "2026-11-04"
 
 FAQ_ITEMS: list[FaqItem] = [
     {
@@ -168,8 +168,9 @@ FAQ_ITEMS: list[FaqItem] = [
         "question": "Which chords and keys are supported?",
         "answer": (
             "All twelve major and twelve minor keys are supported, including sharp and flat "
-            "spellings such as C#, Db, F#m, and Bbm. Slash chords, sus, add, maj7, and other "
-            "chord qualities are recognised and transposed correctly."
+            "spellings such as C#, Db, F#m, and Bbm, written with either plain # and b or the "
+            "musical \u266f and \u266d signs. Slash chords, sus, add, maj7, 6/9, 7\u266d9, alt, "
+            "\u0394 and other chord qualities are recognised and transposed correctly."
         ),
     },
     {
@@ -414,7 +415,7 @@ INSTRUMENTS: list[Instrument] = [
     {
         "instrument": "guitar",
         "slug": "guitar-chord-transposer",
-        "lastmod": "2026-10-24",
+        "lastmod": "2026-11-04",
         "name": "Guitar",
         "title": "Guitar Chord Transposer — Change Key & Capo Finder",
         "description": (
@@ -437,7 +438,7 @@ INSTRUMENTS: list[Instrument] = [
             "fret lets you play easy open shapes while sounding in the key you want.",
         ],
         "features": [
-            "Recognises slash chords like G/B, plus sus, add, and maj7 qualities.",
+            "Recognises slash chords like G/B, plus sus, add, maj7, 6/9 and alt qualities.",
             "Works with both sharp and flat spellings such as F# and Db.",
             "Capo finder maps your target key to open-chord shapes.",
         ],

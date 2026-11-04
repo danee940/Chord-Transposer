@@ -31,8 +31,11 @@ export interface SpacedLine {
 }
 
 const ROOT_PATTERN =
-  "(?:Cis|Des|Dis|Eis|Fis|Ges|Gis|Ais|His|Ces|Fes|Es|As|[A-Ga-g](?:#|b)?|[Hh]#?(?!b))";
-const QUALITY_PATTERN = "(?:maj|min|dim|aug|sus|add|m|M|\\+|°|ø|\\d|#|b|-|\\(|\\)|,)*";
+  "(?:Cis|Des|Dis|Eis|Fis|Ges|Gis|Ais|His|Ces|Fes|Es|As" +
+  "|[A-Ga-g](?:#|b|\\u266f|\\u266d)?|[Hh](?:#|\\u266f)?(?![b\\u266d]))";
+const QUALITY_PATTERN =
+  "(?:maj|min|dim|aug|sus|add|alt|m|M|\\+|°|ø|\\u0394|\\u2206" +
+  "|\\d|#|b|\\u266f|\\u266d|-|\\(|\\)|,|/(?=\\d))*";
 
 export const CHORD_TOKEN_RE = new RegExp(
   `^(${ROOT_PATTERN})(${QUALITY_PATTERN})(?:/(${ROOT_PATTERN})(${QUALITY_PATTERN}))?$`

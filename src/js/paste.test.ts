@@ -26,9 +26,9 @@ function buildDom(attrs: PanelAttrs = {}) {
       <div id="text_output"></div>
       <div id="text_status"></div>
       <button id="text_copy"></button>
-      <select id="text_current_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option></select>
+      <select id="text_current_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option><option value="H">H</option><option value="Es">Es</option></select>
       <div id="text_target_wrap">
-        <select id="text_target_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option></select>
+        <select id="text_target_key"><option value="C">C</option><option value="D">D</option><option value="G">G</option><option value="H">H</option><option value="Es">Es</option></select>
       </div>
       <div><button id="text_swap"></button></div>
       <button id="text_current_key_trigger" type="button"><span id="text_current_key_label"></span></button>
@@ -550,6 +550,96 @@ describe("initPaste", () => {
     expect(requireElement<HTMLSelectElement>("text_current_key").value).toBe("G");
     expect(requireElement("text_detected_label").textContent).toBe("Detected: G");
     expect(requireElement("text_detected_wrap").classList.contains("hidden")).toBe(false);
+  });
+
+  it("preselects a detected German key and relabels the picker", () => {
+    initPaste();
+    type("H E Fis7 H\nE H Fis7 H");
+    vi.advanceTimersByTime(300);
+    expect(requireElement<HTMLSelectElement>("text_current_key").value).toBe("H");
+    expect(requireElement("text_detected_label").textContent).toBe("Detected: H");
+    expect(requireElement("text_current_key_label").textContent).toBe("H");
+    const picker = requireElement("text_key_picker");
+    expect(picker.querySelector('button[data-key="H"]')).not.toBeNull();
+    expect(picker.querySelector('button[data-key="Es"]')).not.toBeNull();
+    expect(picker.querySelector('button[data-key="Bb"]')).toBeNull();
+  });
+
+  it("returns the picker to English labels when the German sheet is replaced", () => {
+    initPaste();
+    type("H E Fis7 H\nE H Fis7 H");
+    vi.advanceTimersByTime(300);
+    type("C F G C\nF C G C");
+    vi.advanceTimersByTime(300);
+    const picker = requireElement("text_key_picker");
+    expect(picker.querySelector('button[data-key="Bb"]')).not.toBeNull();
+    expect(picker.querySelector('button[data-key="H"]')).toBeNull();
+  });
+
+  it("transposes a German sheet from the detected H to a German target", () => {
+    initPaste();
+    type("H E Fis\nH E Fis");
+    vi.advanceTimersByTime(300);
+    const target = requireElement<HTMLSelectElement>("text_target_key");
+    target.value = "Es";
+    target.dispatchEvent(new Event("change"));
+    vi.advanceTimersByTime(300);
+    expect(status()).toContain("H → Es");
+    expect(output().textContent).toContain("Es");
+  });
+
+  it("lets the reader force English note names on a German sheet", () => {
+    initPaste();
+    type("H      E      Fis");
+    vi.advanceTimersByTime(300);
+    expect(requireElement("text_current_key_label").textContent).toBe("H");
+
+    const picker = requireElement("text_key_picker");
+    picker.querySelector<HTMLButtonElement>('button[data-notation="english"]')!.click();
+    vi.advanceTimersByTime(300);
+
+    expect(picker.querySelector('button[data-key="Bb"]')).not.toBeNull();
+    expect(picker.querySelector('button[data-key="H"]')).toBeNull();
+    expect(JSON.parse(localStorage.getItem("chord-transposer:prefs")!).keyNames).toBe("english");
+  });
+
+  it("transposes with the forced notation, not the detected one", () => {
+    initPaste();
+    type("B      Es     As");
+    vi.advanceTimersByTime(300);
+    const currentKey = requireElement<HTMLSelectElement>("text_current_key");
+    currentKey.value = "H";
+    currentKey.dispatchEvent(new Event("change"));
+    const target = requireElement<HTMLSelectElement>("text_target_key");
+    target.value = "C";
+    target.dispatchEvent(new Event("change"));
+    vi.advanceTimersByTime(300);
+    const germanResult = output().textContent;
+
+    requireElement("text_key_picker")
+      .querySelector<HTMLButtonElement>('button[data-notation="english"]')!
+      .click();
+    vi.advanceTimersByTime(300);
+    expect(output().textContent).not.toBe(germanResult);
+    expect(output().textContent).toContain("E");
+  });
+
+  it("restores a saved notation override on load", () => {
+    localStorage.setItem("chord-transposer:prefs", JSON.stringify({ keyNames: "german" }));
+    initPaste();
+    const picker = requireElement("text_key_picker");
+    expect(picker.querySelector('button[data-key="H"]')).not.toBeNull();
+    expect(picker.querySelector('button[data-key="Bb"]')).toBeNull();
+  });
+
+  it("restores a saved English override so detection cannot switch it", () => {
+    localStorage.setItem("chord-transposer:prefs", JSON.stringify({ keyNames: "english" }));
+    initPaste();
+    type("H      E      Fis");
+    vi.advanceTimersByTime(300);
+    const picker = requireElement("text_key_picker");
+    expect(picker.querySelector('button[data-key="Bb"]')).not.toBeNull();
+    expect(picker.querySelector('button[data-key="H"]')).toBeNull();
   });
 
   it("does not override a key the user picked", () => {

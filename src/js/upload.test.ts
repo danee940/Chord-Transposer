@@ -18,8 +18,8 @@ function setupDom() {
     <form id="form">
       <input id="file" type="file" name="file" multiple />
       <div id="dropzone"><span id="dropzone-text"></span></div>
-      <select id="current_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
-      <select id="target_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
+      <select id="current_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="H">H</option></select>
+      <select id="target_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="H">H</option></select>
       <button id="swap" type="button"></button>
       <button id="current_key_trigger" type="button"><span id="current_key_label"></span></button>
       <button id="target_key_trigger" type="button"><span id="target_key_label"></span></button>
@@ -144,7 +144,14 @@ describe("initUpload", () => {
     initUpload();
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 3 }),
+      json: async () => ({
+        key: "D",
+        alternate: null,
+        ambiguous: false,
+        chords: 4,
+        distinct: 3,
+        german: false,
+      }),
     });
     const fileInput = requireElement<HTMLInputElement>("file");
     setFiles(fileInput, [makeFile("song.docx", 2048)]);
@@ -187,6 +194,32 @@ describe("initUpload", () => {
     expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
   });
 
+  it("relabels the picker in German when the server reports German notation", async () => {
+    initUpload();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        key: "H",
+        alternate: null,
+        ambiguous: false,
+        chords: 8,
+        distinct: 3,
+        german: true,
+      }),
+    });
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [makeFile("song.docx", 2048)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() =>
+      expect(requireElement("upload_detected_label").textContent).toBe("Detected: H")
+    );
+    expect(requireElement<HTMLSelectElement>("current_key").value).toBe("H");
+    expect(requireElement("current_key_label").textContent).toBe("H");
+    const picker = requireElement("key_picker");
+    expect(picker.querySelector('button[data-key="H"]')).not.toBeNull();
+    expect(picker.querySelector('button[data-key="Bb"]')).toBeNull();
+  });
+
   it("discards a stale .docx detection response", async () => {
     initUpload();
     let resolveFirst!: (value: unknown) => void;
@@ -195,7 +228,14 @@ describe("initUpload", () => {
     });
     fetchMock.mockReturnValueOnce(firstResponse).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 3 }),
+      json: async () => ({
+        key: "D",
+        alternate: null,
+        ambiguous: false,
+        chords: 4,
+        distinct: 3,
+        german: false,
+      }),
     });
     const fileInput = requireElement<HTMLInputElement>("file");
     setFiles(fileInput, [makeFile("a.docx", 1024)]);
@@ -207,7 +247,14 @@ describe("initUpload", () => {
     );
     resolveFirst({
       ok: true,
-      json: async () => ({ key: "C", alternate: null, ambiguous: false, chords: 4, distinct: 3 }),
+      json: async () => ({
+        key: "C",
+        alternate: null,
+        ambiguous: false,
+        chords: 4,
+        distinct: 3,
+        german: false,
+      }),
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(requireElement("upload_detected_label").textContent).toBe("Detected: D");
@@ -511,7 +558,14 @@ describe("initUpload", () => {
 
     resolveDetect({
       ok: true,
-      json: async () => ({ key: "D", alternate: null, ambiguous: false, chords: 4, distinct: 4 }),
+      json: async () => ({
+        key: "D",
+        alternate: null,
+        ambiguous: false,
+        chords: 4,
+        distinct: 4,
+        german: false,
+      }),
     });
     await vi.waitFor(() => expect(previewText().value).toBe("D A Bm G"));
     expect(requireElement("current_key_label").textContent).toBe("D");
@@ -822,6 +876,36 @@ describe("initUpload", () => {
     await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
     await submitAndWait();
     expect((fetchMock.mock.calls[0]![1].body as FormData).has("edits")).toBe(false);
+  });
+
+  it("omits the notation field unless the reader overrides it", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    await submitAndWait();
+    expect((fetchMock.mock.calls[0]![1].body as FormData).has("notation")).toBe(false);
+  });
+
+  it("sends the forced notation with the form data", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    requireElement("key_picker")
+      .querySelector<HTMLButtonElement>('button[data-notation="german"]')!
+      .click();
+    await submitAndWait();
+    expect((fetchMock.mock.calls[0]![1].body as FormData).get("notation")).toBe("german");
+  });
+
+  it("sends an English override with the form data", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G Am F"));
+    requireElement("key_picker")
+      .querySelector<HTMLButtonElement>('button[data-notation="english"]')!
+      .click();
+    await submitAndWait();
+    expect((fetchMock.mock.calls[0]![1].body as FormData).get("notation")).toBe("english");
   });
 
   it("sends .docx preview edits with the form data, keeping multi-line paragraphs together", async () => {
