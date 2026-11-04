@@ -10,18 +10,29 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       a pasted text or uploaded file and preselect it, instead of making the user
       pick it. Implement in both `src/transpose.py` and `src/js/transpose/`, with
       shared cases in `src/testdata/transpose_cases.json`.
-- [ ] **German keys in the key dropdowns (S)**: the key selects only list
-      English names, but on German sheets the core reads `B` as B♭ and there is
-      no `H`/`Hm` option at all, so a detected German key (e.g. `H`) can be shown
-      but not preselected. Add German-aware options or labels so detection and
-      manual selection work for German notation.
+- [x] **German keys in the key dropdowns (S)**: `detect_key` / `detectKey` now
+      report a `german` flag, and the pitch-class picker in `src/js/key-picker.ts`
+      switches to German labels (`H`, `Hm`, `Es`, `Cis`, `Ais`/`B`) when a sheet
+      uses them, translating the chosen keys so the pitch is kept. The hidden
+      selects carry `GERMAN_KEY_OPTIONS` from `src/app.py`, so a detected `H` is
+      preselected and the semitone distance reads `B` as B♭. A quiet A–B / A–H
+      switch inside the picker panel lets the reader correct the detected
+      notation; the choice is remembered and sent to the transposer as the
+      `notation` field, so it also converts a sheet between the two systems.
 - [x] **Key-aware enharmonic spelling (M)**: spell chords correctly for the
       target key (for example `F#` vs `Gb`, `Cb` in `Gb` major) rather than
       choosing between two fixed sharp and flat spellings.
-- [ ] **Broader chord grammar (S)**: support more chord symbols such as `6/9`,
-      `7♭9`, `alt`, `Δ` and Unicode `♯`/`♭`. Add parity cases for each.
-- [ ] **Docx coverage gaps (M)**: transpose chords inside text boxes, shapes,
-      footnotes, and first-page and even-page headers and footers.
+- [x] **Broader chord grammar (S)**: `6/9` (including over a bass note), `alt`,
+      `Δ`/`∆` and Unicode `♯`/`♭` in both roots and qualities are parsed in both
+      cores, with Unicode accidentals kept in the output when the sheet uses
+      them. Chord symbols are now split by one shared `parse_chord_core` /
+      `parseChordCore`, and every symbol has parity cases.
+- [x] **Docx coverage gaps (M)**: transpose chords inside text boxes, shapes,
+      footnotes, and first-page and even-page headers and footers. Every story
+      part (body, all header and footer variants, footnotes, endnotes) is now
+      walked down to nested paragraphs, so content controls and nested tables
+      are covered too, and a header shared by several sections is transposed
+      once.
 
 ## Input and output formats
 
