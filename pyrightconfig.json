@@ -1,7 +1,8 @@
 {
   "venvPath": ".",
   "venv": ".venv",
-  "include": ["src"],
+  "include": ["src", "e2e"],
+  "extraPaths": ["src"],
   "typeCheckingMode": "strict",
   "reportMissingTypeStubs": false,
   "reportUnknownArgumentType": false,

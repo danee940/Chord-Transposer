@@ -5,24 +5,28 @@
   "type": "module",
   "description": "Build tooling for the Chord Transposer stylesheet and frontend bundle.",
   "scripts": {
-    "build:css": "tailwindcss -c tailwind.config.js -i src/styles/tailwind.input.css -o src/static/tailwind.css --minify",
-    "watch:css": "tailwindcss -c tailwind.config.js -i src/styles/tailwind.input.css -o src/static/tailwind.css --watch",
+    "build:css": "tailwindcss -i src/styles/tailwind.input.css -o src/static/tailwind.css --minify",
+    "watch:css": "tailwindcss -i src/styles/tailwind.input.css -o src/static/tailwind.css --watch",
     "build:js": "vite build",
     "build": "npm run build:css && npm run build:js",
     "test:js": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "typecheck": "tsc -b",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev": "vite build --watch"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/cli": "^4.3.4",
     "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^2.1.9",
-    "jsdom": "^25.0.1",
+    "@vitest/coverage-v8": "^5.1.0",
+    "jsdom": "^31.0.0",
     "prettier": "^3.9.10",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.4",
     "typescript": "^7.0.2",
-    "vite": "^6.0.7",
-    "vitest": "^2.1.8"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   }
 }

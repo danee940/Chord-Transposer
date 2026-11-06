@@ -20,6 +20,7 @@ describe("buildInteractiveOutput round-trip", () => {
     "F      C      G      C\nUp above the world so high\n",
     "Cis  H   Ais7  Es\nEin kleines Lied",
     "[C]Twinkle [G]twinkle [Am]little [F]star",
+    "How I wonder what you [C]",
     "Just a plain lyric line with no chords at all",
     "Am7      D/F#     Gmaj7\n",
     "",

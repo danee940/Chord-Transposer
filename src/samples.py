@@ -1,6 +1,6 @@
 """Sample chord sheets for trying the app locally and for the integration tests.
 
-Run ``python src/samples.py`` to write ``input/Amazing_Grace_C.docx``.
+Run ``uv run src/samples.py`` to write ``input/Amazing_Grace_C.docx``.
 """
 
 from io import BytesIO

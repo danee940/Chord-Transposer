@@ -59,13 +59,13 @@ export function translateKey(value: string, german: boolean): string {
 
 const KEY_BUTTON_CLASSES =
   "flex-1 rounded-lg border border-app-border-light bg-bg-light px-1 py-1.5 font-mono text-xs " +
-  "font-medium text-slate-700 transition-colors hover:border-accent focus:outline-none " +
+  "font-medium text-slate-700 transition-colors hover:border-accent focus:outline-hidden " +
   "focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200";
 const KEY_SELECTED_CLASSES = ["border-accent", "bg-accent/10", "text-accent", "dark:text-accent"];
 
 const NOTATION_BUTTON_CLASSES =
-  "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide " +
-  "text-muted-light transition-colors hover:text-slate-700 focus:outline-none " +
+  "rounded-sm px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide " +
+  "text-muted-light transition-colors hover:text-slate-700 focus:outline-hidden " +
   "focus:ring-1 focus:ring-accent dark:text-muted dark:hover:text-slate-200";
 const NOTATION_ACTIVE_CLASSES = ["bg-accent/10", "text-accent", "dark:text-accent"];
 

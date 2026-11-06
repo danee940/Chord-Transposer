@@ -363,6 +363,15 @@ describe("initPaste", () => {
     expect(requireElement("semitone_value").textContent).toBe("0");
   });
 
+  it("ignores other keys in semitone mode", () => {
+    initPaste();
+    requireElement<HTMLButtonElement>("mode-semitone").dispatchEvent(new Event("click"));
+    const event = new KeyboardEvent("keydown", { key: "a", cancelable: true });
+    document.dispatchEvent(event);
+    expect(requireElement("semitone_value").textContent).toBe("0");
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("ignores keyboard shortcuts outside semitone mode", () => {
     initPaste();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "]" }));
@@ -480,6 +489,18 @@ describe("initPaste", () => {
     instrument.value = "piano";
     instrument.dispatchEvent(new Event("change"));
     expect(requireElement("capo-suggestion").classList.contains("hidden")).toBe(true);
+  });
+
+  it("opens a chord diagram for the selected instrument", () => {
+    initPaste();
+    requireElement<HTMLSelectElement>("text_target_key").value = "D";
+    type("C G Am F");
+    vi.advanceTimersByTime(300);
+    const instrument = requireElement<HTMLSelectElement>("text_instrument");
+    instrument.value = "guitar";
+    instrument.dispatchEvent(new Event("change"));
+    requireElement("text_output").querySelector<HTMLButtonElement>("button.chord-token")!.click();
+    expect(document.querySelector(".chord-popover")!.textContent).toContain("Guitar");
   });
 
   it("shows a capo suggestion for guitar in key mode", () => {

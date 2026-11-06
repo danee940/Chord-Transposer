@@ -197,7 +197,7 @@
         "current_key": "C",
         "target_key": "D",
         "format": "docx",
-        "edits": "[{\"source\":\"C    G    Am   F\",\"text\":\"D    A    Bm7  G\"}]"
+        "edits": "[{\"index\":0,\"source\":\"C    G    Am   F\",\"text\":\"D    A    Bm7  G\"}]"
       }
     },
     "fields": [
@@ -244,7 +244,7 @@
         "current_key": "C",
         "target_key": "D",
         "format": "docx",
-        "edits": "[{\"source\":\"Amazing grace\",\"text\":\"Amazing grace\\nhow sweet the sound\"}]"
+        "edits": "[{\"index\":1,\"source\":\"Amazing grace\",\"text\":\"Amazing grace\\nhow sweet the sound\"}]"
       }
     },
     "fields": [
@@ -422,7 +422,7 @@
         "current_key": "C",
         "target_key": "D",
         "format": "txt",
-        "edits": "[{\"source\":\"C    G    Am   F\",\"text\":\"D    A    Bm7  G\"}]"
+        "edits": "[{\"index\":0,\"source\":\"C    G    Am   F\",\"text\":\"D    A    Bm7  G\"}]"
       }
     },
     "fields": [
@@ -476,6 +476,53 @@
     "fields": [
       "current_key",
       "target_key",
+      "files",
+      "files"
+    ],
+    "response": {
+      "status": 200,
+      "content_type": "application/pdf",
+      "headers": {
+        "Content-Disposition": "attachment; filename=chord_binder_D.pdf"
+      }
+    },
+    "ui": {
+      "binder_heading": "Binder created from 2 files",
+      "download": "chord_binder_D.pdf"
+    },
+    "backend": {
+      "pdf_stub": true
+    }
+  },
+  {
+    "description": "binder sends the note names picked in the key picker",
+    "endpoint": "/binder",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "files",
+          "filename": "a.docx",
+          "content": "C G Am F",
+          "raw": false
+        },
+        {
+          "field": "files",
+          "filename": "b.docx",
+          "content": "Am F C G",
+          "raw": false
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D",
+        "notation": "german"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "notation",
       "files",
       "files"
     ],

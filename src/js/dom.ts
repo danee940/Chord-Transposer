@@ -5,7 +5,7 @@ export const OK_CLASSES = "border border-app-ok/30 bg-app-ok/10 text-app-ok";
 export const ACTIVE_TAB_CLASSES = [
   "bg-card-light",
   "text-slate-900",
-  "shadow-sm",
+  "shadow-xs",
   "dark:bg-card",
   "dark:text-slate-100",
 ];
@@ -14,7 +14,7 @@ export const INACTIVE_TAB_CLASSES = ["text-muted-light", "dark:text-muted"];
 export const MODE_ACTIVE_CLASSES = [
   "bg-card-light",
   "text-slate-900",
-  "shadow-sm",
+  "shadow-xs",
   "dark:bg-card",
   "dark:text-slate-100",
 ];

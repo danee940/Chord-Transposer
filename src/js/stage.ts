@@ -64,7 +64,7 @@ export function createStageView(): StageView {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
-    button.className = `rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60 ${extraClasses}`;
+    button.className = `rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20 focus:outline-hidden focus:ring-2 focus:ring-white/60 ${extraClasses}`;
     return button;
   }
 
@@ -77,7 +77,7 @@ export function createStageView(): StageView {
 
     const bar = document.createElement("div");
     bar.className =
-      "flex flex-wrap items-center gap-3 border-b border-white/10 bg-slate-900/80 px-4 py-3 backdrop-blur";
+      "flex flex-wrap items-center gap-3 border-b border-white/10 bg-slate-900/80 px-4 py-3 backdrop-blur-sm";
 
     const playButton = iconButton("Play", "");
     playButton.setAttribute("aria-pressed", "false");

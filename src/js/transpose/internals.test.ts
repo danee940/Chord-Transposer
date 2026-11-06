@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { transposeChordProCore } from "./chordpro";
 import { ChangeSet, chordRoot, isChordToken, transposeChord } from "./chords";
 import { chordToNashville, nashvilleLine, noteToNashvilleDegree } from "./nashville";
 import {
@@ -136,6 +137,17 @@ describe("notation helpers", () => {
 
   it("returns null for an unknown key", () => {
     expect(parseKey("Zb")).toBeNull();
+  });
+
+  it("records no change for a ChordPro chord that keeps its spelling", () => {
+    expect(transposeChordProCore("[C]la [G]", 0, SHARP_SPELLING, false)).toEqual({
+      text: "[C]la [G]",
+      changes: [],
+    });
+  });
+
+  it("reads a German-looking prefix with another suffix as an English key", () => {
+    expect(parseKey("Asus")).toEqual({ note: "A", minor: false });
   });
 
   it("classifies tokens", () => {

@@ -8,7 +8,7 @@ import os
 from collections.abc import Callable, Iterable
 from io import BytesIO
 from pathlib import Path
-from typing import cast
+from typing import TypeGuard, cast
 from urllib.parse import quote, urlencode
 from zipfile import BadZipFile
 
@@ -24,6 +24,7 @@ import seo
 from seo import FAQ_ITEMS, HOWTO_STEPS, SITE_URL
 from transpose import (
     InvalidKeyError,
+    ParagraphEdit,
     PdfConversionError,
     apply_line_edits,
     convert_docx_to_pdf,
@@ -138,7 +139,7 @@ def _resolve_js_bundle(entry: str = JS_ENTRY, fallback: str = JS_BUNDLE_FALLBACK
     manifest_path = Path(__file__).resolve().parent / "static" / "js" / "manifest.json"
     try:
         manifest = json.loads(manifest_path.read_text())
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return fallback
     resolved = manifest.get(entry)
     if not resolved or "file" not in resolved:
@@ -303,11 +304,17 @@ def _parse_notation(raw: str | None) -> bool | None:
     return None
 
 
-def _parse_edits(raw: str | None) -> dict[str, str]:
-    """Parse the optional ``edits`` form field into a source-text to edited-text mapping.
+def _is_paragraph_index(value: object) -> TypeGuard[int]:
+    """Return True for a non-negative integer, rejecting booleans, which JSON maps to int."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
-    The browser sends a JSON list of ``{"source": ..., "text": ...}`` entries, one
-    per preview paragraph the user changed, keyed by the paragraph's original text.
+
+def _parse_edits(raw: str | None) -> dict[int, ParagraphEdit]:
+    """Parse the optional ``edits`` form field into a paragraph-position to edit mapping.
+
+    The browser sends a JSON list of ``{"index": ..., "source": ..., "text": ...}``
+    entries, one per preview paragraph the user changed: its position in the preview,
+    its original text and its corrected text.
     """
     if not raw:
         return {}
@@ -317,16 +324,17 @@ def _parse_edits(raw: str | None) -> dict[str, str]:
         raise InvalidEditsError(EDITS_ERROR) from exc
     if not isinstance(payload, list):
         raise InvalidEditsError(EDITS_ERROR)
-    edits: dict[str, str] = {}
+    edits: dict[int, ParagraphEdit] = {}
     for entry in cast(list[object], payload):
         if not isinstance(entry, dict):
             raise InvalidEditsError(EDITS_ERROR)
         fields = cast(dict[str, object], entry)
+        index = fields.get("index")
         source = fields.get("source")
         text = fields.get("text")
-        if not isinstance(source, str) or not isinstance(text, str):
+        if not (_is_paragraph_index(index) and isinstance(source, str) and isinstance(text, str)):
             raise InvalidEditsError(EDITS_ERROR)
-        edits[source] = text
+        edits[index] = ParagraphEdit(source=source, text=text)
     return edits
 
 
@@ -348,7 +356,7 @@ def detect_key_upload() -> ResponseReturnValue:
 
     try:
         return jsonify(detect_key_from_docx_bytes(file_bytes))
-    except (PackageNotFoundError, BadZipFile):
+    except PackageNotFoundError, BadZipFile:
         return jsonify({"error": "Could not read the file as a valid .docx document."}), 400
 
 
@@ -384,7 +392,7 @@ def transpose() -> ResponseReturnValue:
         )
     except (InvalidKeyError, InvalidEditsError) as exc:
         return jsonify({"error": str(exc)}), 400
-    except (PackageNotFoundError, BadZipFile):
+    except PackageNotFoundError, BadZipFile:
         return jsonify({"error": "Could not read the file as a valid .docx document."}), 400
 
     stem = uploaded.filename.rsplit(".", 1)[0]
@@ -551,7 +559,7 @@ def binder() -> ResponseReturnValue:
             pdf_documents.append(convert_docx_to_pdf(docx_bytes))
     except InvalidKeyError as exc:
         return jsonify({"error": str(exc)}), 400
-    except (PackageNotFoundError, BadZipFile):
+    except PackageNotFoundError, BadZipFile:
         return jsonify({"error": "Could not read one of the files as a valid .docx document."}), 400
     except PdfConversionError as exc:
         return jsonify({"error": str(exc)}), 503

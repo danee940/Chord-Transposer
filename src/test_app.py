@@ -1029,8 +1029,10 @@ def test_detect_key_too_few_chords(client: FlaskClient) -> None:
     assert response.get_json()["key"] is None
 
 
-def _edits(*pairs: tuple[str, str]) -> str:
-    return json.dumps([{"source": source, "text": text} for source, text in pairs])
+def _edits(*edits: tuple[int, str, str]) -> str:
+    return json.dumps(
+        [{"index": index, "source": source, "text": text} for index, source, text in edits]
+    )
 
 
 def test_transpose_applies_preview_edits(client: FlaskClient) -> None:
@@ -1039,7 +1041,7 @@ def test_transpose_applies_preview_edits(client: FlaskClient) -> None:
         {
             "current_key": "C",
             "target_key": "D",
-            "edits": _edits(("C G Am F", "D A Bm7 G")),
+            "edits": _edits((0, "C G Am F", "D A Bm7 G")),
         }
     )
     response = client.post("/transpose", data=data, content_type="multipart/form-data")
@@ -1050,7 +1052,18 @@ def test_transpose_applies_preview_edits(client: FlaskClient) -> None:
 
 @pytest.mark.parametrize(
     "edits",
-    ["not json", '{"source": "a"}', "[1]", '[{"source": 1, "text": "x"}]', '[{"source": "a"}]'],
+    [
+        "not json",
+        '{"source": "a"}',
+        "[1]",
+        '[{"index": 0, "source": 1, "text": "x"}]',
+        '[{"index": 0, "source": "a"}]',
+        '[{"source": "a", "text": "x"}]',
+        '[{"index": -1, "source": "a", "text": "x"}]',
+        '[{"index": 1.5, "source": "a", "text": "x"}]',
+        '[{"index": true, "source": "a", "text": "x"}]',
+        '[{"index": "0", "source": "a", "text": "x"}]',
+    ],
 )
 def test_transpose_rejects_malformed_edits(client: FlaskClient, edits: str) -> None:
     data = _upload(_chord_docx_bytes())
@@ -1067,7 +1080,7 @@ def test_transpose_text_applies_preview_edits(client: FlaskClient) -> None:
             "current_key": "C",
             "target_key": "D",
             "format": "txt",
-            "edits": _edits(("C G Am F", "D A Bm7 G")),
+            "edits": _edits((0, "C G Am F", "D A Bm7 G")),
         }
     )
     response = client.post("/transpose-text", data=data, content_type="multipart/form-data")

@@ -11,7 +11,13 @@ import {
 
 import { requireElement } from "./dom";
 import { docxFile } from "./testing/docx-fixture";
+import { transposeText } from "./transpose/index";
 import { initUpload } from "./upload";
+
+vi.mock("./transpose/index", async (importActual) => {
+  const actual = await importActual<typeof import("./transpose/index")>();
+  return { ...actual, transposeText: vi.fn(actual.transposeText) };
+});
 
 function setupDom() {
   document.body.innerHTML = `
@@ -324,6 +330,19 @@ describe("initUpload", () => {
     fileInput.dispatchEvent(new Event("change"));
     await vi.waitFor(() => expect(preview().classList.contains("hidden")).toBe(false));
   }
+
+  it("reports an unexpected preview failure", async () => {
+    vi.mocked(transposeText).mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    initUpload();
+    requireElement<HTMLSelectElement>("target_key").value = "D";
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [makeTextFile("hymn.txt", "C G Am F")]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(message().textContent).toBe("Something went wrong."));
+    expect(preview().classList.contains("hidden")).toBe(true);
+  });
 
   it("accepts a .txt file and previews the transposed text with its chord changes", async () => {
     initUpload();
@@ -845,7 +864,7 @@ describe("initUpload", () => {
     expect(anchor.download).toBe("transposed.pdf");
   });
 
-  it("sends preview edits with a text upload, keyed by the source line", async () => {
+  it("sends preview edits with a text upload, keyed by position and source line", async () => {
     fetchMock.mockResolvedValue(response());
     initUpload();
     await selectAndPreview(makeTextFile("hymn.txt", "C G Am F\nlyrics\nF C"));
@@ -854,7 +873,20 @@ describe("initUpload", () => {
     await submitAndWait();
     const body = fetchMock.mock.calls[0]![1].body as FormData;
     expect(JSON.parse(body.get("edits") as string)).toEqual([
-      { source: "C G Am F", text: "D A Bm7 G" },
+      { index: 0, source: "C G Am F", text: "D A Bm7 G" },
+    ]);
+  });
+
+  it("sends only the edited copy of a repeated line", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    await selectAndPreview(makeTextFile("hymn.txt", "C G\nlyrics\nC G"));
+    previewText().value = "D A\nlyrics\nD A7";
+    previewText().dispatchEvent(new Event("input"));
+    await submitAndWait();
+    const body = fetchMock.mock.calls[0]![1].body as FormData;
+    expect(JSON.parse(body.get("edits") as string)).toEqual([
+      { index: 2, source: "C G", text: "D A7" },
     ]);
   });
 
@@ -920,7 +952,7 @@ describe("initUpload", () => {
     const [endpoint, options] = fetchMock.mock.calls[0]!;
     expect(endpoint).toBe("/transpose");
     expect(JSON.parse(options.body.get("edits") as string)).toEqual([
-      { source: "C G\nAm F", text: "D A\nBm7 G" },
+      { index: 0, source: "C G\nAm F", text: "D A\nBm7 G" },
     ]);
   });
 
@@ -933,7 +965,7 @@ describe("initUpload", () => {
     await submitAndWait();
     const body = fetchMock.mock.calls[0]![1].body as FormData;
     expect(JSON.parse(body.get("edits") as string)).toEqual([
-      { source: "lyrics", text: "lyrics\nmore lyrics" },
+      { index: 1, source: "lyrics", text: "lyrics\nmore lyrics" },
     ]);
   });
 
@@ -945,7 +977,9 @@ describe("initUpload", () => {
     previewText().dispatchEvent(new Event("input"));
     await submitAndWait();
     const body = fetchMock.mock.calls[0]![1].body as FormData;
-    expect(JSON.parse(body.get("edits") as string)).toEqual([{ source: "lyrics", text: "" }]);
+    expect(JSON.parse(body.get("edits") as string)).toEqual([
+      { index: 1, source: "lyrics", text: "" },
+    ]);
   });
 
   it("sends no edits when the preview could not be generated", async () => {
@@ -976,7 +1010,24 @@ describe("initUpload", () => {
     const [endpoint, options] = fetchMock.mock.calls[0]!;
     expect(endpoint).toBe("/binder");
     expect(options.body.getAll("files")).toHaveLength(2);
+    expect(options.body.has("notation")).toBe(false);
     expect(message().textContent).toContain("Binder created from 2 files");
+  });
+
+  it("sends the note names picked in the key picker with a binder", async () => {
+    fetchMock.mockResolvedValue(response());
+    initUpload();
+    setFiles(requireElement<HTMLInputElement>("file"), [
+      makeFile("a.docx", 1024),
+      makeFile("b.docx", 1024),
+    ]);
+    requireElement("key_picker")
+      .querySelector<HTMLButtonElement>('button[data-notation="german"]')!
+      .click();
+    await submitAndWait();
+    const [endpoint, options] = fetchMock.mock.calls[0]!;
+    expect(endpoint).toBe("/binder");
+    expect(options.body.get("notation")).toBe("german");
   });
 
   it("falls back to the binder filename when no disposition is present", async () => {

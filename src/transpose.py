@@ -598,7 +598,26 @@ def process_paragraph(
     redistribute_to_runs(paragraph, semitones, spelling, german, changes)
 
 
-ParagraphEdits = Mapping[str, str]
+@dataclass(frozen=True)
+class ParagraphEdit:
+    """A preview correction: the paragraph's original text and the text it should end up with."""
+
+    source: str
+    text: str
+
+
+ParagraphEdits = Mapping[int, ParagraphEdit]
+
+
+def correction_for(edits: ParagraphEdits, index: int, original: str) -> str | None:
+    """Return the correction for the paragraph at ``index``, if it still reads ``original``.
+
+    Edits are matched by position so a correction to one of several identical
+    paragraphs changes only that one; the source text guards against applying it
+    to a different paragraph when the preview and the document disagree.
+    """
+    edit = edits.get(index)
+    return edit.text if edit is not None and edit.source == original else None
 
 
 def _common_affix_lengths(old: str, new: str) -> tuple[int, int]:
@@ -666,10 +685,10 @@ def replace_paragraph_text(paragraph: Paragraph, new_text: str) -> None:
 def apply_line_edits(source: str, result: str, edits: ParagraphEdits) -> str:
     """Replace transposed lines whose source line was edited in the preview."""
     parts: list[str] = []
-    for original, transposed in zip(
-        source.splitlines(keepends=True), result.splitlines(keepends=True), strict=True
+    for index, (original, transposed) in enumerate(
+        zip(source.splitlines(keepends=True), result.splitlines(keepends=True), strict=True)
     ):
-        edited = edits.get(original.splitlines()[0])
+        edited = correction_for(edits, index, original.splitlines()[0])
         if edited is None:
             parts.append(transposed)
             continue
@@ -1294,8 +1313,8 @@ def transpose_document_bytes(
 ) -> tuple[bytes, str, str, list[tuple[str, str]]]:
     """Transpose a .docx given as bytes and return (docx_bytes, from_label, to_label, changes).
 
-    ``edits`` maps a paragraph's original text to the text it should end up with
-    after transposition, carrying the user's corrections from the preview.
+    ``edits`` maps a body paragraph's position (as listed by ``iter_body_paragraphs``)
+    to the correction the user made in the preview, applied after transposition.
     ``german`` overrides the notation detected in the document when the reader
     has corrected it; None keeps the detected value.
     """
@@ -1317,9 +1336,9 @@ def transpose_document_bytes(
     spelling = key_spelling(target_note, target_minor, german)
 
     pending = [
-        (paragraph, edits[paragraph.text])
-        for paragraph in iter_body_paragraphs(document)
-        if edits and paragraph.text in edits
+        (paragraph, edited)
+        for index, paragraph in enumerate(iter_body_paragraphs(document))
+        if edits and (edited := correction_for(edits, index, paragraph.text)) is not None
     ]
     changes = _transpose_document(document, semitones, spelling, german)
     for paragraph, edited_text in pending:

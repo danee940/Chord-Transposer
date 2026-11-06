@@ -54,3 +54,8 @@ node_modules/
 # Kilo
 .kilo/
 .playwright-mcp
+# Playwright end-to-end tests
+/test-results/
+/playwright-report/
+/blob-report/
+/e2e/.generated/

@@ -1,0 +1,1 @@
+import{i as e,n as t,r as n,t as r}from"./upload.B0i__CbO.js";document.getElementById(`panel-paste`)&&(t(),n()),document.getElementById(`form`)&&r(),document.getElementById(`capo-key`)&&e();

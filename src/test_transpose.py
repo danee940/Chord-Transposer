@@ -1682,7 +1682,7 @@ class TestReplaceParagraphText:
         buffer = BytesIO()
         document.save(buffer)
         docx_bytes, _, _, _ = t.transpose_document_bytes(
-            buffer.getvalue(), "C", "D", {"C G": "D A7"}
+            buffer.getvalue(), "C", "D", {0: t.ParagraphEdit(source="C G", text="D A7")}
         )
         result = Document(BytesIO(docx_bytes))
         assert result.paragraphs[0].text == "D A7"
@@ -1723,15 +1723,25 @@ class TestApplyLineEdits:
     def test_edited_lines_replace_their_transposed_counterpart(self) -> None:
         source = "C G Am F\nlyrics\n"
         result = "D A Bm G\nlyrics\n"
-        edited = t.apply_line_edits(source, result, {"C G Am F": "D A Bm7 G"})
-        assert edited == "D A Bm7 G\nlyrics\n"
+        edits = {0: t.ParagraphEdit(source="C G Am F", text="D A Bm7 G")}
+        assert t.apply_line_edits(source, result, edits) == "D A Bm7 G\nlyrics\n"
 
     def test_line_endings_are_kept(self) -> None:
-        edited = t.apply_line_edits("C\r\nG", "D\r\nA", {"G": "A7"})
+        edited = t.apply_line_edits("C\r\nG", "D\r\nA", {1: t.ParagraphEdit(source="G", text="A7")})
         assert edited == "D\r\nA7"
 
-    def test_unmatched_edits_are_ignored(self) -> None:
-        assert t.apply_line_edits("C G", "D A", {"nope": "x"}) == "D A"
+    def test_edits_whose_source_does_not_match_are_ignored(self) -> None:
+        edits = {0: t.ParagraphEdit(source="nope", text="x")}
+        assert t.apply_line_edits("C G", "D A", edits) == "D A"
+
+    def test_edits_past_the_last_line_are_ignored(self) -> None:
+        edits = {5: t.ParagraphEdit(source="C G", text="x")}
+        assert t.apply_line_edits("C G", "D A", edits) == "D A"
+
+    def test_only_the_edited_copy_of_a_repeated_line_changes(self) -> None:
+        edits = {2: t.ParagraphEdit(source="C G", text="D A7")}
+        edited = t.apply_line_edits("C G\nlyrics\nC G\n", "D A\nlyrics\nD A\n", edits)
+        assert edited == "D A\nlyrics\nD A7\n"
 
 
 class TestTransposeDocumentBytesWithEdits:
@@ -1743,7 +1753,13 @@ class TestTransposeDocumentBytesWithEdits:
         document.save(buffer)
 
         docx_bytes, _, _, changes = t.transpose_document_bytes(
-            buffer.getvalue(), "C", "D", {"C G Am F": "D A Bm7 G", "lyrics": "Lyrics"}
+            buffer.getvalue(),
+            "C",
+            "D",
+            {
+                0: t.ParagraphEdit(source="C G Am F", text="D A Bm7 G"),
+                1: t.ParagraphEdit(source="lyrics", text="Lyrics"),
+            },
         )
         paragraphs = [p.text for p in Document(BytesIO(docx_bytes)).paragraphs]
         assert paragraphs == ["D A Bm7 G", "Lyrics"]

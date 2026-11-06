@@ -7,16 +7,19 @@ Web app for transposing `.docx` chord sheets between musical keys. Preserves doc
 ### Web app
 
 ```bash
-pip install -r requirements-dev.txt
-flask run
+uv sync
+uv run flask run
 ```
+
+[uv](https://docs.astral.sh/uv/) installs the pinned Python version (`.python-version`) and
+the locked dependencies (`uv.lock`) into `.venv/`.
 
 Open `http://localhost:5000`, upload a `.docx` chord sheet and pick the current and target key. A live preview shows the transposed sheet with its chord changes; correct any chord in the preview (edits follow along when you change key) and download the file with your corrections applied.
 
 ### CLI
 
 ```bash
-python src/transpose.py
+uv run src/transpose.py
 ```
 
 Processes all `.docx` files in `input/` and saves results to `output/`.
@@ -58,7 +61,9 @@ Both committed outputs are cache-busted (CSS via a `?v=` content hash, JS via
 hashed filenames) and served with a long-lived immutable cache header, while HTML
 pages are sent with `no-cache`.
 
-Rebuild after changing markup, `tailwind.config.js`, or any file under `src/js/`:
+Rebuild after changing markup, `src/styles/tailwind.input.css`, or any file under `src/js/`:
+
+The frontend tooling targets the Node.js LTS release in `.nvmrc`.
 
 ```bash
 npm install
@@ -71,11 +76,14 @@ Commit the regenerated `src/static/tailwind.css` and `src/static/js/`.
 ## Development
 
 ```bash
-pip install -r requirements-dev.txt
-ruff check .
-ruff format --check .
-pytest
+uv sync
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest
 ```
+
+Add or upgrade Python dependencies with `uv add <package>` (`--dev` for tooling) or
+`uv lock --upgrade`, and commit the updated `uv.lock`.
 
 Combined coverage of `transpose.py`, `app.py`, and `seo.py` must stay at or
 above 95%.
@@ -89,7 +97,17 @@ npm run typecheck
 npm run test:js
 ```
 
-Run `python src/samples.py` to write a sample chord sheet (`input/Amazing_Grace_C.docx`) for trying the upload flow locally; the same sheet drives the preview-edit integration tests.
+End-to-end tests drive the real app in Chromium, Firefox and WebKit (plus
+mobile Chrome and Safari layouts) with Playwright. They start the app and a fake
+PDF service on ports derived from the checkout path, so several worktrees can
+run them at once:
+
+```bash
+npx playwright install --with-deps   # once, to download the browsers
+npm run test:e2e
+```
+
+Run `uv run src/samples.py` to write a sample chord sheet (`input/Amazing_Grace_C.docx`) for trying the upload flow locally; the same sheet drives the preview-edit integration tests.
 
 ## Roadmap
 

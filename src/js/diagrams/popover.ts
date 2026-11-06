@@ -19,7 +19,7 @@ function buildPopoverElement(onClose: () => void): {
   const close = document.createElement("button");
   close.type = "button";
   close.className =
-    "chord-popover-close absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md text-muted-light transition-colors hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-accent dark:text-muted dark:hover:text-slate-100";
+    "chord-popover-close absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md text-muted-light transition-colors hover:text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-accent dark:text-muted dark:hover:text-slate-100";
   close.setAttribute("aria-label", "Close chord diagram");
   close.textContent = "×";
   close.addEventListener("click", onClose);
@@ -65,13 +65,13 @@ export function createChordPopover(getInstrument: () => Instrument): ChordPopove
   }
 
   function hide(): void {
-    if (element.classList.contains("hidden")) return;
+    const previous = anchor;
+    if (previous === null) return;
+    anchor = null;
     element.classList.add("hidden");
     document.removeEventListener("keydown", onKeydown, true);
     document.removeEventListener("pointerdown", onPointerdown, true);
-    const previous = anchor;
-    anchor = null;
-    if (previous) previous.focus();
+    previous.focus();
   }
 
   function show(triggerElement: HTMLElement, chord: ParsedChord | null): void {

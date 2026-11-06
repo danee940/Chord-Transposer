@@ -1,6 +1,55 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(none);
+
+@source "../templates";
+@source "../js";
+@source not "../js/**/*.test.ts";
+
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@theme {
+  --color-bg: #0f172a;
+  --color-card: #1e293b;
+  --color-accent: #6366f1;
+  --color-accent-hover: #4f46e5;
+  --color-muted: #94a3b8;
+  --color-app-border: #334155;
+  --color-app-error: #f87171;
+  --color-app-ok: #34d399;
+  --color-bg-light: #f1f5f9;
+  --color-card-light: #ffffff;
+  --color-muted-light: #64748b;
+  --color-app-border-light: #e2e8f0;
+
+  --animate-fade-up: fade-up 0.5s ease-out both;
+
+  @keyframes fade-up {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+}
 
 summary::-webkit-details-marker {
   display: none;

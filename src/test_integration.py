@@ -609,7 +609,9 @@ class TestDocxCoverage:
     def test_content_control_is_transposed_and_takes_preview_edits(self) -> None:
         document = Document()
         _add_content_control(document, "C G", "Am F")
-        out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D", {"Am F": "Bm7 G"})
+        out, _, _, _ = t.transpose_document_bytes(
+            _save(document), "C", "D", {1: t.ParagraphEdit(source="Am F", text="Bm7 G")}
+        )
         assert _story_texts(out) == ["D A", "Bm7 G"]
 
     def test_nested_table_is_transposed(self) -> None:
@@ -1051,8 +1053,20 @@ class TestDetectKeyFromDocx:
 # ---------------------------------------------------------------------------
 
 
-def _edits_field(*pairs: tuple[str, str]) -> str:
-    return json.dumps([{"source": source, "text": text} for source, text in pairs])
+def _edits_field(*edits: tuple[int, str, str]) -> str:
+    return json.dumps(
+        [{"index": index, "source": source, "text": text} for index, source, text in edits]
+    )
+
+
+def _body_index(docx_bytes: bytes, text: str) -> int:
+    """Return the preview position of the first body paragraph that reads ``text``."""
+    document = Document(BytesIO(docx_bytes))
+    return [paragraph.text for paragraph in t.iter_body_paragraphs(document)].index(text)
+
+
+def _edit(docx_bytes: bytes, source: str, text: str) -> tuple[int, str, str]:
+    return (_body_index(docx_bytes, source), source, text)
 
 
 def _post_transpose(
@@ -1112,7 +1126,9 @@ class TestUploadPreviewEditsEndToEnd:
 
     def test_corrected_chord_keeps_the_bold_run(self, client: FlaskClient) -> None:
         edited = "D          D7         Gmaj7      D"
-        out = _post_transpose(client, self.SAMPLE, _edits_field((self.FIRST_CHORDS, edited)))
+        out = _post_transpose(
+            client, self.SAMPLE, _edits_field(_edit(self.SAMPLE, self.FIRST_CHORDS, edited))
+        )
         document = Document(BytesIO(out))
         chord_line = next(p for p in document.paragraphs if p.text == edited)
         assert [run.text for run in chord_line.runs] == [
@@ -1122,19 +1138,31 @@ class TestUploadPreviewEditsEndToEnd:
         ]
         assert chord_line.runs[1].bold is True
 
-    def test_same_source_line_is_corrected_everywhere_it_appears(self, client: FlaskClient) -> None:
+    def test_correcting_a_repeated_line_changes_only_that_line(self, client: FlaskClient) -> None:
         edited = "D          D7         G          D/F#"
-        out = _post_transpose(client, self.SAMPLE, _edits_field((self.FIRST_CHORDS, edited)))
+        out = _post_transpose(
+            client, self.SAMPLE, _edits_field(_edit(self.SAMPLE, self.FIRST_CHORDS, edited))
+        )
         preview = _preview_paragraphs(out)
-        assert preview.count(edited) == 4
-        assert self.FIRST_CHORDS_IN_D not in preview
+        assert preview.count(edited) == 1
+        assert preview.count(self.FIRST_CHORDS_IN_D) == 3
+        assert preview.index(edited) < preview.index(self.FIRST_CHORDS_IN_D)
+
+    def test_edit_whose_source_no_longer_matches_is_ignored(self, client: FlaskClient) -> None:
+        index = _body_index(self.SAMPLE, self.FIRST_CHORDS)
+        out = _post_transpose(
+            client, self.SAMPLE, _edits_field((index, "a different paragraph", "tampered"))
+        )
+        preview = _preview_paragraphs(out)
+        assert "tampered" not in preview
+        assert preview.count(self.FIRST_CHORDS_IN_D) == 4
 
     def test_added_preview_line_becomes_a_soft_break(self, client: FlaskClient) -> None:
         source = "Was blind, but now I see"
         out = _post_transpose(
             client,
             self.SAMPLE,
-            _edits_field((source, source + "\n(repeat last line)")),
+            _edits_field(_edit(self.SAMPLE, source, source + "\n(repeat last line)")),
         )
         document = Document(BytesIO(out))
         paragraph = next(p for p in document.paragraphs if p.text.startswith(source))
@@ -1145,7 +1173,7 @@ class TestUploadPreviewEditsEndToEnd:
     def test_soft_break_paragraph_keeps_its_break_when_edited(self, client: FlaskClient) -> None:
         source = "\n".join(samples.CHORUS_LINES)
         edited = "My chains are gone, I've been set free\nMy God, my Saviour has ransomed me!"
-        out = _post_transpose(client, self.SAMPLE, _edits_field((source, edited)))
+        out = _post_transpose(client, self.SAMPLE, _edits_field(_edit(self.SAMPLE, source, edited)))
         document = Document(BytesIO(out))
         chorus = next(p for p in document.paragraphs if p.text == edited)
         assert [run.italic for run in chorus.runs] == [None, True]
@@ -1153,21 +1181,27 @@ class TestUploadPreviewEditsEndToEnd:
 
     def test_removed_preview_line_empties_the_paragraph(self, client: FlaskClient) -> None:
         out = _post_transpose(
-            client, self.SAMPLE, _edits_field(("Key of C · 3/4 · John Newton, 1779", ""))
+            client,
+            self.SAMPLE,
+            _edits_field(_edit(self.SAMPLE, "Key of C · 3/4 · John Newton, 1779", "")),
         )
         document = Document(BytesIO(out))
         assert document.paragraphs[1].text == ""
         assert len(document.paragraphs) == len(Document(BytesIO(self.SAMPLE)).paragraphs)
 
     def test_table_cell_edit_is_applied(self, client: FlaskClient) -> None:
-        out = _post_transpose(client, self.SAMPLE, _edits_field(("Am  Dm  Em", "Bm  Em  F#m  G")))
+        out = _post_transpose(
+            client, self.SAMPLE, _edits_field(_edit(self.SAMPLE, "Am  Dm  Em", "Bm  Em  F#m  G"))
+        )
         document = Document(BytesIO(out))
         assert document.tables[0].rows[1].cells[1].text == "Bm  Em  F#m  G"
         assert document.tables[0].rows[0].cells[1].text == "D  D7  G  A  A7"
 
     def test_header_is_transposed_but_never_edited(self, client: FlaskClient) -> None:
         header_source = "Amazing Grace — chord sheet (C)"
-        out = _post_transpose(client, self.SAMPLE, _edits_field((header_source, "tampered header")))
+        out = _post_transpose(
+            client, self.SAMPLE, _edits_field((0, header_source, "tampered header"))
+        )
         document = Document(BytesIO(out))
         header_text = document.sections[0].header.paragraphs[0].text
         assert header_text != "tampered header"
@@ -1182,7 +1216,10 @@ class TestUploadPreviewEditsEndToEnd:
         direct_in_e, _, _, _ = t.transpose_text("C          C7         Fmaj7      C", "C", "E")
         assert rebased_in_e == direct_in_e
         out = _post_transpose(
-            client, self.SAMPLE, _edits_field((self.FIRST_CHORDS, rebased_in_e)), "E"
+            client,
+            self.SAMPLE,
+            _edits_field(_edit(self.SAMPLE, self.FIRST_CHORDS, rebased_in_e)),
+            "E",
         )
         assert rebased_in_e in _preview_paragraphs(out)
 
@@ -1194,7 +1231,7 @@ class TestUploadPreviewEditsEndToEnd:
             "target_key": "D",
             "format": "txt",
             "edits": _edits_field(
-                ("Amazing grace, how sweet the sound", "Amazing grace, how sweet the sound\n")
+                (1, "Amazing grace, how sweet the sound", "Amazing grace, how sweet the sound\n")
             ),
         }
         response = client.post("/transpose-text", data=data, content_type="multipart/form-data")

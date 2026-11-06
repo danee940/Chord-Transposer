@@ -32,6 +32,7 @@ interface UploadRequest {
 }
 
 interface PreviewEdit {
+  index: number;
   source: string;
   text: string;
 }
@@ -353,7 +354,7 @@ export function initUpload(): void {
       previewKey = targetKey.value;
       showPreview(result, rebaseHeldEdits(targetKey.value).join("\n"));
     } catch (err) {
-      if (err instanceof InvalidKeyError) showError(err.message);
+      showError(err instanceof InvalidKeyError ? err.message : GENERIC_ERROR);
     }
   }
 
@@ -372,7 +373,7 @@ export function initUpload(): void {
     if (sourceParagraphs === null || previewParagraphs.length === 0) return [];
     const edited = editedParagraphs();
     return sourceParagraphs.flatMap((source, index) =>
-      edited[index] === previewParagraphs[index] ? [] : [{ source, text: edited[index]! }]
+      edited[index] === previewParagraphs[index] ? [] : [{ index, source, text: edited[index]! }]
     );
   }
 
@@ -494,9 +495,14 @@ export function initUpload(): void {
     return data;
   }
 
-  function appendOverrides(data: FormData, edits: PreviewEdit[]): FormData {
+  function appendNotation(data: FormData): FormData {
     const notation = keyPicker.notationOverride();
     if (notation !== undefined) data.append("notation", notation ? "german" : "english");
+    return data;
+  }
+
+  function appendOverrides(data: FormData, edits: PreviewEdit[]): FormData {
+    appendNotation(data);
     if (edits.length > 0) data.append("edits", JSON.stringify(edits));
     return data;
   }
@@ -504,7 +510,12 @@ export function initUpload(): void {
   function buildBinderRequest(files: File[]): UploadRequest {
     const data = keyFormData();
     files.forEach((file) => data.append("files", file));
-    return { endpoint: "/binder", body: data, multi: true, fallback: "chord_binder.pdf" };
+    return {
+      endpoint: "/binder",
+      body: appendNotation(data),
+      multi: true,
+      fallback: "chord_binder.pdf",
+    };
   }
 
   function buildSingleRequest(file: File, edits: PreviewEdit[]): UploadRequest {
