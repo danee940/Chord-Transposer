@@ -908,7 +908,38 @@ def test_binder_empty_member(client: FlaskClient) -> None:
     }
     response = client.post("/binder", data=data, content_type="multipart/form-data")
     assert response.status_code == 400
-    assert "empty" in response.get_json()["error"]
+    assert response.get_json() == {"error": "empty.docx is empty.", "index": 0}
+
+
+def test_binder_names_a_file_that_is_not_docx(client: FlaskClient) -> None:
+    data = {
+        "files": [(BytesIO(_make_chord_docx()), "a.docx"), (BytesIO(b"C G"), "notes.txt")],
+        "current_key": "C",
+        "target_key": "D",
+    }
+    response = client.post("/binder", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert response.get_json() == {
+        "error": "notes.txt is not a .docx file. The binder accepts .docx files only.",
+        "index": 1,
+    }
+
+
+def test_binder_names_an_unreadable_file(
+    client: FlaskClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda docx_bytes: _one_page_pdf())
+    data = {
+        "files": [(BytesIO(_make_chord_docx()), "a.docx"), (BytesIO(b"not a zip"), "broken.docx")],
+        "current_key": "C",
+        "target_key": "D",
+    }
+    response = client.post("/binder", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert response.get_json() == {
+        "error": "Could not read broken.docx as a valid .docx document.",
+        "index": 1,
+    }
 
 
 def test_binder_total_too_large(client: FlaskClient, monkeypatch: pytest.MonkeyPatch) -> None:

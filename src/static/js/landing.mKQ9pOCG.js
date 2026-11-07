@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,t as a}from"./upload.Dm-6eXBb.js";t(),document.getElementById(`panel-paste`)&&(i(),e(),n()),document.getElementById(`form`)&&a(),document.getElementById(`capo-key`)&&r();

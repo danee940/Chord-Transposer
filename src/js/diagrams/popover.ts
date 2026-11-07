@@ -11,15 +11,14 @@ function buildPopoverElement(onClose: () => void): {
   content: HTMLDivElement;
 } {
   const element = document.createElement("div");
-  element.className =
-    "chord-popover absolute z-50 hidden w-max max-w-xs rounded-xl border border-app-border-light bg-card-light p-3 shadow-lg dark:border-app-border dark:bg-card";
+  element.className = "chord-popover popover absolute z-50 hidden w-max max-w-xs px-4 pb-3 pt-2";
   element.setAttribute("role", "dialog");
   element.setAttribute("aria-label", "Chord fingering");
 
   const close = document.createElement("button");
   close.type = "button";
   close.className =
-    "chord-popover-close absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md text-muted-light transition-colors hover:text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-accent dark:text-muted dark:hover:text-slate-100";
+    "chord-popover-close absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-[3px] text-lg leading-none text-graphite hover:text-ink";
   close.setAttribute("aria-label", "Close chord diagram");
   close.textContent = "×";
   close.addEventListener("click", onClose);

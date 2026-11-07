@@ -1,13 +1,11 @@
 import { test as base, expect } from "@playwright/test";
 import { HomePage } from "../pages/home-page";
 import { ClipboardSpy } from "./clipboard";
-import { disableBackdropBlur } from "./software-rendering";
 
 interface Fixtures {
   home: HomePage;
   clipboard: ClipboardSpy;
   failOnPageErrors: void;
-  keepWebKitRenderingFast: void;
 }
 
 export const test = base.extend<Fixtures>({
@@ -25,13 +23,6 @@ export const test = base.extend<Fixtures>({
       page.on("pageerror", (error) => errors.push(error));
       await use();
       expect(errors, "uncaught errors in the page").toEqual([]);
-    },
-    { auto: true },
-  ],
-  keepWebKitRenderingFast: [
-    async ({ page, browserName }, use) => {
-      if (browserName === "webkit") await disableBackdropBlur(page);
-      await use();
     },
     { auto: true },
   ],

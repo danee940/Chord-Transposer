@@ -1,24 +1,6 @@
-export const BASE_CLASSES = "mt-4 rounded-xl px-3.5 py-3 text-sm motion-safe:animate-fade-up";
-export const ERROR_CLASSES = "border border-app-error/30 bg-app-error/10 text-app-error";
-export const OK_CLASSES = "border border-app-ok/30 bg-app-ok/10 text-app-ok";
-
-export const ACTIVE_TAB_CLASSES = [
-  "bg-card-light",
-  "text-slate-900",
-  "shadow-xs",
-  "dark:bg-card",
-  "dark:text-slate-100",
-];
-export const INACTIVE_TAB_CLASSES = ["text-muted-light", "dark:text-muted"];
-
-export const MODE_ACTIVE_CLASSES = [
-  "bg-card-light",
-  "text-slate-900",
-  "shadow-xs",
-  "dark:bg-card",
-  "dark:text-slate-100",
-];
-export const MODE_INACTIVE_CLASSES = ["text-muted-light", "dark:text-muted"];
+export const NOTICE_CLASSES = "notice mt-4";
+export const NOTICE_ERROR_CLASSES = "notice-error";
+export const NOTICE_OK_CLASSES = "notice-ok";
 
 function required<T>(found: T | null, description: string): T {
   if (found === null) throw new Error(`Missing required element: ${description}`);

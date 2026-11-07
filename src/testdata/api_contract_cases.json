@@ -582,6 +582,51 @@
     }
   },
   {
+    "description": "binder names the file it cannot read",
+    "endpoint": "/binder",
+    "trigger": "submit",
+    "request": {
+      "files": [
+        {
+          "field": "files",
+          "filename": "a.docx",
+          "content": "C G Am F",
+          "raw": false
+        },
+        {
+          "field": "files",
+          "filename": "broken.docx",
+          "content": "not a real docx",
+          "raw": true
+        }
+      ],
+      "form": {
+        "current_key": "C",
+        "target_key": "D"
+      }
+    },
+    "fields": [
+      "current_key",
+      "target_key",
+      "files",
+      "files"
+    ],
+    "response": {
+      "status": 400,
+      "json": {
+        "error": "Could not read broken.docx as a valid .docx document.",
+        "index": 1
+      }
+    },
+    "ui": {
+      "error": "Could not read broken.docx as a valid .docx document.",
+      "flagged_file": "broken.docx"
+    },
+    "backend": {
+      "pdf_stub": true
+    }
+  },
+  {
     "description": "transpose-text keeps Unicode accidentals in the body and change header",
     "endpoint": "/transpose-text",
     "trigger": "submit",

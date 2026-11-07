@@ -3,61 +3,37 @@
 
 {% include "_head.html" %}
 
-<body
-  class="relative m-0 min-h-screen overflow-x-hidden bg-bg-light px-4 py-12 text-slate-800 font-sans flex flex-col items-center dark:bg-bg dark:text-slate-200">
-  <div aria-hidden="true"
-    class="pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] dark:bg-[linear-gradient(180deg,#1e293b_0%,#0f172a_100%)]">
-  </div>
+<body class="min-h-screen bg-desk font-sans text-ink antialiased">
+  {% include "_masthead.html" %}
 
-  {% include "_nav.html" %}
-
-  <header class="mb-8 flex flex-col items-center text-center motion-safe:animate-fade-up">
-    <div
-      class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-linear-to-br from-accent to-indigo-500 text-white shadow-lg shadow-accent/30">
-      <svg viewBox="0 0 24 24" width="32" height="32" fill="white" aria-hidden="true">
-        <path d="M9 6.75a.75.75 0 0 1 .59-.733l6-1.286A.75.75 0 0 1 16.5 5.46v8.79a2.25 2.25 0 1 1-1.5-2.122V8.68l-4.5.964v6.856a2.25 2.25 0 1 1-1.5-2.122V6.75z"/>
-      </svg>
-    </div>
-    <h1
-      class="bg-linear-to-r from-slate-900 to-slate-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent dark:from-slate-50 dark:to-slate-300 sm:text-4xl">
-      Chord Transposer
-    </h1>
-    <p class="mt-2 max-w-md text-sm text-muted-light dark:text-muted">
+  <main class="mx-auto w-full max-w-5xl px-4 sm:px-6">
+    <p class="lede mt-6 max-w-2xl text-base text-ink sm:mt-8 sm:text-[1.0625rem]">
       Paste chords to transpose them instantly, or upload a chord sheet file — your formatting stays intact.
     </p>
-    <div
-      class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-slate-700 dark:border-accent/40 dark:text-slate-200">
-      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" class="text-accent" aria-hidden="true">
-        <path fill-rule="evenodd"
-          d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.1 3.1 6.8-6.8a1 1 0 0 1 1.4 0z"
-          clip-rule="evenodd" />
-      </svg>
-      Keeps your Word (.docx) formatting intact
-    </div>
-  </header>
 
-  <main
-    class="w-full max-w-4xl rounded-2xl border border-app-border-light bg-card-light/80 p-8 shadow-2xl shadow-slate-300/40 backdrop-blur-sm dark:border-app-border dark:bg-card/80 dark:shadow-black/40 motion-safe:animate-fade-up">
-    <div
-      class="mb-6 flex gap-1 rounded-xl border border-app-border-light bg-bg-light p-1 dark:border-app-border dark:bg-bg"
-      role="tablist" aria-label="Transpose mode">
-      <button type="button" id="tab-paste" role="tab" aria-selected="true" aria-controls="panel-paste"
-        class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors">
-        Paste chords
-      </button>
-      <button type="button" id="tab-upload" role="tab" aria-selected="false" aria-controls="panel-upload"
-        class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors">
-        Upload a file
-      </button>
+    <div class="mt-4 flex items-end justify-between gap-4 border-b border-rule sm:mt-5">
+      <div class="tabs" role="tablist" aria-label="Transpose mode">
+        <button type="button" id="tab-paste" role="tab" aria-selected="true" aria-controls="panel-paste" class="tab">
+          Paste chords
+        </button>
+        <button type="button" id="tab-upload" role="tab" aria-selected="false" aria-controls="panel-upload"
+          class="tab">
+          Upload a file
+        </button>
+      </div>
+      <p class="hidden pb-3 text-[0.8125rem] text-graphite md:block">Keeps your Word (.docx) formatting intact</p>
     </div>
 
-    {% include "_panel_paste.html" %}
-    {% include "_panel_upload.html" %}
+    <div class="pt-5 sm:pt-6">
+      {% include "_panel_paste.html" %}
+      {% include "_panel_upload.html" %}
+    </div>
+
+    <div class="mt-20 grid gap-14 border-t border-rule pt-12 lg:grid-cols-[minmax(0,1fr)_14rem] lg:gap-16">
+      {% include "_articles.html" %}
+      {% include "_linkhub.html" %}
+    </div>
   </main>
-
-  {% include "_articles.html" %}
-
-  {% include "_linkhub.html" %}
 
   {% include "_footer.html" %}
 

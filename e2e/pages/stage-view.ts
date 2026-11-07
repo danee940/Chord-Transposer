@@ -2,7 +2,10 @@ import type { Locator, Page } from "@playwright/test";
 
 export class StageView {
   readonly root: Locator;
+  readonly heading: Locator;
   readonly sheet: Locator;
+  readonly chords: Locator;
+  readonly columnsToggle: Locator;
   readonly scroller: Locator;
   readonly playButton: Locator;
   readonly speed: Locator;
@@ -12,7 +15,10 @@ export class StageView {
 
   constructor(page: Page) {
     this.root = page.getByRole("dialog", { name: "Performance view" });
-    this.sheet = this.root.locator("pre");
+    this.heading = this.root.getByRole("heading", { level: 2 });
+    this.sheet = this.root.locator(".stage-sheet");
+    this.chords = this.sheet.locator(".stage-chord");
+    this.columnsToggle = this.root.getByRole("button", { name: "2 columns" });
     this.scroller = this.sheet.locator("..");
     this.playButton = this.root.getByRole("button", { name: /^(Play|Pause)$/ });
     this.speed = this.root.getByRole("slider", { name: "Autoscroll speed" });

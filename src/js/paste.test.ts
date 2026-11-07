@@ -34,7 +34,7 @@ function buildDom(attrs: PanelAttrs = {}) {
       <button id="text_current_key_trigger" type="button"><span id="text_current_key_label"></span></button>
       <button id="text_target_key_trigger" type="button"><span id="text_target_key_label"></span></button>
       <div id="text_key_picker" class="hidden"><div id="text_key_picker_title"></div></div>
-      <p id="text_key_distance_wrap"><span id="text_key_distance"></span></p>
+      <p id="text_key_distance_wrap"><span id="text_key_distance"></span><span id="text_key_interval"></span></p>
       <span id="text_linecount"></span>
       <button id="text_sample"></button>
       <button id="text_clear"></button>
@@ -338,20 +338,26 @@ describe("initPaste", () => {
     type("C G Am F");
     vi.advanceTimersByTime(300);
     expect(status()).toContain("No shift");
+    expect(output().hasAttribute("data-unchanged")).toBe(true);
+    requireElement<HTMLButtonElement>("semitone_up").dispatchEvent(new Event("click"));
+    expect(output().hasAttribute("data-unchanged")).toBe(false);
   });
 
   it("decrements and clamps semitones", () => {
     initPaste();
     requireElement<HTMLButtonElement>("mode-semitone").dispatchEvent(new Event("click"));
     requireElement<HTMLButtonElement>("semitone_down").dispatchEvent(new Event("click"));
-    expect(requireElement("semitone_value").textContent).toBe("-1");
+    expect(requireElement("semitone_value").textContent).toBe("−1");
   });
 
   it("applies a quick semitone preset", () => {
     initPaste();
     requireElement<HTMLButtonElement>("mode-semitone").dispatchEvent(new Event("click"));
-    document.querySelector(".semitone-quick")!.dispatchEvent(new Event("click"));
+    const preset = document.querySelector(".semitone-quick")!;
+    expect(preset.getAttribute("aria-pressed")).toBe("false");
+    preset.dispatchEvent(new Event("click"));
     expect(requireElement("semitone_value").textContent).toBe("+5");
+    expect(preset.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("responds to [ and ] keyboard shortcuts in semitone mode", () => {
@@ -522,14 +528,33 @@ describe("initPaste", () => {
     expect(input.value).toBe("");
   });
 
-  it("opens the stage view from output", () => {
+  function openStage(): string {
+    requireElement<HTMLButtonElement>("text_stage").dispatchEvent(new Event("click"));
+    return document.querySelector('[aria-label="Performance view"] h2')!.textContent;
+  }
+
+  it("opens the stage view from output, headed by the key change", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
     initPaste();
     requireElement<HTMLSelectElement>("text_current_key").value = "C";
-    requireElement<HTMLSelectElement>("text_target_key").value = "D";
+    requireElement<HTMLSelectElement>("text_target_key").value = "Es";
     type("C G Am F");
     vi.advanceTimersByTime(300);
-    requireElement<HTMLButtonElement>("text_stage").dispatchEvent(new Event("click"));
-    expect(document.querySelector('[aria-label="Performance view"]')).not.toBeNull();
+    expect(openStage()).toBe("C → Es");
+  });
+
+  it("heads the stage view with the shift or the Nashville tonic in the other modes", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    initPaste();
+    requireElement<HTMLSelectElement>("text_current_key").value = "G";
+    type("G C D");
+    vi.advanceTimersByTime(300);
+    requireElement<HTMLButtonElement>("mode-semitone").dispatchEvent(new Event("click"));
+    expect(openStage()).toBe("No shift");
+    requireElement<HTMLButtonElement>("semitone_up").dispatchEvent(new Event("click"));
+    expect(openStage()).toBe("+1 semitone (♯)");
+    requireElement<HTMLButtonElement>("mode-nashville").dispatchEvent(new Event("click"));
+    expect(openStage()).toBe("Nashville numbers · key of G");
   });
 
   it("does not open the stage view without output", () => {

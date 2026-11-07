@@ -520,6 +520,11 @@ def transpose_text_upload() -> ResponseReturnValue:
     return response
 
 
+def _binder_file_error(message: str, index: int) -> ResponseReturnValue:
+    """Reject a binder request because of one file, identified by its upload position."""
+    return jsonify({"error": message, "index": index}), 400
+
+
 @app.route("/binder", methods=["POST"])
 def binder() -> ResponseReturnValue:
     """Transpose several .docx files and return them merged into one PDF binder."""
@@ -533,16 +538,19 @@ def binder() -> ResponseReturnValue:
         return jsonify({"error": f"Too many files. The maximum is {MAX_BINDER_FILES}."}), 400
     if not current_key or not target_key:
         return jsonify({"error": "Both current and desired keys are required."}), 400
-    for uploaded in uploaded_files:
-        if not uploaded.filename or not uploaded.filename.lower().endswith(".docx"):
-            return jsonify({"error": "Only .docx files are supported in the binder."}), 400
+    names = [uploaded.filename or "" for uploaded in uploaded_files]
+    for index, name in enumerate(names):
+        if not name.lower().endswith(".docx"):
+            return _binder_file_error(
+                f"{name} is not a .docx file. The binder accepts .docx files only.", index
+            )
 
     documents: list[bytes] = []
     total_bytes = 0
-    for uploaded in uploaded_files:
+    for index, uploaded in enumerate(uploaded_files):
         data = uploaded.read()
         if not data:
-            return jsonify({"error": "One of the uploaded files is empty."}), 400
+            return _binder_file_error(f"{names[index]} is empty.", index)
         total_bytes += len(data)
         if total_bytes > MAX_BINDER_TOTAL_BYTES:
             return jsonify({"error": "Files are too large. The combined maximum is 40 MB."}), 400
@@ -552,15 +560,18 @@ def binder() -> ResponseReturnValue:
     try:
         notation = _parse_notation(request.form.get("notation"))
         pdf_documents: list[bytes] = []
-        for data in documents:
-            docx_bytes, _, to_label, _ = transpose_document_bytes(
-                data, current_key, target_key, german=notation
-            )
+        for index, data in enumerate(documents):
+            try:
+                docx_bytes, _, to_label, _ = transpose_document_bytes(
+                    data, current_key, target_key, german=notation
+                )
+            except PackageNotFoundError, BadZipFile:
+                return _binder_file_error(
+                    f"Could not read {names[index]} as a valid .docx document.", index
+                )
             pdf_documents.append(convert_docx_to_pdf(docx_bytes))
     except InvalidKeyError as exc:
         return jsonify({"error": str(exc)}), 400
-    except PackageNotFoundError, BadZipFile:
-        return jsonify({"error": "Could not read one of the files as a valid .docx document."}), 400
     except PdfConversionError as exc:
         return jsonify({"error": str(exc)}), 503
 

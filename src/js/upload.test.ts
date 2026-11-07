@@ -24,13 +24,16 @@ function setupDom() {
     <form id="form">
       <input id="file" type="file" name="file" multiple />
       <div id="dropzone"><span id="dropzone-text"></span></div>
+      <ol id="file_list" class="hidden"></ol>
+      <div id="format_group"><span id="format_original_label"></span></div>
+      <span id="format_binder_note" class="hidden"></span>
       <select id="current_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="H">H</option></select>
       <select id="target_key"><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="H">H</option></select>
       <button id="swap" type="button"></button>
       <button id="current_key_trigger" type="button"><span id="current_key_label"></span></button>
       <button id="target_key_trigger" type="button"><span id="target_key_label"></span></button>
       <div id="key_picker" class="hidden"><div id="key_picker_title"></div></div>
-      <p id="key_distance"></p>
+      <p><span id="key_distance"></span><span id="key_interval"></span></p>
       <span id="upload_detected_wrap" class="hidden">
         <span id="upload_detected_label"></span>
         <button id="upload_detected_alt" type="button" class="hidden"></button>
@@ -679,20 +682,139 @@ describe("initUpload", () => {
     expect(requireElement("dropzone-text").textContent).toContain("2 files selected");
   });
 
-  it("rejects a binder containing a non-docx file", () => {
+  function fileRow(name: string) {
+    return document.querySelector<HTMLLIElement>(`#file_list li[data-file="${name}"]`)!;
+  }
+
+  function fileAction(name: string, label: string) {
+    return fileRow(name).querySelector<HTMLButtonElement>(`button[aria-label="${label} ${name}"]`)!;
+  }
+
+  function useAssignableFiles(input: HTMLInputElement, initial: File[]) {
+    let assigned = initial;
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      get: () => assigned,
+      set: (value: File[]) => {
+        assigned = value;
+      },
+    });
+  }
+
+  it("lists binder songs in order and keeps a selection with a problem file", () => {
     initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
     setFiles(fileInput, [makeFile("a.docx", 1024), makeFile("notes.txt", 1024)]);
     fileInput.dispatchEvent(new Event("change"));
-    expect(message().textContent).toBe("The binder accepts .docx files only.");
+    expect(message().textContent).toBe("Remove the highlighted file to build the binder.");
+    expect(requireElement("file_list").classList.contains("hidden")).toBe(false);
+    expect([...requireElement("file_list").children].map((row) => row.textContent)).toEqual([
+      "1a.docx1 KB",
+      "2notes.txtOnly .docx files can go in a binder.",
+    ]);
+    expect(fileRow("notes.txt").hasAttribute("data-invalid")).toBe(true);
+    expect(fileRow("a.docx").hasAttribute("data-invalid")).toBe(false);
+    expect(fileInput.files).toHaveLength(2);
   });
 
-  it("rejects a binder with an empty member", () => {
+  it("flags every empty binder member", () => {
     initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeFile("a.docx", 1024), makeFile("b.docx", 0)]);
+    setFiles(fileInput, [makeFile("a.docx", 0), makeFile("b.docx", 0), makeFile("c.docx", 10)]);
     fileInput.dispatchEvent(new Event("change"));
-    expect(message().textContent).toBe("One of the selected files is empty.");
+    expect(message().textContent).toBe("Remove the 2 highlighted files to build the binder.");
+    expect(fileRow("a.docx").textContent).toContain("This file is empty.");
+  });
+
+  it("hides the list again for a single file", () => {
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [makeFile("a.docx", 10), makeFile("b.docx", 10)]);
+    fileInput.dispatchEvent(new Event("change"));
+    setFiles(fileInput, [makeFile("a.docx", 10)]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(requireElement("file_list").classList.contains("hidden")).toBe(true);
+    expect(requireElement("file_list").children).toHaveLength(0);
+  });
+
+  it("reorders binder songs and keeps focus on the moved song", () => {
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    useAssignableFiles(fileInput, [
+      makeFile("a.docx", 10),
+      makeFile("b.docx", 10),
+      makeFile("c.docx", 10),
+    ]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(fileRow("a.docx").querySelector<HTMLButtonElement>('[data-action="up"]')!.disabled).toBe(
+      true
+    );
+
+    fileRow("a.docx").querySelector<HTMLButtonElement>('[data-action="down"]')!.click();
+    expect([...fileInput.files!].map((file) => file.name)).toEqual(["b.docx", "a.docx", "c.docx"]);
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Move a.docx down");
+
+    fileRow("a.docx").querySelector<HTMLButtonElement>('[data-action="down"]')!.click();
+    expect([...fileInput.files!].map((file) => file.name)).toEqual(["b.docx", "c.docx", "a.docx"]);
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Move a.docx up");
+
+    fileRow("a.docx").querySelector<HTMLButtonElement>('[data-action="up"]')!.click();
+    expect([...fileInput.files!].map((file) => file.name)).toEqual(["b.docx", "a.docx", "c.docx"]);
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Move a.docx up");
+  });
+
+  it("removes a binder song and moves focus to its neighbour", () => {
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    useAssignableFiles(fileInput, [
+      makeFile("a.docx", 10),
+      makeFile("notes.txt", 10),
+      makeFile("c.docx", 10),
+    ]);
+    fileInput.dispatchEvent(new Event("change"));
+    fileAction("notes.txt", "Remove").click();
+    expect([...fileInput.files!].map((file) => file.name)).toEqual(["a.docx", "c.docx"]);
+    expect(message().classList.contains("hidden")).toBe(true);
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Remove c.docx");
+  });
+
+  it("returns focus to the file picker when only one song is left", () => {
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    useAssignableFiles(fileInput, [makeFile("a.docx", 10), makeFile("b.docx", 10)]);
+    fileInput.dispatchEvent(new Event("change"));
+    fileAction("a.docx", "Remove").click();
+    expect([...fileInput.files!].map((file) => file.name)).toEqual(["b.docx"]);
+    expect(document.activeElement).toBe(fileInput);
+    expect(requireElement("file_list").classList.contains("hidden")).toBe(true);
+  });
+
+  it("names the output format after the uploaded file and fixes binders to one PDF", () => {
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    const label = () => requireElement("format_original_label").textContent;
+    expect(label()).toBe("");
+    setFiles(fileInput, [makeTextFile("hymn.txt", "C G")]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(label()).toBe(".txt");
+    setFiles(fileInput, [makeTextFile("hymn.cho", "[C]la")]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(label()).toBe(".pro");
+    setFiles(fileInput, [makeFile("song.docx", 10)]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(label()).toBe(".docx");
+    expect(requireElement("format_group").classList.contains("hidden")).toBe(false);
+    expect(requireElement("format_binder_note").classList.contains("hidden")).toBe(true);
+
+    setFiles(fileInput, [makeFile("a.docx", 10), makeFile("b.docx", 10)]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(requireElement("format_group").classList.contains("hidden")).toBe(true);
+    expect(requireElement("format_binder_note").classList.contains("hidden")).toBe(false);
+
+    setFiles(fileInput, [makeFile("song.pdf", 10)]);
+    fileInput.dispatchEvent(new Event("change"));
+    expect(label()).toBe(".docx");
+    expect(requireElement("format_group").classList.contains("hidden")).toBe(false);
   });
 
   it("rejects too many binder files", () => {
@@ -715,13 +837,13 @@ describe("initUpload", () => {
     expect(message().textContent).toBe("Files are too large. The combined maximum is 40 MB.");
   });
 
-  it("toggles the dropzone drag styling", () => {
+  it("marks the dropzone while a drag is over it", () => {
     initUpload();
     const dropzone = requireElement("dropzone");
     dropzone.dispatchEvent(new Event("dragenter"));
-    expect(dropzone.classList.contains("border-accent")).toBe(true);
+    expect(dropzone.hasAttribute("data-dragging")).toBe(true);
     dropzone.dispatchEvent(new Event("dragleave"));
-    expect(dropzone.classList.contains("border-accent")).toBe(false);
+    expect(dropzone.hasAttribute("data-dragging")).toBe(false);
   });
 
   it("accepts dropped files", () => {
@@ -794,7 +916,7 @@ describe("initUpload", () => {
     ]);
     requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
     await Promise.resolve();
-    expect(message().textContent).toBe("The binder accepts .docx files only.");
+    expect(message().textContent).toBe("Remove the highlighted file to build the binder.");
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -1041,6 +1163,84 @@ describe("initUpload", () => {
     await submitAndWait();
     const anchor = anchorSpy.mock.results.map((r) => r.value).find((el) => el.tagName === "A");
     expect(anchor.download).toBe("chord_binder.pdf");
+  });
+
+  function rejectFileAt(
+    index: unknown,
+    error = "Could not read b.docx as a valid .docx document."
+  ) {
+    fetchMock.mockResolvedValue(response({ top: { ok: false }, json: { error, index } }));
+  }
+
+  it("flags the binder song the server could not read by its position", async () => {
+    rejectFileAt(1);
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [makeFile("a.docx", 1024), makeFile("b.docx", 1024)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await submitAndWait();
+    expect(message().textContent).toBe("Could not read b.docx as a valid .docx document.");
+    expect(fileRow("b.docx").hasAttribute("data-invalid")).toBe(true);
+    expect(fileRow("b.docx").textContent).toContain("Could not read b.docx");
+    expect(fileRow("a.docx").hasAttribute("data-invalid")).toBe(false);
+  });
+
+  it("keeps the server's flag when the songs are reordered and blocks a resubmit", async () => {
+    rejectFileAt(1);
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    useAssignableFiles(fileInput, [
+      makeFile("a.docx", 1024),
+      makeFile("b.docx", 1024),
+      makeFile("c.docx", 1024),
+    ]);
+    fileInput.dispatchEvent(new Event("change"));
+    await submitAndWait();
+    fileRow("c.docx").querySelector<HTMLButtonElement>('[data-action="up"]')!.click();
+    expect(fileRow("b.docx").hasAttribute("data-invalid")).toBe(true);
+    expect(message().textContent).toBe("Remove the highlighted file to build the binder.");
+
+    fetchMock.mockClear();
+    requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
+    await Promise.resolve();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fileAction("b.docx", "Remove").click();
+    expect(message().classList.contains("hidden")).toBe(true);
+    expect(document.querySelector("#file_list li[data-invalid]")).toBeNull();
+  });
+
+  it("tells same-named songs apart when flagging one", async () => {
+    rejectFileAt(0);
+    initUpload();
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [makeFile("song.docx", 1024), makeFile("song.docx", 2048)]);
+    fileInput.dispatchEvent(new Event("change"));
+    await submitAndWait();
+    expect(document.querySelectorAll("#file_list li[data-invalid]")).toHaveLength(1);
+  });
+
+  it("ignores a rejected position that is missing, out of range or not a whole number", async () => {
+    for (const index of [undefined, 7, 0.5, "1"]) {
+      rejectFileAt(index, "Bad key.");
+      initUpload();
+      const fileInput = requireElement<HTMLInputElement>("file");
+      setFiles(fileInput, [makeFile("a.docx", 1024), makeFile("b.docx", 1024)]);
+      fileInput.dispatchEvent(new Event("change"));
+      await submitAndWait();
+      expect(message().textContent).toBe("Bad key.");
+      expect(document.querySelector("#file_list li[data-invalid]")).toBeNull();
+      setupDom();
+    }
+  });
+
+  it("ignores a rejected position for a single upload", async () => {
+    rejectFileAt(0, "Broken.");
+    initUpload();
+    setFiles(requireElement<HTMLInputElement>("file"), [makeFile("song.docx", 1024)]);
+    await submitAndWait();
+    expect(message().textContent).toBe("Broken.");
+    expect(requireElement("file_list").children).toHaveLength(0);
   });
 
   it("shows the server error message on a non-ok response", async () => {

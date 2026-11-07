@@ -1,3 +1,12 @@
+import {
+  checkBinder,
+  fileKey,
+  focusFileAction,
+  formatBytes,
+  moveItem,
+  renderFileList,
+  type BinderEntry,
+} from "./binder-files";
 import { groupChanges, renderChangeRow } from "./change-groups";
 import { createChangesDisclosure } from "./changes-disclosure";
 import { createDetectionBadge } from "./detect-badge";
@@ -5,9 +14,9 @@ import { extractDocxParagraphs } from "./docx-text";
 import { initKeyPicker } from "./key-picker";
 import { alignEditedParagraphs, lineCount, regroupLines } from "./preview-edits";
 import {
-  BASE_CLASSES,
-  ERROR_CLASSES,
-  OK_CLASSES,
+  NOTICE_CLASSES,
+  NOTICE_ERROR_CLASSES,
+  NOTICE_OK_CLASSES,
   makeCell,
   makeHeaderCell,
   requireElement,
@@ -47,8 +56,6 @@ const PREVIEW_MIN_ROWS = 8;
 const PREVIEW_MAX_ROWS = 32;
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-const MAX_BINDER_FILES = 20;
-const MAX_BINDER_TOTAL_BYTES = 40 * 1024 * 1024;
 const TEXT_EXTENSIONS = [".txt", ".pro", ".cho"];
 const TEXT_FORMAT_EXTENSIONS: Readonly<Record<TextFormat, string>> = {
   pdf: "pdf",
@@ -65,11 +72,6 @@ function isDocxName(name: string): boolean {
   return name.toLowerCase().endsWith(".docx");
 }
 
-function formatBytes(bytes: number): string {
-  const mb = bytes / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
-
 function validateFile(file: File): string | null {
   if (!isDocxName(file.name) && !isTextName(file.name))
     return "Unsupported file type. Upload .docx, .txt, .pro, or .cho.";
@@ -78,24 +80,27 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-function validateFiles(files: File[]): string | null {
-  if (files.length > MAX_BINDER_FILES) return `Too many files. The maximum is ${MAX_BINDER_FILES}.`;
-  let total = 0;
-  for (const file of files) {
-    if (!isDocxName(file.name)) return "The binder accepts .docx files only.";
-    if (file.size === 0) return "One of the selected files is empty.";
-    total += file.size;
-  }
-  if (total > MAX_BINDER_TOTAL_BYTES) return "Files are too large. The combined maximum is 40 MB.";
-  return null;
+function nativeTextFormat(name: string): TextFormat {
+  return name.toLowerCase().endsWith(".txt") ? "txt" : "chordpro";
 }
 
-function errorMessage(payload: unknown): string {
-  const error =
-    typeof payload === "object" && payload !== null && "error" in payload
-      ? payload.error
-      : undefined;
-  return typeof error === "string" && error !== "" ? error : GENERIC_ERROR;
+function originalFormatLabel(name: string): string {
+  return isTextName(name) ? `.${TEXT_FORMAT_EXTENSIONS[nativeTextFormat(name)]}` : ".docx";
+}
+
+interface ErrorDetails {
+  message: string;
+  index: number | null;
+}
+
+function errorDetails(payload: unknown): ErrorDetails {
+  const record: Record<string, unknown> =
+    typeof payload === "object" && payload !== null ? { ...payload } : {};
+  const { error, index } = record;
+  return {
+    message: typeof error === "string" && error !== "" ? error : GENERIC_ERROR,
+    index: Number.isInteger(index) ? Number(index) : null,
+  };
 }
 
 function parseDownloadFilename(disposition: string, fallback: string): string {
@@ -147,6 +152,10 @@ export function initUpload(): void {
   const fileInput = requireElement<HTMLInputElement>("file");
   const dropzone = requireElement("dropzone");
   const dropzoneText = requireElement("dropzone-text");
+  const fileList = requireElement("file_list");
+  const formatGroup = requireElement("format_group");
+  const formatOriginal = requireElement("format_original_label");
+  const formatBinderNote = requireElement("format_binder_note");
   const currentKey = requireElement<HTMLSelectElement>("current_key");
   const targetKey = requireElement<HTMLSelectElement>("target_key");
   const swap = requireElement("swap");
@@ -170,19 +179,20 @@ export function initUpload(): void {
   let previewKey = "";
   let heldEdits: HeldEdits | null = null;
   let fileSelectionId = 0;
+  const serverProblems = new Map<string, string>();
 
   function hideMessage(): void {
-    message.className = BASE_CLASSES + " hidden";
+    message.className = "hidden";
     message.replaceChildren();
   }
 
   function showError(text: string): void {
-    message.className = BASE_CLASSES + " " + ERROR_CLASSES;
+    message.className = `${NOTICE_CLASSES} ${NOTICE_ERROR_CLASSES}`;
     message.textContent = text;
   }
 
   function showResult(headingText: string, ...details: Node[]): void {
-    message.className = BASE_CLASSES + " " + OK_CLASSES;
+    message.className = `${NOTICE_CLASSES} ${NOTICE_OK_CLASSES}`;
     const heading = document.createElement("div");
     heading.className = details.length > 0 ? "mb-2 font-semibold" : "font-semibold";
     heading.textContent = headingText;
@@ -204,10 +214,7 @@ export function initUpload(): void {
     const [first] = files;
     if (first === undefined) {
       dropzoneText.replaceChildren(
-        dropzoneLine(
-          "font-medium text-slate-800 dark:text-slate-200",
-          "Drop your chord sheets here"
-        ),
+        dropzoneLine("font-medium text-ink", "Drop your chord sheets here"),
         document.createTextNode(" or click to browse")
       );
       return;
@@ -215,12 +222,54 @@ export function initUpload(): void {
     const single = files.length === 1;
     const total = files.reduce((sum, file) => sum + file.size, 0);
     dropzoneText.replaceChildren(
-      dropzoneLine(
-        "font-medium text-slate-800 dark:text-slate-200",
-        single ? first.name : `${files.length} files selected`
-      ),
-      dropzoneLine("block text-xs text-muted-light dark:text-muted", formatBytes(total))
+      dropzoneLine("font-medium text-ink", single ? first.name : `${files.length} files selected`),
+      dropzoneLine("mt-0.5 block text-xs text-graphite", formatBytes(total))
     );
+  }
+
+  function replaceFiles(files: File[]): void {
+    const transfer = new DataTransfer();
+    files.forEach((file) => transfer.items.add(file));
+    fileInput.files = transfer.files;
+    fileInput.dispatchEvent(new Event("change"));
+  }
+
+  const fileListActions = {
+    move(index: number, offset: -1 | 1): void {
+      replaceFiles(moveItem(selectedFiles(), index, offset));
+      focusFileAction(fileList, index + offset, offset < 0 ? "up" : "down");
+    },
+    remove(index: number): void {
+      const remaining = selectedFiles().filter((_, position) => position !== index);
+      replaceFiles(remaining);
+      if (remaining.length > 1) {
+        focusFileAction(fileList, index, "remove");
+      } else {
+        fileInput.focus();
+      }
+    },
+  };
+
+  function showBinderEntries(entries: BinderEntry[]): void {
+    renderFileList(fileList, entries, fileListActions);
+  }
+
+  function serverProblem(file: File): string | null {
+    return serverProblems.get(fileKey(file)) ?? null;
+  }
+
+  function flagRejectedFile(files: File[], index: number, problem: string): void {
+    const rejected = files[index];
+    if (rejected === undefined) return;
+    serverProblems.set(fileKey(rejected), problem);
+    showBinderEntries(checkBinder(files, serverProblem).entries);
+  }
+
+  function updateFormatChoice(files: File[]): void {
+    const binder = files.length > 1;
+    formatGroup.classList.toggle("hidden", binder);
+    formatBinderNote.classList.toggle("hidden", !binder);
+    formatOriginal.textContent = originalFormatLabel(files[0]?.name ?? "");
   }
 
   function selectedFormat(): string {
@@ -268,6 +317,7 @@ export function initUpload(): void {
     panel: requireElement("key_picker"),
     title: requireElement("key_picker_title"),
     distance: requireElement("key_distance"),
+    interval: requireElement("key_interval"),
     fields: [
       {
         trigger: requireElement<HTMLButtonElement>("current_key_trigger"),
@@ -387,25 +437,35 @@ export function initUpload(): void {
     detection.reset();
     const files = selectedFiles();
     const [first] = files;
+    updateFormatChoice(files);
+    if (files.length > 1) {
+      const binder = checkBinder(files, serverProblem);
+      showBinderEntries(binder.entries);
+      updateDropzone(files);
+      if (binder.summary !== null) showError(binder.summary);
+      return;
+    }
+    showBinderEntries([]);
     if (first === undefined) {
       updateDropzone([]);
       return;
     }
-    const error = files.length > 1 ? validateFiles(files) : validateFile(first);
+    const error = validateFile(first);
     if (error !== null) {
       showError(error);
       fileInput.value = "";
+      updateFormatChoice([]);
       updateDropzone([]);
       return;
     }
     updateDropzone(files);
-    if (files.length === 1 && isTextName(first.name)) {
+    if (isTextName(first.name)) {
       void first.text().then((content) => {
         if (selectionId !== fileSelectionId) return;
         detection.detect(content);
         loadPreviewSource(splitLineContents(content), selectionId);
       });
-    } else if (files.length === 1 && isDocxName(first.name)) {
+    } else {
       void detectDocxKey(first, selectionId);
       void Promise.resolve()
         .then(() => first.arrayBuffer())
@@ -425,13 +485,13 @@ export function initUpload(): void {
   (["dragenter", "dragover"] as const).forEach((name) =>
     dropzone.addEventListener(name, (event) => {
       event.preventDefault();
-      dropzone.classList.add("border-accent", "bg-accent/5");
+      dropzone.dataset["dragging"] = "";
     })
   );
   (["dragleave", "dragend", "drop"] as const).forEach((name) =>
     dropzone.addEventListener(name, (event) => {
       event.preventDefault();
-      dropzone.classList.remove("border-accent", "bg-accent/5");
+      delete dropzone.dataset["dragging"];
     })
   );
   dropzone.addEventListener("drop", (event) => {
@@ -464,7 +524,7 @@ export function initUpload(): void {
 
     const thead = document.createElement("thead");
     const headRow = document.createElement("tr");
-    headRow.className = "text-left opacity-60";
+    headRow.className = "text-left text-graphite";
     headRow.appendChild(makeHeaderCell("Before", "pb-1 pr-4 font-medium"));
     headRow.appendChild(makeHeaderCell("After", "pb-1 font-medium"));
     thead.appendChild(headRow);
@@ -473,7 +533,7 @@ export function initUpload(): void {
     const tbody = document.createElement("tbody");
     for (const [original, transposed] of changePairs(changesRaw)) {
       const row = document.createElement("tr");
-      row.className = "border-t border-app-ok/20";
+      row.className = "border-t border-rule";
       row.appendChild(makeCell(original, "py-1 pr-4 font-mono"));
       row.appendChild(makeCell(transposed, "py-1 font-mono"));
       tbody.appendChild(row);
@@ -484,8 +544,7 @@ export function initUpload(): void {
   }
 
   function textOutputFormat(name: string): TextFormat {
-    if (selectedFormat() === "pdf") return "pdf";
-    return name.toLowerCase().endsWith(".txt") ? "txt" : "chordpro";
+    return selectedFormat() === "pdf" ? "pdf" : nativeTextFormat(name);
   }
 
   function keyFormData(): FormData {
@@ -555,7 +614,8 @@ export function initUpload(): void {
       showError("Please choose a file to upload.");
       return;
     }
-    const fileError = files.length > 1 ? validateFiles(files) : validateFile(first);
+    const fileError =
+      files.length > 1 ? checkBinder(files, serverProblem).summary : validateFile(first);
     if (fileError !== null) {
       showError(fileError);
       return;
@@ -575,7 +635,11 @@ export function initUpload(): void {
 
       if (!response.ok) {
         const payload: unknown = await response.json().catch(() => null);
-        showError(errorMessage(payload));
+        const details = errorDetails(payload);
+        showError(details.message);
+        if (request.multi && details.index !== null) {
+          flagRejectedFile(files, details.index, details.message);
+        }
         return;
       }
 

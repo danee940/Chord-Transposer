@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   displayKey,
   initKeyPicker,
+  intervalName,
+  keyboardColumn,
   semitoneDistance,
   translateKey,
   type KeyPicker,
@@ -37,6 +39,7 @@ function setupDom(): void {
     <button id="target_trigger" type="button"><span id="target_label"></span></button>
     <div id="panel" class="hidden"><div id="title"></div></div>
     <p id="distance"></p>
+    <span id="interval"></span>
     <button id="outside" type="button"></button>
   `;
 }
@@ -54,6 +57,7 @@ function init(options: Partial<Parameters<typeof initKeyPicker>[0]> = {}): KeyPi
     panel: byId("panel"),
     title: byId("title"),
     distance: byId("distance"),
+    interval: byId("interval"),
     fields: [
       {
         trigger: byId<HTMLButtonElement>("current_trigger"),
@@ -112,6 +116,36 @@ describe("semitoneDistance", () => {
   });
 });
 
+describe("intervalName", () => {
+  it("names the shortest interval and its direction", () => {
+    expect(intervalName("C", "D", false)).toBe("a whole step up");
+    expect(intervalName("C", "B", false)).toBe("a half step down");
+    expect(intervalName("G", "D", false)).toBe("a fourth down");
+    expect(intervalName("C", "E", false)).toBe("a major third up");
+    expect(intervalName("C", "Eb", false)).toBe("a minor third up");
+    expect(intervalName("C", "F#", false)).toBe("a tritone up");
+  });
+
+  it("has no name for a shift of zero semitones", () => {
+    expect(intervalName("D", "D", false)).toBeNull();
+    expect(intervalName("C", "Cm", false)).toBeNull();
+  });
+
+  it("returns null when a key cannot be parsed", () => {
+    expect(intervalName("nope", "D", false)).toBeNull();
+  });
+});
+
+describe("keyboardColumn", () => {
+  it("gives each white key two of the fourteen columns", () => {
+    expect([0, 2, 4, 5, 7, 9, 11].map(keyboardColumn)).toEqual([1, 3, 5, 7, 9, 11, 13]);
+  });
+
+  it("centres each black key on the gap between its white neighbours", () => {
+    expect([1, 3, 6, 8, 10].map(keyboardColumn)).toEqual([2, 4, 8, 10, 12]);
+  });
+});
+
 describe("translateKey", () => {
   it("maps English key names to their German spelling", () => {
     expect(translateKey("B", true)).toBe("H");
@@ -148,10 +182,22 @@ describe("initKeyPicker", () => {
     expect(keyButton("C#").parentElement).toBe(keyButton("Db").parentElement);
   });
 
+  it("lays the keys out as a keyboard with black keys between the white ones", () => {
+    init();
+    const black = keyButton("C#").parentElement!;
+    const white = keyButton("D").parentElement!;
+    expect(black.className).toBe("keyboard-black");
+    expect(black.style.gridColumn).toBe("2 / span 2");
+    expect(white.className).toBe("keyboard-white");
+    expect(white.style.gridColumn).toBe("3 / span 2");
+    expect(keyButton("F#m").parentElement!.className).toBe("keyboard-black");
+  });
+
   it("shows the labels and distance on init", () => {
     init();
     expect(byId("current_label").textContent).toBe("C");
     expect(byId("distance").textContent).toBe("Same key");
+    expect(byId("interval").textContent).toBe("");
   });
 
   it("opens for a field, marks its key, and closes on a second click", () => {
@@ -161,8 +207,8 @@ describe("initKeyPicker", () => {
     expect(byId("panel").classList.contains("hidden")).toBe(false);
     expect(byId("title").textContent).toBe("Current key");
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(keyButton("C").classList.contains("border-accent")).toBe(true);
-    expect(keyButton("D").classList.contains("border-accent")).toBe(false);
+    expect(keyButton("C").getAttribute("aria-pressed")).toBe("true");
+    expect(keyButton("D").getAttribute("aria-pressed")).toBe("false");
 
     trigger.click();
     expect(byId("panel").classList.contains("hidden")).toBe(true);
@@ -188,6 +234,7 @@ describe("initKeyPicker", () => {
     expect(changed).toHaveBeenCalledOnce();
     expect(byId("target_label").textContent).toBe("F♯");
     expect(byId("distance").textContent).toBe("+6 semitones");
+    expect(byId("interval").textContent).toBe("a tritone up");
     expect(byId("panel").classList.contains("hidden")).toBe(true);
   });
 
@@ -329,5 +376,6 @@ describe("initKeyPicker", () => {
     picker.refresh();
     expect(byId("distance").textContent).toBe("");
     expect(byId("distance").classList.contains("hidden")).toBe(true);
+    expect(byId("interval").textContent).toBe("");
   });
 });

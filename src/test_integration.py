@@ -939,7 +939,10 @@ class TestPdfBinder:
         data.update({"current_key": "C", "target_key": "D"})
         response = client.post("/binder", data=data, content_type="multipart/form-data")
         assert response.status_code == 400
-        assert "Only .docx" in response.get_json()["error"]
+        assert response.get_json() == {
+            "error": "notes.txt is not a .docx file. The binder accepts .docx files only.",
+            "index": 0,
+        }
 
     def test_binder_invalid_docx_member(self, client: FlaskClient, fake_pdf: None) -> None:
         files = [

@@ -3,14 +3,8 @@ import { createChangesDisclosure } from "./changes-disclosure";
 import { createDetectionBadge } from "./detect-badge";
 import { initDiagrams } from "./diagrams/index";
 import { isInstrument, type Instrument } from "./diagrams/shapes";
-import {
-  MODE_ACTIVE_CLASSES,
-  MODE_INACTIVE_CLASSES,
-  pluralise,
-  requireElement,
-  requireSelector,
-} from "./dom";
-import { initKeyPicker } from "./key-picker";
+import { pluralise, requireElement, requireSelector } from "./dom";
+import { displayKey, initKeyPicker } from "./key-picker";
 import { loadPrefs, savePrefs } from "./prefs";
 import { createStageView } from "./stage";
 import {
@@ -144,6 +138,7 @@ export function initPaste(): void {
     panel: requireElement("text_key_picker"),
     title: requireElement("text_key_picker_title"),
     distance: requireElement("text_key_distance"),
+    interval: requireElement("text_key_interval"),
     fields: [
       {
         trigger: requireElement<HTMLButtonElement>("text_current_key_trigger"),
@@ -185,6 +180,7 @@ export function initPaste(): void {
   let outputFormat: OutputFormat = "chordpro";
   let instrument: Instrument = DEFAULT_INSTRUMENT;
   let renderedText = "";
+  let stageHeading = "";
   let transposeTimer: ReturnType<typeof setTimeout> | undefined;
   let chosenCurrentKey = textCurrentKey.value;
 
@@ -208,9 +204,10 @@ export function initPaste(): void {
     textStatus.textContent = text;
   }
 
-  function renderOutput(text: string): void {
+  function renderOutput(text: string, transposed: boolean): void {
     renderedText = text;
     diagrams.renderInto(textOutput, text);
+    textOutput.toggleAttribute("data-unchanged", !transposed);
     textCopy.disabled = text === "";
   }
 
@@ -244,8 +241,6 @@ export function initPaste(): void {
 
   function setToggleState(button: HTMLElement, attribute: string, active: boolean): void {
     button.setAttribute(attribute, String(active));
-    button.classList.remove(...MODE_ACTIVE_CLASSES, ...MODE_INACTIVE_CLASSES);
-    button.classList.add(...(active ? MODE_ACTIVE_CLASSES : MODE_INACTIVE_CLASSES));
   }
 
   function selectMode(mode: TransposeMode): void {
@@ -273,7 +268,11 @@ export function initPaste(): void {
   }
 
   function updateSemitoneDisplay(): void {
-    semitoneValue.textContent = semitones > 0 ? `+${semitones}` : String(semitones);
+    semitoneValue.textContent =
+      semitones > 0 ? `+${semitones}` : String(semitones).replace("-", "−");
+    semitoneQuick.forEach((button) =>
+      setToggleState(button, "aria-pressed", Number(button.dataset.semitone) === semitones)
+    );
   }
 
   function clampSemitones(value: number): number {
@@ -357,6 +356,12 @@ export function initPaste(): void {
       : `${label} · no chords found to change`;
   }
 
+  function stageTitle(data: PasteResult): string {
+    if (data.kind === "nashville") return `Nashville numbers · key of ${displayKey(data.tonic)}`;
+    if (data.kind === "semitone") return data.label;
+    return `${displayKey(data.from)} → ${displayKey(data.to)}`;
+  }
+
   function renderChanges(data: PasteResult): void {
     const pairs = data.kind === "nashville" ? [] : data.changes;
     if (pairs.length === 0) {
@@ -366,8 +371,7 @@ export function initPaste(): void {
     changes.show(
       pairs.map(({ from, to }) => {
         const pill = document.createElement("span");
-        pill.className =
-          "rounded-full border border-app-border-light bg-bg-light px-2 py-0.5 font-mono text-slate-700 dark:border-app-border dark:bg-bg dark:text-slate-200";
+        pill.className = "change-chip";
         pill.textContent = `${from} → ${to}`;
         return pill;
       })
@@ -397,7 +401,8 @@ export function initPaste(): void {
       return;
     }
     if (transposeMode === "semitone" && semitones === 0) {
-      renderOutput(text);
+      renderOutput(text, false);
+      stageHeading = "No shift";
       setTextStatus("No shift · pick a semitone offset to transpose.");
       changes.hide();
       syncOutputControls();
@@ -409,7 +414,8 @@ export function initPaste(): void {
       const isChordPro = data.kind !== "nashville" && data.chordpro;
       chordproFormatToggle.classList.toggle("hidden", !isChordPro);
 
-      renderOutput(data.text);
+      renderOutput(data.text, true);
+      stageHeading = stageTitle(data);
       setTextStatus(summariseResult(data));
       renderChanges(data);
     } catch (error) {
@@ -481,7 +487,7 @@ export function initPaste(): void {
 
   textStage.addEventListener("click", () => {
     if (!hasOutput()) return;
-    stageView.open(renderedText);
+    stageView.open(renderedText, stageHeading);
   });
 
   textSample.addEventListener("click", () => {

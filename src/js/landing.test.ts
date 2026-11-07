@@ -3,11 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const initCapo = vi.fn();
 const initPaste = vi.fn();
 const initSyncedPanes = vi.fn();
+const initSheetSwitches = vi.fn();
+const initThemeSwitch = vi.fn();
 const initUpload = vi.fn();
 
 vi.mock("./capo", () => ({ initCapo }));
 vi.mock("./paste", () => ({ initPaste }));
 vi.mock("./panes", () => ({ initSyncedPanes }));
+vi.mock("./sheet-switch", () => ({ initSheetSwitches }));
+vi.mock("./theme", () => ({ initThemeSwitch }));
 vi.mock("./upload", () => ({ initUpload }));
 
 describe("landing entry point", () => {
@@ -20,10 +24,12 @@ describe("landing entry point", () => {
     document.body.innerHTML = "";
   });
 
-  it("initialises nothing when the landing widgets are absent", async () => {
+  it("initialises only the theme switch when the landing widgets are absent", async () => {
     await import("./landing");
+    expect(initThemeSwitch).toHaveBeenCalledOnce();
     expect(initPaste).not.toHaveBeenCalled();
     expect(initSyncedPanes).not.toHaveBeenCalled();
+    expect(initSheetSwitches).not.toHaveBeenCalled();
     expect(initCapo).not.toHaveBeenCalled();
     expect(initUpload).not.toHaveBeenCalled();
   });
@@ -33,6 +39,7 @@ describe("landing entry point", () => {
     await import("./landing");
     expect(initPaste).toHaveBeenCalledOnce();
     expect(initSyncedPanes).toHaveBeenCalledOnce();
+    expect(initSheetSwitches).toHaveBeenCalledOnce();
     expect(initCapo).toHaveBeenCalledOnce();
     expect(initUpload).not.toHaveBeenCalled();
   });

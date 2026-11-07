@@ -41,6 +41,28 @@ test.describe("PDF binder", () => {
     expect(lines.join("\n")).not.toMatch(/\b(Cis|Fis|Gis)\b/);
   });
 
+  test("lists the songs and builds the binder in the chosen order", async ({ home }) => {
+    const { upload } = home;
+    await upload.choose(sheets.amazingGraceDocx(), sheets.secondSongDocx());
+    await expect(upload.formatGroup).toBeHidden();
+    await expect(upload.binderFormatNote).toHaveText("One combined .pdf");
+    expect(await upload.listedFiles()).toEqual(["Amazing_Grace_C.docx", "Little_Light_G.docx"]);
+
+    await upload.moveUp("Little_Light_G.docx");
+    expect(await upload.listedFiles()).toEqual(["Little_Light_G.docx", "Amazing_Grace_C.docx"]);
+    await expect(
+      upload
+        .fileRow("Little_Light_G.docx")
+        .getByRole("button", { name: "Move Little_Light_G.docx down" })
+    ).toBeFocused();
+
+    const lines = pdfTextLines(await downloadedBytes(await upload.download()));
+    expect(lines.indexOf("A          E          F#m        D")).toBeGreaterThan(-1);
+    expect(lines.indexOf("D          D7         G          D")).toBeGreaterThan(
+      lines.indexOf("A          E          F#m        D")
+    );
+  });
+
   test("builds a binder from dropped files", async ({ home }) => {
     const { upload } = home;
     await upload.drop(sheets.amazingGraceDocx(), sheets.secondSongDocx(), sheets.germanDocx());

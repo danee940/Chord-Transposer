@@ -44,7 +44,7 @@ test.describe("key picker", () => {
     await expect(keys.keyButton("Gb")).toHaveText("G♭");
     await expect(keys.keyButton("Bbm")).toHaveText("B♭m");
     await expect(keys.keyButton("Gbm")).toHaveCount(0);
-    await expect(keys.keyButton("D")).toHaveClass(/border-accent/);
+    await expect(keys.keyButton("D")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("picking a key updates the field, the distance and returns focus", async ({ home }) => {
@@ -53,11 +53,13 @@ test.describe("key picker", () => {
     await expect(keys.panel).toBeHidden();
     await expect(keys.label("target")).toHaveText("G♭");
     await expect(keys.distance).toHaveText("+6 semitones");
+    await expect(keys.interval).toHaveText("a tritone up");
     await expect(keys.trigger("target")).toBeFocused();
 
     await keys.choose("current", "Am");
     await expect(keys.label("current")).toHaveText("Am");
     await expect(keys.distance).toHaveText("−3 semitones");
+    await expect(keys.interval).toHaveText("a minor third down");
   });
 
   test("can be driven from the keyboard", async ({ home, page }) => {

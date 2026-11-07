@@ -10,6 +10,7 @@ export class KeyPicker {
   readonly panel: Locator;
   readonly title: Locator;
   readonly distance: Locator;
+  readonly interval: Locator;
   readonly swapButton: Locator;
 
   constructor(page: Page, prefix: string, swapId: string) {
@@ -18,6 +19,7 @@ export class KeyPicker {
     this.panel = page.locator(`#${prefix}key_picker`);
     this.title = page.locator(`#${prefix}key_picker_title`);
     this.distance = page.locator(`#${prefix}key_distance`);
+    this.interval = page.locator(`#${prefix}key_interval`);
     this.swapButton = page.locator(`#${swapId}`);
   }
 

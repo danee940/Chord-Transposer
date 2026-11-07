@@ -53,6 +53,11 @@ static assets, so no CDN runs in the browser. The Docker image ships these files
 as-is and does not run Node.
 
 - **CSS**: Tailwind builds `src/static/tailwind.css` from `src/styles/tailwind.input.css`.
+- **Fonts**: IBM Plex Sans, IBM Plex Mono, Source Serif 4 and a three-glyph
+  accidentals font cut from Noto Music, all OFL and self-hosted under
+  `src/static/fonts/` (sources in its `README.md`).
+- **Social card**: `src/static/og-image.png` is rendered from
+  `scripts/og-image/og-image.html`; re-render with `node scripts/og-image/render.mjs`.
 - **JS**: Vite bundles the TypeScript sources under `src/js/` into hashed assets
   under `src/static/js/` with a `manifest.json`; `app.py` reads the manifest to
   inject the correct bundle URL.

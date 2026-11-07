@@ -22,6 +22,8 @@ function textUsesGerman(text: string): boolean {
   return false;
 }
 
+export type ChordNodeFactory = (displayText: string, chordSymbol: string, german: boolean) => Node;
+
 function chordButton(
   displayText: string,
   chordSymbol: string,
@@ -43,7 +45,7 @@ function appendChordLine(
   target: Node,
   content: string,
   german: boolean,
-  onActivate: ChordActivation | undefined
+  makeChord: ChordNodeFactory
 ): void {
   TOKEN_SPLIT_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -55,8 +57,7 @@ function appendChordLine(
     }
     const token = match[2]!;
     if (isChordToken(token)) {
-      const { core } = splitAffixes(token);
-      target.appendChild(chordButton(token, core, german, onActivate));
+      target.appendChild(makeChord(token, splitAffixes(token).core, german));
     } else {
       target.appendChild(document.createTextNode(token));
     }
@@ -67,7 +68,7 @@ function appendLyricLine(
   target: Node,
   content: string,
   german: boolean,
-  onActivate: ChordActivation | undefined
+  makeChord: ChordNodeFactory
 ): void {
   BRACKET_RE.lastIndex = 0;
   let lastIndex = 0;
@@ -79,8 +80,7 @@ function appendLyricLine(
     const inner = match[1]!;
     if (inner !== "" && isChordToken(inner)) {
       target.appendChild(document.createTextNode("["));
-      const { core } = splitAffixes(inner);
-      target.appendChild(chordButton(inner, core, german, onActivate));
+      target.appendChild(makeChord(inner, splitAffixes(inner).core, german));
       target.appendChild(document.createTextNode("]"));
     } else {
       target.appendChild(document.createTextNode(match[0]));
@@ -92,19 +92,25 @@ function appendLyricLine(
   }
 }
 
-export function buildInteractiveOutput(
-  text: string,
-  onActivate?: ChordActivation
-): DocumentFragment {
+export function buildChordMarkup(text: string, makeChord: ChordNodeFactory): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const german = textUsesGerman(text);
   for (const { content, ending } of splitLinesKeepEnds(text)) {
     if (isChordLine(content)) {
-      appendChordLine(fragment, content, german, onActivate);
+      appendChordLine(fragment, content, german, makeChord);
     } else {
-      appendLyricLine(fragment, content, german, onActivate);
+      appendLyricLine(fragment, content, german, makeChord);
     }
     if (ending !== "") fragment.appendChild(document.createTextNode(ending));
   }
   return fragment;
+}
+
+export function buildInteractiveOutput(
+  text: string,
+  onActivate?: ChordActivation
+): DocumentFragment {
+  return buildChordMarkup(text, (displayText, chordSymbol, german) =>
+    chordButton(displayText, chordSymbol, german, onActivate)
+  );
 }

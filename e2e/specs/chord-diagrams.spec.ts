@@ -3,6 +3,7 @@ import { expect, test } from "../support/test";
 test.beforeEach(async ({ home }) => {
   await home.goto();
   await home.paste.enter("C   Adim   G7");
+  await home.paste.showTransposed();
 });
 
 test.describe("chord diagrams", () => {

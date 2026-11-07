@@ -5,12 +5,16 @@ const initTabs = vi.fn();
 const initPaste = vi.fn();
 const initCapo = vi.fn();
 const initSyncedPanes = vi.fn();
+const initSheetSwitches = vi.fn();
+const initThemeSwitch = vi.fn();
 
 vi.mock("./upload", () => ({ initUpload }));
 vi.mock("./tabs", () => ({ initTabs }));
 vi.mock("./paste", () => ({ initPaste }));
 vi.mock("./capo", () => ({ initCapo }));
 vi.mock("./panes", () => ({ initSyncedPanes }));
+vi.mock("./sheet-switch", () => ({ initSheetSwitches }));
+vi.mock("./theme", () => ({ initThemeSwitch }));
 
 describe("main entry point", () => {
   afterEach(() => {
@@ -25,6 +29,8 @@ describe("main entry point", () => {
     expect(initTabs).toHaveBeenCalledOnce();
     expect(initPaste).toHaveBeenCalledOnce();
     expect(initSyncedPanes).toHaveBeenCalledOnce();
+    expect(initSheetSwitches).toHaveBeenCalledOnce();
+    expect(initThemeSwitch).toHaveBeenCalledOnce();
   });
 
   it("skips the capo table when the capo widget is absent", async () => {

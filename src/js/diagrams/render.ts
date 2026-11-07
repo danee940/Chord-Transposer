@@ -5,6 +5,7 @@ import {
   QUALITY_LABELS,
   chordNotes,
   lookupShape,
+  type FrettedInstrument,
   type FrettedShape,
   type Instrument,
   type ParsedChord,
@@ -47,19 +48,58 @@ function fretWindow(frets: number[]): { baseFret: number; fretCount: number } {
   return { baseFret: minFret, fretCount: Math.max(fretCount, maxFret - minFret + 1) };
 }
 
-function renderFretboard(shape: FrettedShape): SVGElement {
-  const { frets } = shape;
-  const stringCount = frets.length;
-  const { baseFret, fretCount } = fretWindow(frets);
+const OPEN_STRINGS: Readonly<Record<FrettedInstrument, readonly (readonly [string, number])[]>> = {
+  guitar: [
+    ["E", 4],
+    ["A", 9],
+    ["D", 2],
+    ["G", 7],
+    ["B", 11],
+    ["E", 4],
+  ],
+  ukulele: [
+    ["G", 7],
+    ["C", 0],
+    ["E", 4],
+    ["A", 9],
+  ],
+};
 
-  const cellWidth = 16;
+export interface Barre {
+  fret: number;
+  from: number;
+  to: number;
+}
+
+export function findBarre(frets: readonly number[]): Barre | null {
+  if (frets.includes(0)) return null;
+  const played = frets.filter((fret) => fret > 0);
+  if (played.length === 0) return null;
+  const fret = Math.min(...played);
+  const from = frets.indexOf(fret);
+  const to = frets.lastIndexOf(fret);
+  if (from === to) return null;
+  const spanned = frets.slice(from, to + 1);
+  return spanned.every((value) => value >= fret) ? { fret, from, to } : null;
+}
+
+const MUTED = -1;
+
+export function renderFretboard(shape: FrettedShape, chord: ParsedChord): SVGElement {
+  const { frets, instrument } = shape;
+  const strings = OPEN_STRINGS[instrument];
+  const stringCount = strings.length;
+  const { baseFret, fretCount } = fretWindow(frets);
+  const rootClass = mod12(chord.rootSemitone);
+
+  const cellWidth = 18;
   const cellHeight = 22;
-  const marginLeft = 22;
+  const marginLeft = 26;
   const marginTop = 26;
   const gridWidth = (stringCount - 1) * cellWidth;
   const gridHeight = fretCount * cellHeight;
-  const width = marginLeft + gridWidth + 12;
-  const height = marginTop + gridHeight + 8;
+  const width = marginLeft + gridWidth + 16;
+  const height = marginTop + gridHeight + 22;
 
   const svg = svgEl("svg", {
     viewBox: `0 0 ${width} ${height}`,
@@ -79,7 +119,8 @@ function renderFretboard(shape: FrettedShape): SVGElement {
         x2: marginLeft + gridWidth,
         y2: y,
         stroke: "currentColor",
-        "stroke-width": row === 0 && nutThick ? 3 : 1,
+        "stroke-width": row === 0 && nutThick ? 4 : 1,
+        "stroke-linecap": "square",
       })
     );
   }
@@ -99,8 +140,8 @@ function renderFretboard(shape: FrettedShape): SVGElement {
 
   if (baseFret > 1) {
     const label = svgEl("text", {
-      x: marginLeft - 6,
-      y: marginTop + cellHeight * 0.7,
+      x: marginLeft - 7,
+      y: marginTop + cellHeight * 0.68,
       "text-anchor": "end",
       "font-size": 10,
       fill: "currentColor",
@@ -109,23 +150,58 @@ function renderFretboard(shape: FrettedShape): SVGElement {
     svg.appendChild(label);
   }
 
-  frets.forEach((fret, stringIndex) => {
+  const barre = findBarre(frets);
+  if (barre !== null) {
+    const cy = marginTop + (barre.fret - baseFret + 0.5) * cellHeight;
+    svg.appendChild(
+      svgEl("rect", {
+        class: "diagram-barre",
+        x: marginLeft + barre.from * cellWidth - 7,
+        y: cy - 7,
+        width: (barre.to - barre.from) * cellWidth + 14,
+        height: 14,
+        rx: 7,
+        fill: "currentColor",
+      })
+    );
+  }
+
+  strings.forEach(([name, openPitch], stringIndex) => {
     const x = marginLeft + stringIndex * cellWidth;
+    const fret = frets.at(stringIndex) ?? MUTED;
+    const fill =
+      fret >= 0 && mod12(openPitch + fret) === rootClass ? "var(--diagram-root)" : "currentColor";
     if (fret <= 0) {
       const marker = svgEl("text", {
         x,
-        y: marginTop - 8,
+        y: marginTop - 9,
         "text-anchor": "middle",
         "font-size": 12,
-        fill: "currentColor",
+        fill,
       });
       marker.textContent = fret === 0 ? "○" : "×";
       svg.appendChild(marker);
-      return;
+    } else {
+      svg.appendChild(
+        svgEl("circle", {
+          cx: x,
+          cy: marginTop + (fret - baseFret + 0.5) * cellHeight,
+          r: 6.5,
+          fill,
+        })
+      );
     }
-    const row = fret - baseFret;
-    const cy = marginTop + (row + 0.5) * cellHeight;
-    svg.appendChild(svgEl("circle", { cx: x, cy, r: 6, fill: "currentColor" }));
+
+    const label = svgEl("text", {
+      class: "diagram-string",
+      x,
+      y: height - 5,
+      "text-anchor": "middle",
+      "font-size": 10,
+      fill: "var(--diagram-muted)",
+    });
+    label.textContent = name;
+    svg.appendChild(label);
   });
 
   return svg;
@@ -217,20 +293,18 @@ export function renderDiagram(chord: ParsedChord | null, instrument: Instrument)
   container.className = "diagram-body flex flex-col items-center gap-2";
 
   if (chord === null) {
-    container.appendChild(
-      textLine("text-sm text-muted-light dark:text-muted", "No diagram available.")
-    );
+    container.appendChild(textLine("text-sm text-graphite", "No diagram available."));
     return container;
   }
 
   const heading = document.createElement("p");
-  heading.className = "text-base font-semibold text-slate-900 dark:text-slate-100";
+  heading.className = "font-serif text-xl font-semibold text-ink";
   heading.textContent = chord.raw;
   container.appendChild(heading);
 
   container.appendChild(
     textLine(
-      "text-xs text-muted-light dark:text-muted",
+      "text-xs text-graphite",
       `${QUALITY_LABELS[chord.family]} · ${INSTRUMENT_LABELS[instrument]}`
     )
   );
@@ -238,21 +312,25 @@ export function renderDiagram(chord: ParsedChord | null, instrument: Instrument)
   const shape = lookupShape(chord, instrument);
   if (shape === null) {
     container.appendChild(
-      textLine(
-        "text-xs text-muted-light dark:text-muted",
-        `No stored ${INSTRUMENT_LABELS[instrument]} shape.`
-      )
+      textLine("text-xs text-graphite", `No stored ${INSTRUMENT_LABELS[instrument]} shape.`)
     );
   } else if (shape.kind === "piano") {
     container.appendChild(renderKeyboard(chord));
   } else {
-    container.appendChild(renderFretboard(shape));
+    container.appendChild(renderFretboard(shape, chord));
   }
 
-  const notes = chordNotes(chord);
-  container.appendChild(
-    textLine("text-xs font-mono text-slate-700 dark:text-slate-300", notes.join(" · "))
+  const notes = textLine("font-mono text-xs text-ink", "");
+  notes.append(
+    ...chordNotes(chord).map((note, index) => {
+      if (index > 0) return ` · ${note}`;
+      const root = document.createElement("span");
+      root.className = "font-semibold text-vermilion";
+      root.textContent = note;
+      return root;
+    })
   );
+  container.appendChild(notes);
 
   return container;
 }

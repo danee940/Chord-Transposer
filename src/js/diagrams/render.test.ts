@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderDiagram } from "./render";
+import { findBarre, renderDiagram, renderFretboard } from "./render";
 import { parseChordSymbol, type Instrument } from "./shapes";
 
 function render(symbol: string | null, instrument: Instrument, german = false) {
@@ -55,10 +55,41 @@ describe("renderDiagram", () => {
     expect(node.textContent).toContain("half-diminished");
   });
 
-  it("lists the chord tones", () => {
+  it("lists the chord tones with the root marked", () => {
     const node = render("C", "guitar");
     const notes = node.querySelector("p.font-mono");
     expect(notes!.textContent).toBe("C · E · G");
+    expect(notes!.querySelector("span")!.textContent).toBe("C");
+  });
+
+  it("marks the root notes on the fretboard, fretted and open", () => {
+    const circles = [...render("C", "guitar").querySelectorAll("circle")];
+    expect(circles.map((circle) => circle.getAttribute("fill"))).toEqual([
+      "var(--diagram-root)",
+      "currentColor",
+      "var(--diagram-root)",
+    ]);
+    const openMarkers = [...render("A", "guitar").querySelectorAll("text")].filter(
+      (text) => text.textContent === "○"
+    );
+    expect(openMarkers.map((marker) => marker.getAttribute("fill"))).toEqual([
+      "var(--diagram-root)",
+      "currentColor",
+    ]);
+  });
+
+  it("names the open strings under the fretboard", () => {
+    const strings = (instrument: Instrument) =>
+      [...render("C", instrument).querySelectorAll("text.diagram-string")].map(
+        (text) => text.textContent
+      );
+    expect(strings("guitar")).toEqual(["E", "A", "D", "G", "B", "E"]);
+    expect(strings("ukulele")).toEqual(["G", "C", "E", "A"]);
+  });
+
+  it("draws a barre across the strings it covers", () => {
+    expect(render("F", "guitar").querySelector("rect.diagram-barre")).not.toBeNull();
+    expect(render("C", "guitar").querySelector("rect.diagram-barre")).toBeNull();
   });
 
   it("renders a keyboard slash chord including the bass note", () => {
@@ -94,5 +125,41 @@ describe("renderDiagram", () => {
       (r) => r.getAttribute("width") === "10" && r.getAttribute("fill")!.includes("diagram-root")
     );
     expect(rootBlack.length).toBeGreaterThan(0);
+  });
+});
+
+describe("renderFretboard", () => {
+  it("draws strings a short shape leaves out as muted", () => {
+    const chord = parseChordSymbol("E", false)!;
+    const svg = renderFretboard({ kind: "fretted", instrument: "guitar", frets: [0, 2] }, chord);
+    const markers = [...svg.querySelectorAll("text:not(.diagram-string)")].map(
+      (text) => text.textContent
+    );
+    expect(markers).toEqual(["○", "×", "×", "×", "×"]);
+    expect(svg.querySelectorAll("text.diagram-string")).toHaveLength(6);
+  });
+});
+
+describe("findBarre", () => {
+  it("spans the lowest fret when it is held on several strings without open strings", () => {
+    expect(findBarre([1, 3, 3, 2, 1, 1])).toEqual({ fret: 1, from: 0, to: 5 });
+    expect(findBarre([-1, 3, 5, 5, 5, 3])).toEqual({ fret: 3, from: 1, to: 5 });
+    expect(findBarre([2, 3, 2, 2])).toEqual({ fret: 2, from: 0, to: 3 });
+  });
+
+  it("leaves open-string shapes unbarred", () => {
+    expect(findBarre([-1, -1, 0, 2, 3, 2])).toBeNull();
+  });
+
+  it("needs the lowest fret on more than one string", () => {
+    expect(findBarre([2, 3, 1, 3])).toBeNull();
+  });
+
+  it("does not bridge a muted string", () => {
+    expect(findBarre([-1, 3, -1, 3, 3, 3])).toBeNull();
+  });
+
+  it("returns nothing for an all-muted shape", () => {
+    expect(findBarre([-1, -1, -1, -1])).toBeNull();
   });
 });

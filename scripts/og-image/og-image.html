@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    @font-face {
+      font-family: "Plex Sans";
+      font-weight: 100 700;
+      src: url("../../src/static/fonts/ibm-plex-sans-latin-wght-5.3.0.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Plex Mono";
+      font-weight: 400;
+      src: url("../../src/static/fonts/ibm-plex-mono-latin-400-5.3.0.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Plex Mono";
+      font-weight: 600;
+      src: url("../../src/static/fonts/ibm-plex-mono-latin-600-5.3.0.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "Source Serif";
+      font-weight: 600;
+      src: url("../../src/static/fonts/source-serif-4-latin-600-5.3.1.woff2") format("woff2");
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+
+    body {
+      width: 1200px;
+      height: 630px;
+      padding: 64px 72px;
+      display: flex;
+      flex-direction: column;
+      background: #efece5;
+      color: #1d1b17;
+      font-family: "Plex Sans", sans-serif;
+    }
+
+    .wordmark {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-family: "Source Serif", serif;
+      font-size: 34px;
+      font-weight: 600;
+    }
+
+    .mark {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+      background: #c4361a;
+      transform: rotate(45deg);
+    }
+
+    h1 {
+      margin-top: 40px;
+      font-family: "Source Serif", serif;
+      font-size: 72px;
+      font-weight: 600;
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+    }
+
+    .sheet {
+      position: relative;
+      margin-top: auto;
+      padding: 26px 32px;
+      border: 1px solid #ddd7cb;
+      border-radius: 8px;
+      background: #fcfaf5;
+      box-shadow: 0 2px 4px rgb(29 27 23 / 0.06);
+      font-family: "Plex Mono", monospace;
+      font-size: 30px;
+      line-height: 1.4;
+      white-space: pre;
+    }
+
+    .chord {
+      color: #c4361a;
+      font-weight: 600;
+    }
+
+    .shift {
+      position: absolute;
+      top: 26px;
+      right: 32px;
+      padding-left: 18px;
+      border-left: 3px solid #c4361a;
+      font-family: "Plex Sans", sans-serif;
+      font-size: 24px;
+      line-height: 1.35;
+      color: #5c574e;
+      white-space: normal;
+    }
+
+    .shift strong {
+      display: block;
+      font-family: "Source Serif", serif;
+      font-size: 40px;
+      font-weight: 600;
+      color: #1d1b17;
+    }
+
+    footer {
+      margin-top: 28px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 24px;
+      color: #5c574e;
+    }
+
+    footer b {
+      color: #1d1b17;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wordmark"><span class="mark"></span>Chord Transposer</div>
+  <h1>Change the key.<br />Keep the sheet.</h1>
+  <div class="sheet"> <span class="chord">D</span>      <span class="chord">D7</span>         <span class="chord">G</span>         <span class="chord">D</span>
+Amazing grace, how sweet the sound<p class="shift">a fourth down<strong>G → D</strong></p></div>
+  <footer><span>Paste chords or upload <b>.docx</b>, <b>.txt</b>, <b>ChordPro</b></span><b>chordtransposer.app</b></footer>
+</body>
+
+</html>

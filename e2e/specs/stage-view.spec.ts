@@ -8,6 +8,7 @@ test.beforeEach(async ({ home }) => {
   await home.goto();
   await home.paste.enter(LONG_SHEET);
   await expect(home.paste.stageButton).toBeEnabled();
+  await home.paste.showTransposed();
 });
 
 test.describe("stage view", () => {
@@ -18,8 +19,10 @@ test.describe("stage view", () => {
     const { paste } = home;
     await paste.stageButton.click();
     await expect(paste.stageView.root).toBeVisible();
+    await expect(paste.stageView.heading).toHaveText("C → D");
     await expect(paste.stageView.sheet).toContainText("D        G        A");
     await expect(paste.stageView.sheet.locator("button")).toHaveCount(0);
+    await expect(paste.stageView.chords.first()).toHaveText("D");
     await expect(page.locator("body")).toHaveClass(/overflow-hidden/);
 
     await paste.stageView.closeButton.click();
@@ -38,6 +41,25 @@ test.describe("stage view", () => {
     await expect.poll(() => stageView.fontSize()).toBe(48);
     for (let step = 0; step < 20; step += 1) await stageView.smallerText.click();
     await expect.poll(() => stageView.fontSize()).toBe(16);
+  });
+
+  test("lays the sheet out in two columns on a wide screen", async ({ home }) => {
+    const { stageView } = home.paste;
+    await home.paste.stageButton.click();
+    await stageView.columnsToggle.click();
+    await expect(stageView.columnsToggle).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(() => stageView.sheet.evaluate((element) => getComputedStyle(element).columnCount))
+      .toBe("2");
+  });
+
+  test("changes the font size from the keyboard", async ({ home, page }) => {
+    const { stageView } = home.paste;
+    await home.paste.stageButton.click();
+    await page.keyboard.press("+");
+    await expect.poll(() => stageView.fontSize()).toBe(26);
+    await page.keyboard.press("-");
+    await expect.poll(() => stageView.fontSize()).toBe(24);
   });
 
   test("autoscrolls while playing and stops on pause", async ({ home }) => {

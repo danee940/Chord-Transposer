@@ -48,6 +48,7 @@ interface ContractCase {
     download?: string;
     binder_heading?: string;
     error?: string;
+    flagged_file?: string;
   };
 }
 
@@ -62,13 +63,16 @@ function setupDom(form: Record<string, string>): void {
     <form id="form">
       <input id="file" name="file" type="file" multiple />
       <div id="dropzone"><span id="dropzone-text"></span></div>
+      <ol id="file_list" class="hidden"></ol>
+      <div id="format_group"><span id="format_original_label"></span></div>
+      <span id="format_binder_note" class="hidden"></span>
       <select id="current_key" name="current_key">${keyOptions}</select>
       <select id="target_key" name="target_key">${keyOptions}</select>
       <button id="swap" type="button"></button>
       <button id="current_key_trigger" type="button"><span id="current_key_label"></span></button>
       <button id="target_key_trigger" type="button"><span id="target_key_label"></span></button>
       <div id="key_picker" class="hidden"><div id="key_picker_title"></div></div>
-      <p id="key_distance"></p>
+      <p><span id="key_distance"></span><span id="key_interval"></span></p>
       <span id="upload_detected_wrap" class="hidden">
         <span id="upload_detected_label"></span>
         <button id="upload_detected_alt" type="button" class="hidden"></button>
@@ -196,6 +200,10 @@ function assertUi(contractCase: ContractCase, downloads: string[]): void {
   }
   if (ui.error !== undefined) {
     expect(message.textContent).toBe(ui.error);
+  }
+  if (ui.flagged_file !== undefined) {
+    const row = document.querySelector(`#file_list li[data-file="${ui.flagged_file}"]`);
+    expect(row?.hasAttribute("data-invalid")).toBe(true);
   }
   if (ui.heading !== undefined) {
     expect(message.textContent).toContain(ui.heading);

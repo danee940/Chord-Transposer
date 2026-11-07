@@ -39,6 +39,6 @@ describe("renderChangeRow", () => {
   it("lists the chords beyond the bare root as muted members", () => {
     const row = renderChangeRow({ from: "C", to: "D", members: ["C", "C/E", "C7"] });
     expect(row.textContent).toBe("C → D · C/E · C7");
-    expect(row.children[1]!.className).toContain("text-muted-light");
+    expect(row.children[1]!.className).toContain("text-graphite");
   });
 });

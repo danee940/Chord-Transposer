@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildInteractiveOutput } from "./output";
+import { buildChordMarkup, buildInteractiveOutput } from "./output";
 
 function stripToPlainText(text: string) {
   const container = document.createElement("div");
@@ -79,5 +79,25 @@ describe("buildInteractiveOutput round-trip", () => {
     );
     container.querySelector("button.chord-token")!.dispatchEvent(new Event("click"));
     expect(activated).toBe("C");
+  });
+});
+
+describe("buildChordMarkup", () => {
+  it("builds chords with the given factory and keeps the text", () => {
+    const container = document.createElement("div");
+    container.appendChild(
+      buildChordMarkup("Cis  H\n[Fis]la", (display, symbol, german) => {
+        const chord = document.createElement("mark");
+        chord.textContent = display;
+        chord.title = `${symbol}:${german}`;
+        return chord;
+      })
+    );
+    expect(container.textContent).toBe("Cis  H\n[Fis]la");
+    expect([...container.querySelectorAll("mark")].map((mark) => mark.title)).toEqual([
+      "Cis:true",
+      "H:true",
+      "Fis:true",
+    ]);
   });
 });

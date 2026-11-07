@@ -1,24 +1,19 @@
-<div class="overflow-x-auto rounded-xl border border-app-border-light dark:border-app-border">
-  <table class="w-full border-collapse text-center text-sm">
+<div class="overflow-x-auto rounded-sheet border border-rule bg-paper">
+  <table class="data-table text-center">
     <thead>
-      <tr class="bg-slate-100/70 text-muted-light dark:bg-slate-800/60 dark:text-muted">
-        <th scope="col"
-          class="sticky left-0 z-10 bg-slate-100/70 px-3 py-2.5 text-left font-medium dark:bg-slate-800/60">
-          Note</th>
+      <tr>
+        <th scope="col" class="sticky left-0 z-10 bg-paper text-left">Note</th>
         {% for header in chart.headers %}
-        <th scope="col" class="whitespace-nowrap px-3 py-2.5 font-medium">{{ header }}</th>
+        <th scope="col">{{ header }}</th>
         {% endfor %}
       </tr>
     </thead>
     <tbody>
       {% for row in chart.rows %}
-      <tr
-        class="border-t border-app-border-light odd:bg-slate-50/50 hover:bg-accent/5 dark:border-app-border dark:odd:bg-slate-800/30">
-        <th scope="row"
-          class="sticky left-0 z-10 bg-inherit px-3 py-2 text-left font-mono font-semibold text-slate-900 dark:text-slate-100">
-          {{ row.note }}</th>
+      <tr>
+        <th scope="row" class="sticky left-0 z-10 bg-paper text-left font-mono font-semibold">{{ row.note }}</th>
         {% for cell in row.cells %}
-        <td class="px-3 py-2 font-mono text-slate-700 dark:text-slate-200">{{ cell }}</td>
+        <td class="font-mono">{{ cell }}</td>
         {% endfor %}
       </tr>
       {% endfor %}

@@ -28,7 +28,7 @@ function buildDom() {
       <button id="text_current_key_trigger" type="button"><span id="text_current_key_label"></span></button>
       <button id="text_target_key_trigger" type="button"><span id="text_target_key_label"></span></button>
       <div id="text_key_picker" class="hidden"><div id="text_key_picker_title"></div></div>
-      <p id="text_key_distance_wrap"><span id="text_key_distance"></span></p>
+      <p id="text_key_distance_wrap"><span id="text_key_distance"></span><span id="text_key_interval"></span></p>
       <span id="text_linecount"></span>
       <button id="text_sample"></button>
       <button id="text_clear"></button>

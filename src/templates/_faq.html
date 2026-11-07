@@ -1,16 +1,17 @@
-<article
-  class="rounded-2xl border border-app-border-light bg-card-light/60 p-6 backdrop-blur-sm dark:border-app-border dark:bg-card/60 sm:p-8">
-  <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Frequently asked questions</h2>
-  <div class="mt-4 divide-y divide-app-border-light dark:divide-app-border">
+<article class="prose-section">
+  <h2 class="section-title">Frequently asked questions</h2>
+  <div class="mt-4 border-b border-rule">
     {% for item in faq_items %}
-    <details class="group py-3">
+    <details class="group border-t border-rule">
       <summary
-        class="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+        class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-[0.9375rem] font-medium text-ink hover:text-vermilion">
         {{ item.question }}
-        <span
-          class="ml-4 shrink-0 text-muted-light transition-transform duration-200 group-open:rotate-45 dark:text-muted">&#43;</span>
+        <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden="true"
+          class="shrink-0 text-graphite transition-transform duration-200 group-open:rotate-45">
+          <path d="M6 1.5v9M1.5 6h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
       </summary>
-      <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      <p class="-mt-1 pb-4 pr-8">
         {{ item.answer }}
       </p>
     </details>

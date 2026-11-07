@@ -46,6 +46,8 @@ export class PastePanel {
   readonly changesToggle: Locator;
   readonly changesList: Locator;
 
+  readonly transposedSheetToggle: Locator;
+
   constructor(page: Page) {
     this.page = page;
     this.root = page.locator("#panel-paste");
@@ -84,6 +86,8 @@ export class PastePanel {
     this.changesWrap = page.locator("#text_changes_wrap");
     this.changesToggle = page.locator("#text_changes_toggle");
     this.changesList = page.locator("#text_changes");
+
+    this.transposedSheetToggle = this.root.locator('button[data-sheet-view="output"]');
   }
 
   modeTab(mode: PasteMode): Locator {
@@ -108,6 +112,10 @@ export class PastePanel {
 
   async enter(text: string): Promise<void> {
     await this.input.fill(text);
+  }
+
+  async showTransposed(): Promise<void> {
+    if (await this.transposedSheetToggle.isVisible()) await this.transposedSheetToggle.click();
   }
 
   async chooseInstrument(instrument: Instrument): Promise<void> {

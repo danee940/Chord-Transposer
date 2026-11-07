@@ -16,6 +16,9 @@ export class UploadPanel {
   readonly submitButton: Locator;
   readonly spinner: Locator;
   readonly message: Locator;
+  readonly fileList: Locator;
+  readonly formatGroup: Locator;
+  readonly binderFormatNote: Locator;
 
   readonly detectedWrap: Locator;
   readonly detectedLabel: Locator;
@@ -40,6 +43,9 @@ export class UploadPanel {
     this.submitButton = page.locator("#submit");
     this.spinner = page.locator("#spinner");
     this.message = page.locator("#message");
+    this.fileList = page.locator("#file_list");
+    this.formatGroup = page.locator("#format_group");
+    this.binderFormatNote = page.locator("#format_binder_note");
 
     this.detectedWrap = page.locator("#upload_detected_wrap");
     this.detectedLabel = page.locator("#upload_detected_label");
@@ -52,6 +58,28 @@ export class UploadPanel {
     this.changesWrap = page.locator("#upload_changes_wrap");
     this.changesToggle = page.locator("#upload_changes_toggle");
     this.changesList = page.locator("#upload_changes");
+  }
+
+  fileRow(name: string): Locator {
+    return this.fileList.locator(`li[data-file="${name}"]`);
+  }
+
+  async listedFiles(): Promise<string[]> {
+    return this.fileList
+      .locator("li")
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-file") ?? ""));
+  }
+
+  async moveUp(name: string): Promise<void> {
+    await this.fileRow(name)
+      .getByRole("button", { name: `Move ${name} up` })
+      .click();
+  }
+
+  async remove(name: string): Promise<void> {
+    await this.fileRow(name)
+      .getByRole("button", { name: `Remove ${name}` })
+      .click();
   }
 
   formatOption(format: OutputFormat): Locator {

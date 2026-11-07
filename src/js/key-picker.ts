@@ -57,17 +57,16 @@ export function translateKey(value: string, german: boolean): string {
   return (german ? TO_GERMAN : TO_ENGLISH).get(value) ?? value;
 }
 
-const KEY_BUTTON_CLASSES =
-  "flex-1 rounded-lg border border-app-border-light bg-bg-light px-1 py-1.5 font-mono text-xs " +
-  "font-medium text-slate-700 transition-colors hover:border-accent focus:outline-hidden " +
-  "focus:ring-2 focus:ring-accent dark:border-app-border dark:bg-bg dark:text-slate-200";
-const KEY_SELECTED_CLASSES = ["border-accent", "bg-accent/10", "text-accent", "dark:text-accent"];
+const WHITE_PITCH_CLASSES: readonly number[] = [0, 2, 4, 5, 7, 9, 11];
 
-const NOTATION_BUTTON_CLASSES =
-  "rounded-sm px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide " +
-  "text-muted-light transition-colors hover:text-slate-700 focus:outline-hidden " +
-  "focus:ring-1 focus:ring-accent dark:text-muted dark:hover:text-slate-200";
-const NOTATION_ACTIVE_CLASSES = ["bg-accent/10", "text-accent", "dark:text-accent"];
+const INTERVAL_NAMES: Readonly<Record<number, string>> = {
+  1: "a half step",
+  2: "a whole step",
+  3: "a minor third",
+  4: "a major third",
+  5: "a fourth",
+  6: "a tritone",
+};
 
 const NOTATION_CHOICES: readonly (readonly [label: string, german: boolean])[] = [
   ["A–B", false],
@@ -78,19 +77,54 @@ export function displayKey(value: string): string {
   return value.charAt(0) + value.slice(1).replace("#", "♯").replace("b", "♭");
 }
 
+interface KeyShift {
+  semitones: number;
+  sameKey: boolean;
+}
+
+function shortestShift(
+  currentValue: string,
+  targetValue: string,
+  german: boolean
+): KeyShift | null {
+  const current = parseKey(currentValue);
+  const target = parseKey(targetValue);
+  if (current === null || target === null) return null;
+  const upward = mod12(keySemitone(target.note, german) - keySemitone(current.note, german));
+  return {
+    semitones: upward <= 6 ? upward : upward - 12,
+    sameKey: upward === 0 && current.minor === target.minor,
+  };
+}
+
 export function semitoneDistance(
   currentValue: string,
   targetValue: string,
   german: boolean
 ): string | null {
-  const current = parseKey(currentValue);
-  const target = parseKey(targetValue);
-  if (current === null || target === null) return null;
-  const upward = mod12(keySemitone(target.note, german) - keySemitone(current.note, german));
-  if (upward === 0 && current.minor === target.minor) return "Same key";
-  const shortest = upward <= 6 ? upward : upward - 12;
-  const sign = shortest < 0 ? "−" : "+";
-  return `${sign}${pluralise(Math.abs(shortest), "semitone")}`;
+  const shift = shortestShift(currentValue, targetValue, german);
+  if (shift === null) return null;
+  if (shift.sameKey) return "Same key";
+  const sign = shift.semitones < 0 ? "−" : "+";
+  return `${sign}${pluralise(Math.abs(shift.semitones), "semitone")}`;
+}
+
+export function intervalName(
+  currentValue: string,
+  targetValue: string,
+  german: boolean
+): string | null {
+  const shift = shortestShift(currentValue, targetValue, german);
+  if (shift === null) return null;
+  const name = INTERVAL_NAMES[Math.abs(shift.semitones)];
+  if (name === undefined) return null;
+  return `${name} ${shift.semitones < 0 ? "down" : "up"}`;
+}
+
+export function keyboardColumn(pitchClass: number): number {
+  const whiteIndex = WHITE_PITCH_CLASSES.indexOf(pitchClass);
+  if (whiteIndex !== -1) return whiteIndex * 2 + 1;
+  return WHITE_PITCH_CLASSES.indexOf(pitchClass - 1) * 2 + 2;
 }
 
 export interface KeyPickerField {
@@ -104,6 +138,7 @@ export interface KeyPickerOptions {
   panel: HTMLElement;
   title: HTMLElement;
   distance: HTMLElement;
+  interval: HTMLElement;
   fields: readonly [KeyPickerField, KeyPickerField];
   onNotationPick?: (german: boolean) => void;
   savedNotation?: boolean | undefined;
@@ -119,6 +154,7 @@ export function initKeyPicker({
   panel,
   title,
   distance,
+  interval,
   fields,
   onNotationPick,
   savedNotation,
@@ -133,8 +169,9 @@ export function initKeyPicker({
     const value = keyName(names, german);
     const button = document.createElement("button");
     button.type = "button";
-    button.className = KEY_BUTTON_CLASSES;
+    button.className = "key-button";
     button.dataset["key"] = value;
+    button.setAttribute("aria-pressed", "false");
     button.textContent = displayKey(value);
     button.addEventListener("click", () => pick(value));
     buttons.push(button);
@@ -144,27 +181,27 @@ export function initKeyPicker({
   function buildSection(label: string, columns: readonly (readonly KeyNames[])[]): HTMLElement {
     const section = document.createElement("div");
     const heading = document.createElement("div");
-    heading.className =
-      "mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-light dark:text-muted";
+    heading.className = "mb-1.5 text-xs font-medium text-graphite";
     heading.textContent = label;
-    section.appendChild(heading);
-    const grid = document.createElement("div");
-    grid.className = "grid grid-cols-6 gap-1 sm:grid-cols-12";
-    for (const column of columns) {
-      const cell = document.createElement("div");
-      cell.className = "contents sm:flex sm:flex-col sm:gap-1";
-      for (const names of column) {
-        cell.appendChild(keyButton(names));
+    const keyboard = document.createElement("div");
+    keyboard.className = "keyboard";
+    columns.forEach((spellings, pitchClass) => {
+      const key = document.createElement("div");
+      key.className = WHITE_PITCH_CLASSES.includes(pitchClass)
+        ? "keyboard-white"
+        : "keyboard-black";
+      key.style.gridColumn = `${keyboardColumn(pitchClass)} / span 2`;
+      for (const names of spellings) {
+        key.appendChild(keyButton(names));
       }
-      grid.appendChild(cell);
-    }
-    section.appendChild(grid);
+      keyboard.appendChild(key);
+    });
+    section.append(heading, keyboard);
     return section;
   }
 
   const header = document.createElement("div");
-  header.className = "mb-2 flex items-center justify-between gap-2";
-  title.classList.remove("mb-2");
+  header.className = "mb-3 flex items-center justify-between gap-2";
   title.replaceWith(header);
   header.appendChild(title);
 
@@ -174,7 +211,7 @@ export function initKeyPicker({
   for (const [label, value] of NOTATION_CHOICES) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = NOTATION_BUTTON_CLASSES;
+    button.className = "key-names-option";
     button.dataset["notation"] = value ? "german" : "english";
     button.textContent = label;
     button.addEventListener("click", () => pickNotation(value));
@@ -184,7 +221,7 @@ export function initKeyPicker({
   header.appendChild(notationSwitch);
 
   const sections = document.createElement("div");
-  sections.className = "space-y-3";
+  sections.className = "space-y-4";
   panel.appendChild(sections);
 
   function buildGrid(): void {
@@ -202,7 +239,6 @@ export function initKeyPicker({
   function markNotation(): void {
     for (const button of notationButtons) {
       const isActive = (button.dataset["notation"] === "german") === german;
-      NOTATION_ACTIVE_CLASSES.forEach((cls) => button.classList.toggle(cls, isActive));
       button.setAttribute("aria-pressed", String(isActive));
     }
   }
@@ -233,8 +269,7 @@ export function initKeyPicker({
   function markSelected(): void {
     const selected = active?.select.value;
     for (const button of buttons) {
-      const isSelected = button.dataset["key"] === selected;
-      KEY_SELECTED_CLASSES.forEach((cls) => button.classList.toggle(cls, isSelected));
+      button.setAttribute("aria-pressed", String(button.dataset["key"] === selected));
     }
   }
 
@@ -242,9 +277,11 @@ export function initKeyPicker({
     for (const field of fields) {
       field.label.textContent = displayKey(field.select.value);
     }
-    const text = semitoneDistance(fields[0].select.value, fields[1].select.value, german);
+    const [current, target] = [fields[0].select.value, fields[1].select.value];
+    const text = semitoneDistance(current, target, german);
     distance.textContent = text ?? "";
     distance.classList.toggle("hidden", text === null);
+    interval.textContent = intervalName(current, target, german) ?? "";
     markSelected();
     markNotation();
   }

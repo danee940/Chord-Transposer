@@ -27,7 +27,7 @@ test.describe("transposing by semitones", () => {
     await paste.semitoneDown.click();
     await paste.semitoneDown.click();
     await paste.semitoneDown.click();
-    await expect(paste.semitoneValue).toHaveText("-1");
+    await expect(paste.semitoneValue).toHaveText("−1");
     await expect(paste.status).toHaveText("−1 semitone (♯) · 3 chords changed");
     await expect.poll(() => paste.outputText()).toBe("B   E   F#7");
   });
@@ -43,7 +43,7 @@ test.describe("transposing by semitones", () => {
     await expect(paste.semitoneValue).toHaveText("0");
     await paste.quickShift(-5).click();
     for (let step = 0; step < 8; step += 1) await paste.semitoneDown.click();
-    await expect(paste.semitoneValue).toHaveText("-11");
+    await expect(paste.semitoneValue).toHaveText("−11");
   });
 
   test("spells shifted chords with sharps or flats", async ({ home }) => {

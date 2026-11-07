@@ -1,4 +1,4 @@
-import { ACTIVE_TAB_CLASSES, INACTIVE_TAB_CLASSES, requireElement } from "./dom";
+import { requireElement } from "./dom";
 
 type Tab = "paste" | "upload";
 
@@ -14,10 +14,6 @@ export function initTabs(): void {
     tabUpload.setAttribute("aria-selected", String(!paste));
     panelPaste.classList.toggle("hidden", !paste);
     panelUpload.classList.toggle("hidden", paste);
-    tabPaste.classList.remove(...ACTIVE_TAB_CLASSES, ...INACTIVE_TAB_CLASSES);
-    tabUpload.classList.remove(...ACTIVE_TAB_CLASSES, ...INACTIVE_TAB_CLASSES);
-    tabPaste.classList.add(...(paste ? ACTIVE_TAB_CLASSES : INACTIVE_TAB_CLASSES));
-    tabUpload.classList.add(...(paste ? INACTIVE_TAB_CLASSES : ACTIVE_TAB_CLASSES));
   }
 
   tabPaste.addEventListener("click", () => selectTab("paste"));

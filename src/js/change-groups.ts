@@ -21,7 +21,7 @@ export function groupChanges(changes: readonly Change[]): ChangeGroup[] {
 
 export function renderChangeRow(group: ChangeGroup): HTMLDivElement {
   const row = document.createElement("div");
-  row.className = "py-1.5 font-mono text-slate-700 dark:text-slate-200";
+  row.className = "py-1.5 font-mono text-ink";
   const label = document.createElement("span");
   label.className = "font-medium";
   label.textContent = `${group.from} → ${group.to}`;
@@ -29,7 +29,7 @@ export function renderChangeRow(group: ChangeGroup): HTMLDivElement {
   const extras = group.members.filter((member) => member !== group.from);
   if (extras.length > 0) {
     const members = document.createElement("span");
-    members.className = "text-muted-light dark:text-muted";
+    members.className = "text-graphite";
     members.textContent = ` · ${extras.join(" · ")}`;
     row.appendChild(members);
   }

@@ -46,33 +46,36 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
 
 ## User interface
 
-- [ ] **Theme toggle (S)**: a light / dark / system switch in the nav. Dark
-      mode currently only follows the OS setting (`darkMode: "media"`).
+- [x] **Theme toggle (S)**: a light / dark / system switch in the masthead,
+      saved in the browser and applied before first paint; the stage view has
+      its own light/dark flip.
 - [x] **Upload preview before download (M)**: show the transposed sheet and the
       list of chord changes for uploaded files, as the paste view already does,
       instead of downloading straight away. Single uploads (.docx and text) now
       get a live, editable preview whose edits are carried into the download;
       the binder flow is unchanged.
-- [ ] **Binder file list (M)**: show the chosen files with their names and
-      sizes when several `.docx` files are dropped, with drag-to-reorder and
-      remove buttons, so the binder's song order can be checked.
-- [ ] **Highlight changed chords (S)**: mark the transposed chords in the output
-      pane so they stand out from the lyrics, with a matching highlight on hover
-      in the input pane.
+- [x] **Binder file list (M)**: show the chosen files with their names and
+      sizes when several `.docx` files are dropped, with move up / down and
+      remove buttons, so the binder's song order can be checked and changed.
+- [ ] **Highlight changed chords (S)**: transposed chords in the output pane are
+      now drawn in the accent colour so they stand out from the lyrics; still
+      missing is a matching highlight on hover in the input pane.
 - [x] **Visual key picker (M)**: a key grid or circle-of-fifths picker with
       major and minor rows to replace the long dropdowns, and showing the
-      semitone distance between the current and desired key. Both panels use
-      the pitch-class grid in `src/js/key-picker.ts`, with stacked enharmonic
-      spellings so `F#` and `Gb` stay separately selectable.
+      semitone distance and interval between the current and desired key. Both
+      panels use the piano-keyboard picker in `src/js/key-picker.ts`, with each
+      black key split into its two spellings so `F#` and `Gb` stay separately
+      selectable.
 - [ ] **Download pasted results (S)**: add `.txt` and `.cho` download buttons
       next to **Copy**, plus a "Copied" confirmation on the copy button.
 - [ ] **Remember upload settings (S)**: store the upload panel's keys and output
       format in `prefs.js` too, as the paste panel already does.
-- [ ] **Mobile layout pass (M)**: stacked panes that size to the content
-      instead of two fixed-height boxes, larger tap targets on the semitone
-      controls, and a sticky action bar for Copy and Stage view.
-- [ ] **Clearer upload errors (S)**: show which file in a multi-file drop
+- [ ] **Mobile layout pass (M)**: phones now show one sheet at a time with a
+      "Your chords / Transposed" switch, and the semitone controls have 44px
+      tap targets. Still open: a sticky action bar for Copy and Stage view.
+- [x] **Clearer upload errors (S)**: show which file in a multi-file drop
       failed and why, inline next to that file instead of one message for all.
+      Covers client-side checks and files the server cannot read.
 
 ## SEO
 
@@ -127,8 +130,10 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       shapes, and left-handed fretboards.
 - [ ] **Shareable links (S)**: encode the key, target key and options in the
       URL so a transposed result can be shared or bookmarked.
-- [ ] **Stage mode polish (S)**: a screen wake lock while performing, plus
-      foot-pedal and keyboard shortcuts to page through songs.
+- [ ] **Stage mode polish (S)**: done: chords highlighted apart from the
+      lyrics, a key heading, stanza-aware two-column layout, a screen wake lock
+      and `+` / `−` size shortcuts. Still open: foot-pedal support and paging
+      through several songs.
 
 ## Platform and quality
 

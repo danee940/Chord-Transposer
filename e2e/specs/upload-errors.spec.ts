@@ -27,21 +27,6 @@ test.describe("rejecting files before upload", () => {
       files: [uploadFile("huge.txt", Buffer.alloc(10 * MEGABYTE + 1, "C "))],
       message: "File is too large. The maximum size is 10 MB.",
     },
-    {
-      title: "more than 20 binder files",
-      files: Array.from({ length: 21 }, (_, index) => uploadFile(`song-${index}.docx`, "x")),
-      message: "Too many files. The maximum is 20.",
-    },
-    {
-      title: "a non-.docx file in the binder",
-      files: [sheets.amazingGraceDocx(), sheets.plainText()],
-      message: "The binder accepts .docx files only.",
-    },
-    {
-      title: "an empty file in the binder",
-      files: [sheets.amazingGraceDocx(), uploadFile("empty.docx", "")],
-      message: "One of the selected files is empty.",
-    },
   ];
 
   for (const { title, files, message } of cases) {
@@ -49,11 +34,51 @@ test.describe("rejecting files before upload", () => {
       const { upload } = home;
       await upload.choose(...files);
       await expect(upload.message).toHaveText(message);
-      await expect(upload.message).toHaveClass(/app-error/);
+      await expect(upload.message).toHaveClass(/notice-error/);
       await expect(upload.dropzoneText).toContainText("Drop your chord sheets here");
       await expect(upload.fileInput).toHaveJSProperty("files.length", 0);
     });
   }
+
+  const binderCases = [
+    {
+      title: "a non-.docx file in the binder",
+      files: [sheets.amazingGraceDocx(), sheets.plainText()],
+      flagged: "Twinkle_C.txt",
+      reason: "Only .docx files can go in a binder.",
+    },
+    {
+      title: "an empty file in the binder",
+      files: [sheets.amazingGraceDocx(), uploadFile("empty.docx", "")],
+      flagged: "empty.docx",
+      reason: "This file is empty.",
+    },
+  ];
+
+  for (const { title, files, flagged, reason } of binderCases) {
+    test(`flags ${title} and keeps the rest of the selection`, async ({ home }) => {
+      const { upload } = home;
+      await upload.choose(...files);
+      await expect(upload.message).toHaveText("Remove the highlighted file to build the binder.");
+      await expect(upload.fileRow(flagged)).toHaveAttribute("data-invalid");
+      await expect(upload.fileRow(flagged)).toContainText(reason);
+      await expect(upload.fileInput).toHaveJSProperty("files.length", 2);
+
+      await upload.remove(flagged);
+      await expect(upload.message).toBeHidden();
+      await expect(upload.fileInput).toHaveJSProperty("files.length", 1);
+      await expect(upload.preview).toBeVisible();
+    });
+  }
+
+  test("rejects more than 20 binder files", async ({ home }) => {
+    const { upload } = home;
+    await upload.choose(
+      ...Array.from({ length: 21 }, (_, index) => uploadFile(`song-${index}.docx`, "x"))
+    );
+    await expect(upload.message).toHaveText("Too many files. The maximum is 20.");
+    await expect(upload.fileList.locator("li")).toHaveCount(21);
+  });
 
   test("rejects binder files over 40 MB combined", async ({ home }, testInfo) => {
     const paths = await Promise.all(
@@ -74,7 +99,7 @@ test.describe("rejecting files before upload", () => {
     page.on("request", (request) => requests.push(request.url()));
     await home.upload.submitButton.click();
     await expect(home.upload.message).toHaveText("Please choose a file to upload.");
-    await expect(home.upload.message).toHaveClass(/app-error/);
+    await expect(home.upload.message).toHaveClass(/notice-error/);
     expect(requests.filter((url) => url.includes("/transpose"))).toEqual([]);
   });
 
@@ -96,6 +121,17 @@ test.describe("reporting server errors", () => {
     await upload.submitButton.click();
     await expect(upload.message).toHaveText("Could not read the file as a valid .docx document.");
     await expect(upload.submitButton).toBeEnabled();
+  });
+
+  test("flags the binder song the server cannot read", async ({ home }) => {
+    const { upload } = home;
+    await upload.choose(sheets.amazingGraceDocx(), uploadFile("broken.docx", "not a zip archive"));
+    await upload.submitButton.click();
+    await expect(upload.message).toHaveText(
+      "Could not read broken.docx as a valid .docx document."
+    );
+    await expect(upload.fileRow("broken.docx")).toHaveAttribute("data-invalid");
+    await expect(upload.fileRow("Amazing_Grace_C.docx")).not.toHaveAttribute("data-invalid");
   });
 
   test("reports a text file that is not UTF-8", async ({ home }) => {
