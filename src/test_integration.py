@@ -636,13 +636,6 @@ class TestDocxCoverage:
         out, _, _, _ = t.transpose_document_bytes(_save(document), "C", "D")
         assert _paragraphs(out)[0] == "C G"
 
-    def test_key_detection_counts_a_text_box_once(self) -> None:
-        document = Document()
-        document.add_paragraph()._p.append(_shape_run(_drawing_text_box("G C D G")))
-        detection = t.detect_key_from_docx_bytes(_save(document))
-        assert detection["key"] == "G"
-        assert detection["chords"] == 4
-
     def test_preview_paragraphs_leave_out_text_boxes(self) -> None:
         document = Document()
         document.add_paragraph("C G")
@@ -1029,35 +1022,6 @@ class TestFileTransposerPage:
         assert response.status_code == 200
         assert "sheet_D.docx" in response.headers["Content-Disposition"]
         assert _paragraphs(response.data)[0] == "D A Bm G"
-
-
-class TestDetectKeyFromDocx:
-    """End-to-end key detection from real .docx bytes."""
-
-    def test_detects_key_from_body_chords(self) -> None:
-        docx_bytes = _make_docx(
-            "G        C        D7       G",
-            "Amazing grace how sweet the sound",
-            "Em       C        D7       G",
-        )
-        result = t.detect_key_from_docx_bytes(docx_bytes)
-        assert result["key"] == "G"
-        assert result["ambiguous"] is False
-        assert result["chords"] == 8
-
-    def test_detects_key_from_table_chords(self) -> None:
-        docx_bytes = _make_docx_with_table("Am Dm E7 Am", "lyrics only")
-        result = t.detect_key_from_docx_bytes(docx_bytes)
-        assert result["key"] == "Am"
-
-    def test_lyrics_only_docx_returns_none(self) -> None:
-        docx_bytes = _make_docx("Only lyrics here", "and more lyrics")
-        assert t.detect_key_from_docx_bytes(docx_bytes)["key"] is None
-
-
-# ---------------------------------------------------------------------------
-# Upload preview edits: the browser-side preview feeds corrections back
-# ---------------------------------------------------------------------------
 
 
 def _edits_field(*edits: tuple[int, str, str]) -> str:

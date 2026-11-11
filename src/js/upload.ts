@@ -8,13 +8,12 @@ import {
 } from "./binder-files";
 import { createChangesDisclosure } from "./changes-disclosure";
 import { createDetectionBadge } from "./detect-badge";
-import { extractDocxParagraphs } from "./docx-text";
+import { extractDocx } from "./docx-text";
 import { requireElement } from "./dom";
 import { initKeyPicker } from "./key-picker";
 import { splitLineContents } from "./transpose/chords";
 import {
   isChordProText,
-  isKeyDetection,
   transposeChordProText,
   transposeText,
   type KeyTransposition,
@@ -154,21 +153,6 @@ export function initUpload(): void {
     onNotation: (german) => keyPicker.setNotation(german),
   });
 
-  async function detectDocxKey(file: File, selectionId: number): Promise<void> {
-    const data = new FormData();
-    data.append("file", file);
-    try {
-      const response = await fetch("/detect-key", { method: "POST", body: data });
-      if (!response.ok) return;
-      const result: unknown = await response.json();
-      if (selectionId !== fileSelectionId || !isKeyDetection(result)) return;
-      detection.apply(result);
-      preview.rerun();
-    } catch {
-      return;
-    }
-  }
-
   function requestContext(): RequestContext {
     return {
       form,
@@ -216,11 +200,14 @@ export function initUpload(): void {
         preview.loadSource(splitLineContents(content), selectionId);
       });
     } else {
-      void detectDocxKey(first, selectionId);
       void Promise.resolve()
         .then(() => first.arrayBuffer())
-        .then(extractDocxParagraphs)
-        .then((paragraphs) => preview.loadSource(paragraphs, selectionId))
+        .then(extractDocx)
+        .then((sheet) => {
+          if (selectionId !== fileSelectionId) return;
+          detection.detect(sheet.detectionText);
+          preview.loadSource(sheet.paragraphs, selectionId);
+        })
         .catch(() => undefined);
     }
   });

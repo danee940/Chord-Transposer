@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { DocxReadError, documentParagraphs, extractDocxParagraphs, nodeText } from "./docx-text";
-import { buildDocx, buildZip, documentXml } from "./testing/docx-fixture";
+import {
+  DocxReadError,
+  detectionParagraphs,
+  documentParagraphs,
+  extractDocx,
+  nodeText,
+} from "./docx-text";
+import { buildDocx, buildZip, documentXml, paragraphsXml, storyXml } from "./testing/docx-fixture";
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const MC = "http://schemas.openxmlformats.org/markup-compatibility/2006";
 
 async function deflate(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   const source = new ReadableStream<BufferSource>({
@@ -24,10 +31,20 @@ function toBuffer(bytes: Uint8Array<ArrayBuffer>): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }
 
-describe("extractDocxParagraphs", () => {
-  it("reads stored paragraphs in document order", async () => {
-    const paragraphs = await extractDocxParagraphs(toBuffer(buildDocx(["C G Am F", "lyrics"])));
-    expect(paragraphs).toEqual(["C G Am F", "lyrics"]);
+function textBox(lines: string[]): string {
+  const content = `<w:txbxContent>${paragraphsXml(lines)}</w:txbxContent>`;
+  return (
+    `<w:p><w:r><mc:AlternateContent xmlns:mc="${MC}"><mc:Choice Requires="wps">` +
+    `<w:drawing>${content}</w:drawing></mc:Choice>` +
+    `<mc:Fallback><w:pict>${content}</w:pict></mc:Fallback></mc:AlternateContent></w:r></w:p>`
+  );
+}
+
+describe("extractDocx", () => {
+  it("reads body paragraphs in document order and uses them for detection", async () => {
+    const sheet = await extractDocx(toBuffer(buildDocx(["C G Am F", "lyrics"])));
+    expect(sheet.paragraphs).toEqual(["C G Am F", "lyrics"]);
+    expect(sheet.detectionText).toBe("C G Am F\nlyrics");
   });
 
   it("inflates deflated document parts", async () => {
@@ -35,18 +52,41 @@ describe("extractDocxParagraphs", () => {
       [{ name: "word/document.xml", data: await deflate(encode(documentXml(["D A"]))), method: 8 }],
       "trailing comment"
     );
-    expect(await extractDocxParagraphs(toBuffer(zip))).toEqual(["D A"]);
+    expect((await extractDocx(toBuffer(zip))).paragraphs).toEqual(["D A"]);
+  });
+
+  it("adds headers, footers and notes to the detection text but not to the preview", async () => {
+    const docx = buildDocx(["Amazing grace, how sweet the sound"], {
+      "word/header1.xml": storyXml("hdr", paragraphsXml(["G C D G"])),
+      "word/footer2.xml": storyXml("ftr", paragraphsXml(["Em C D7 G"])),
+      "word/footnotes.xml": storyXml("footnotes", paragraphsXml(["G7"])),
+      "word/endnotes.xml": storyXml("endnotes", paragraphsXml(["Cmaj7"])),
+      "word/styles.xml": storyXml("styles", paragraphsXml(["not a story part"])),
+    });
+    const sheet = await extractDocx(toBuffer(docx));
+    expect(sheet.paragraphs).toEqual(["Amazing grace, how sweet the sound"]);
+    expect(sheet.detectionText).toBe(
+      "Amazing grace, how sweet the sound\nG C D G\nEm C D7 G\nG7\nCmaj7"
+    );
+  });
+
+  it("counts a text box once for detection and leaves it out of the preview", async () => {
+    const body = `<w:body>${paragraphsXml(["lyrics"])}${textBox(["G C D G"])}</w:body>`;
+    const zip = buildZip([
+      { name: "word/document.xml", data: encode(storyXml("document", body)), method: 0 },
+    ]);
+    const sheet = await extractDocx(toBuffer(zip));
+    expect(sheet.paragraphs).toEqual(["lyrics", ""]);
+    expect(sheet.detectionText).toBe("lyrics\n\nG C D G");
   });
 
   it("rejects files without an end-of-directory record", async () => {
-    await expect(extractDocxParagraphs(toBuffer(encode("plain text")))).rejects.toBeInstanceOf(
-      DocxReadError
-    );
+    await expect(extractDocx(toBuffer(encode("plain text")))).rejects.toBeInstanceOf(DocxReadError);
   });
 
   it("rejects archives without a Word document", async () => {
     const zip = buildZip([{ name: "other.xml", data: encode("<a/>"), method: 0 }]);
-    await expect(extractDocxParagraphs(toBuffer(zip))).rejects.toThrow("no Word document");
+    await expect(extractDocx(toBuffer(zip))).rejects.toThrow("no Word document");
   });
 
   it("rejects a damaged central directory", async () => {
@@ -54,18 +94,18 @@ describe("extractDocxParagraphs", () => {
     const view = new DataView(zip.buffer);
     const directoryOffset = view.getUint32(zip.length - 22 + 16, true);
     view.setUint32(directoryOffset, 0, true);
-    await expect(extractDocxParagraphs(toBuffer(zip))).rejects.toThrow("directory is damaged");
+    await expect(extractDocx(toBuffer(zip))).rejects.toThrow("directory is damaged");
   });
 
   it("rejects a damaged local header", async () => {
     const zip = buildZip([{ name: "word/document.xml", data: encode("<a/>"), method: 0 }]);
     new DataView(zip.buffer).setUint32(0, 0, true);
-    await expect(extractDocxParagraphs(toBuffer(zip))).rejects.toThrow("entry is damaged");
+    await expect(extractDocx(toBuffer(zip))).rejects.toThrow("entry is damaged");
   });
 
   it("rejects unsupported compression methods", async () => {
     const zip = buildZip([{ name: "word/document.xml", data: encode("<a/>"), method: 12 }]);
-    await expect(extractDocxParagraphs(toBuffer(zip))).rejects.toThrow("unsupported compression");
+    await expect(extractDocx(toBuffer(zip))).rejects.toThrow("unsupported compression");
   });
 });
 
@@ -99,6 +139,13 @@ describe("documentParagraphs", () => {
 
   it("returns no paragraphs for malformed XML", () => {
     expect(documentParagraphs("<not xml")).toEqual([]);
+  });
+});
+
+describe("detectionParagraphs", () => {
+  it("includes text boxes but skips the legacy fallback copy of a drawing", () => {
+    const xml = storyXml("document", `<w:body>${textBox(["Am F C G"])}</w:body>`);
+    expect(detectionParagraphs(xml)).toEqual(["", "Am F C G"]);
   });
 });
 

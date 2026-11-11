@@ -77,25 +77,41 @@ function escapeXml(text: string): string {
 }
 
 export function documentXml(paragraphs: string[]): string {
-  const body = paragraphs
-    .map((text) => `<w:p><w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`)
-    .join("");
-  return `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="${WORD_NAMESPACE}"><w:body>${body}</w:body></w:document>`;
+  return storyXml("document", `<w:body>${paragraphsXml(paragraphs)}</w:body>`);
 }
 
-export function buildDocx(paragraphs: string[]): Uint8Array<ArrayBuffer> {
+export function storyXml(root: string, body: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?><w:${root} xmlns:w="${WORD_NAMESPACE}">${body}</w:${root}>`;
+}
+
+export function paragraphsXml(paragraphs: string[]): string {
+  return paragraphs
+    .map((text) => `<w:p><w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`)
+    .join("");
+}
+
+export function buildDocx(
+  paragraphs: string[],
+  extraParts: Readonly<Record<string, string>> = {}
+): Uint8Array<ArrayBuffer> {
+  const encoder = new TextEncoder();
   return buildZip([
-    { name: "[Content_Types].xml", data: new TextEncoder().encode("<Types/>"), method: 0 },
-    {
-      name: "word/document.xml",
-      data: new TextEncoder().encode(documentXml(paragraphs)),
+    { name: "[Content_Types].xml", data: encoder.encode("<Types/>"), method: 0 },
+    { name: "word/document.xml", data: encoder.encode(documentXml(paragraphs)), method: 0 },
+    ...Object.entries(extraParts).map(([name, xml]) => ({
+      name,
+      data: encoder.encode(xml),
       method: 0,
-    },
+    })),
   ]);
 }
 
-export function docxFile(name: string, paragraphs: string[]): File {
-  const bytes = buildDocx(paragraphs);
+export function docxFile(
+  name: string,
+  paragraphs: string[],
+  extraParts: Readonly<Record<string, string>> = {}
+): File {
+  const bytes = buildDocx(paragraphs, extraParts);
   const file = new File([bytes], name);
   Object.defineProperty(file, "size", { value: bytes.length });
   file.arrayBuffer = () => Promise.resolve(bytes.buffer.slice(0));

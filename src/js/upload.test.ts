@@ -10,7 +10,7 @@ import {
 } from "vitest";
 
 import { requireElement } from "./dom";
-import { docxFile } from "./testing/docx-fixture";
+import { buildDocx, docxFile, paragraphsXml, storyXml } from "./testing/docx-fixture";
 import { transposeText } from "./transpose/index";
 import { initUpload } from "./upload";
 
@@ -149,75 +149,53 @@ describe("initUpload", () => {
     expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(false);
   });
 
-  it("asks the server to detect the key of a .docx upload", async () => {
+  it("detects the key of a .docx upload in the browser and preselects it", async () => {
     initUpload();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        key: "D",
-        alternate: null,
-        ambiguous: false,
-        chords: 4,
-        distinct: 3,
-        german: false,
-      }),
-    });
     const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeFile("song.docx", 2048)]);
+    setFiles(fileInput, [docxFile("hymn.docx", ["D G A7 D", "Bm G A7 D"])]);
     fileInput.dispatchEvent(new Event("change"));
     await vi.waitFor(() =>
       expect(requireElement("upload_detected_label").textContent).toBe("Detected: D")
     );
-    expect(fetch).toHaveBeenCalledWith("/detect-key", expect.objectContaining({ method: "POST" }));
     expect(requireElement<HTMLSelectElement>("current_key").value).toBe("D");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("ignores a failed .docx key detection response", async () => {
+  it("detects a key whose chords sit in the header and a text box", async () => {
     initUpload();
-    fetchMock.mockResolvedValue({ ok: false });
+    const header = storyXml("hdr", paragraphsXml(["G C D G"]));
+    const fileInput = requireElement<HTMLInputElement>("file");
+    setFiles(fileInput, [
+      docxFile("hymn.docx", ["Only lyrics here"], { "word/header1.xml": header }),
+    ]);
+    fileInput.dispatchEvent(new Event("change"));
+    await vi.waitFor(() =>
+      expect(requireElement("upload_detected_label").textContent).toBe("Detected: G")
+    );
+  });
+
+  it("shows no detection when the .docx cannot be read", async () => {
+    initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
     setFiles(fileInput, [makeFile("song.docx", 2048)]);
     fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(requireElement<HTMLSelectElement>("current_key").value).toBe("C");
     expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("ignores a malformed key detection payload", async () => {
+  it("shows no detection for a .docx with too few chords", async () => {
     initUpload();
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ nonsense: true }) });
-    const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeFile("song.docx", 2048)]);
-    fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    await selectAndPreview(docxFile("song.docx", ["Only lyrics in this one"]));
+    expect(previewText().value).toBe("Only lyrics in this one");
     expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
   });
 
-  it("ignores a key detection network error", async () => {
+  it("relabels the picker in German when the sheet uses German notation", async () => {
     initUpload();
-    fetchMock.mockRejectedValue(new Error("offline"));
     const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeFile("song.docx", 2048)]);
-    fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
-    expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
-  });
-
-  it("relabels the picker in German when the server reports German notation", async () => {
-    initUpload();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        key: "H",
-        alternate: null,
-        ambiguous: false,
-        chords: 8,
-        distinct: 3,
-        german: true,
-      }),
-    });
-    const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeFile("song.docx", 2048)]);
+    setFiles(fileInput, [docxFile("song.docx", ["H E Fis7 H", "E H Fis7 H"])]);
     fileInput.dispatchEvent(new Event("change"));
     await vi.waitFor(() =>
       expect(requireElement("upload_detected_label").textContent).toBe("Detected: H")
@@ -229,42 +207,24 @@ describe("initUpload", () => {
     expect(picker.querySelector('button[data-key="Bb"]')).toBeNull();
   });
 
-  it("discards a stale .docx detection response", async () => {
+  it("discards a stale .docx read after a newer selection", async () => {
     initUpload();
-    let resolveFirst!: (value: unknown) => void;
-    const firstResponse = new Promise((resolve) => {
-      resolveFirst = resolve;
-    });
-    fetchMock.mockReturnValueOnce(firstResponse).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        key: "D",
-        alternate: null,
-        ambiguous: false,
-        chords: 4,
-        distinct: 3,
-        german: false,
-      }),
-    });
     const fileInput = requireElement<HTMLInputElement>("file");
-    setFiles(fileInput, [makeFile("a.docx", 1024)]);
+    let resolveFirst!: (value: ArrayBuffer) => void;
+    const slow = docxFile("a.docx", ["C F G7 C"]);
+    const slowBytes = buildDocx(["C F G7 C"]).buffer;
+    slow.arrayBuffer = () =>
+      new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+    setFiles(fileInput, [slow]);
     fileInput.dispatchEvent(new Event("change"));
-    setFiles(fileInput, [makeFile("b.docx", 1024)]);
+    setFiles(fileInput, [docxFile("b.docx", ["D G A7 D", "Bm G A7 D"])]);
     fileInput.dispatchEvent(new Event("change"));
     await vi.waitFor(() =>
       expect(requireElement("upload_detected_label").textContent).toBe("Detected: D")
     );
-    resolveFirst({
-      ok: true,
-      json: async () => ({
-        key: "C",
-        alternate: null,
-        ambiguous: false,
-        chords: 4,
-        distinct: 3,
-        german: false,
-      }),
-    });
+    resolveFirst(slowBytes);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(requireElement("upload_detected_label").textContent).toBe("Detected: D");
     expect(requireElement<HTMLSelectElement>("current_key").value).toBe("D");
@@ -298,6 +258,7 @@ describe("initUpload", () => {
     setFiles(fileInput, [makeFile("a.docx", 1024), makeFile("b.docx", 1024)]);
     fileInput.dispatchEvent(new Event("change"));
     expect(fetch).not.toHaveBeenCalled();
+    expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
   });
 
   it("re-detects after a new file resets the user pick", async () => {
@@ -424,28 +385,24 @@ describe("initUpload", () => {
     initUpload();
     await selectAndPreview(docxFile("song.docx", ["C G Am F", "lyrics"]));
     expect(previewText().value).toBe("D A Bm G\nlyrics");
-    expect(fetchMock).toHaveBeenCalledWith("/detect-key", expect.anything());
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("shows no preview when the .docx cannot be read in the browser", async () => {
-    fetchMock.mockResolvedValue({ ok: false });
     initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
     setFiles(fileInput, [makeFile("song.docx", 1024)]);
     fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    await Promise.resolve();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(preview().classList.contains("hidden")).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("shows no preview for a .docx without paragraphs", async () => {
-    fetchMock.mockResolvedValue({ ok: false });
     initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
     setFiles(fileInput, [docxFile("empty.docx", [])]);
     fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(preview().classList.contains("hidden")).toBe(true);
   });
@@ -568,29 +525,15 @@ describe("initUpload", () => {
     expect(requireElement("key_distance").textContent).toBe("−2 semitones");
   });
 
-  it("re-runs a stale .docx preview once the detected key arrives", async () => {
-    let resolveDetect: (value: unknown) => void = () => {};
-    fetchMock.mockReturnValue(new Promise((resolve) => (resolveDetect = resolve)));
+  it("previews a .docx from its detected key, not the default", async () => {
     initUpload();
     const fileInput = requireElement<HTMLInputElement>("file");
     requireElement<HTMLSelectElement>("target_key").value = "E";
-    setFiles(fileInput, [docxFile("song.docx", ["C G Am F"])]);
+    setFiles(fileInput, [docxFile("song.docx", ["D G A7 D", "Bm G A7 D"])]);
     fileInput.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(previewText().value).toBe("E B C#mA"));
-
-    resolveDetect({
-      ok: true,
-      json: async () => ({
-        key: "D",
-        alternate: null,
-        ambiguous: false,
-        chords: 4,
-        distinct: 4,
-        german: false,
-      }),
-    });
-    await vi.waitFor(() => expect(previewText().value).toBe("D A Bm G"));
+    await vi.waitFor(() => expect(previewText().value).toBe("E A B7 E\nC#mA B7 E"));
     expect(requireElement("current_key_label").textContent).toBe("D");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("hides the preview when the keys are the same", async () => {

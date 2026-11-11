@@ -24,12 +24,25 @@ test.beforeEach(async ({ home }) => {
 });
 
 test.describe("uploading a .docx chord sheet", () => {
-  test("names the chosen file and detects its key on the server", async ({ home }) => {
+  test("names the chosen file and detects its key in the browser", async ({ home, page }) => {
     const { upload } = home;
+    const requested: string[] = [];
+    page.on("request", (request) => requested.push(new URL(request.url()).pathname));
     await expect(upload.dropzoneText).toContainText("Amazing_Grace_C.docx");
     await expect(upload.dropzoneText).toContainText(/\d+ KB/);
     await expect(upload.detectedLabel).toHaveText("Detected: C");
     await expect(upload.keys.label("current")).toHaveText("C");
+    expect(requested.filter((path) => path.startsWith("/detect"))).toEqual([]);
+  });
+
+  test("detects a key whose chords sit only in the header and footer", async ({ home }) => {
+    const { upload } = home;
+    await upload.choose(sheets.headerChordsDocx());
+    await expect(upload.detectedLabel).toHaveText("Detected: G");
+    await expect(upload.keys.label("current")).toHaveText("G");
+    await expect(upload.previewText).toHaveValue(
+      "This little light of mine\nI'm gonna let it shine"
+    );
   });
 
   test("previews the transposed sheet with grouped changes @mobile", async ({ home }) => {

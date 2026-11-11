@@ -26,7 +26,6 @@ from .chords import (
     parse_chord_core,
     split_affixes,
 )
-from .detect import KeyDetection, detect_key
 from .edits import ParagraphEdits, correction_for
 from .errors import InvalidKeyError
 from .notation import key_label, key_semitone, key_spelling, parse_key, transpose_note
@@ -363,13 +362,6 @@ def _transpose_document(
     for paragraph in iter_paragraphs(document, include_fallbacks=True):
         process_paragraph(paragraph, semitones, spelling, german, changes)
     return changes
-
-
-def detect_key_from_docx_bytes(file_bytes: bytes) -> KeyDetection:
-    """Guess the key of a .docx chord sheet given as bytes (see ``detect_key``)."""
-    document = Document(BytesIO(file_bytes))
-    text = "\n".join(paragraph.text for paragraph in iter_paragraphs(document))
-    return detect_key(text)
 
 
 def transpose_document_bytes(

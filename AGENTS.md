@@ -113,6 +113,12 @@ npm run test:js
   symbol for both transposition and Nashville numbering. Note lookups throw
   `UnknownNoteError` for names outside the tables, so the chord grammar (shared
   with `src/transpose/chords.py`) must only admit roots the tables know.
+- Uploaded `.docx` files are read in the browser by `src/js/docx-text.ts`:
+  `extractDocx` returns the body paragraphs the preview shows (text boxes
+  left out, as `iter_body_paragraphs` does on the server) and a
+  `detectionText` joining every story part, headers, footers, notes and text
+  boxes included, with `mc:Fallback` copies skipped. Key detection runs on
+  that text with `detectKey`; there is no detection endpoint.
 - Required DOM elements are fetched with `requireElement` / `requireSelector`
   from `src/js/dom.ts`, which throw a named error when the markup is missing an
   element, so new panels should use them instead of raw `getElementById`.

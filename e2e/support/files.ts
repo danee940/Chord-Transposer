@@ -32,6 +32,7 @@ export const sheets = {
   amazingGraceDocx: (): UploadFile => fixture(generatedFixturesDir, "Amazing_Grace_C.docx"),
   germanDocx: (): UploadFile => fixture(generatedFixturesDir, "Stille_Nacht_H.docx"),
   secondSongDocx: (): UploadFile => fixture(generatedFixturesDir, "Little_Light_G.docx"),
+  headerChordsDocx: (): UploadFile => fixture(generatedFixturesDir, "Header_Chords_G.docx"),
   plainText: (): UploadFile => fixture(staticFixturesDir, "Twinkle_C.txt"),
   chordPro: (): UploadFile => fixture(staticFixturesDir, "Twinkle_C.cho"),
 };

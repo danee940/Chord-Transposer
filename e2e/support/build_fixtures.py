@@ -33,12 +33,31 @@ def chord_sheet_docx(lines: tuple[tuple[str, str], ...]) -> bytes:
     return buffer.getvalue()
 
 
+HEADER_CHORDS = "G          C          D          G"
+FOOTER_CHORDS = "Em         C          D7         G"
+HEADER_SHEET_LYRICS = ("This little light of mine", "I'm gonna let it shine")
+
+
+def header_chords_docx() -> bytes:
+    """Build a .docx whose chords live only in the header and footer, with lyrics in the body."""
+    document = Document()
+    section = document.sections[0]
+    section.header.paragraphs[0].text = HEADER_CHORDS
+    section.footer.paragraphs[0].text = FOOTER_CHORDS
+    for lyric in HEADER_SHEET_LYRICS:
+        document.add_paragraph(lyric)
+    buffer = BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
 def build_fixtures(directory: Path) -> None:
     """Write every generated fixture into ``directory``."""
     directory.mkdir(parents=True, exist_ok=True)
     (directory / SAMPLE_FILENAME).write_bytes(amazing_grace_docx())
     (directory / "Stille_Nacht_H.docx").write_bytes(chord_sheet_docx(GERMAN_SHEET))
     (directory / "Little_Light_G.docx").write_bytes(chord_sheet_docx(SECOND_SONG))
+    (directory / "Header_Chords_G.docx").write_bytes(header_chords_docx())
 
 
 if __name__ == "__main__":

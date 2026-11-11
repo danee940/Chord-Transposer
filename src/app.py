@@ -28,7 +28,6 @@ from transpose import (
     apply_line_edits,
     convert_docx_files_to_pdf,
     convert_docx_to_pdf,
-    detect_key_from_docx_bytes,
     is_chordpro_text,
     pdf_service_status,
     transpose_chordpro_text,
@@ -342,28 +341,6 @@ def _parse_edits(raw: str | None) -> dict[int, ParagraphEdit]:
             raise InvalidEditsError(EDITS_ERROR)
         edits[index] = ParagraphEdit(source=source, text=text)
     return edits
-
-
-@app.route("/detect-key", methods=["POST"])
-def detect_key_upload() -> ResponseReturnValue:
-    """Guess the key of an uploaded .docx chord sheet and return it as JSON."""
-    uploaded = request.files.get("file")
-
-    if uploaded is None or not uploaded.filename:
-        return jsonify({"error": "Please choose a .docx file to upload."}), 400
-    if not uploaded.filename.lower().endswith(".docx"):
-        return jsonify({"error": "Only .docx files are supported."}), 400
-
-    file_bytes = uploaded.read()
-    if not file_bytes:
-        return jsonify({"error": "The uploaded file is empty."}), 400
-    if len(file_bytes) > MAX_UPLOAD_BYTES:
-        return jsonify({"error": "File is too large. The maximum size is 10 MB."}), 400
-
-    try:
-        return jsonify(detect_key_from_docx_bytes(file_bytes))
-    except PackageNotFoundError, BadZipFile:
-        return jsonify({"error": "Could not read the file as a valid .docx document."}), 400
 
 
 @app.route("/transpose", methods=["POST"])

@@ -1,69 +1,7 @@
 [
   {
-    "description": "detect-key returns the key guess for a .docx upload",
-    "endpoint": "/detect-key",
-    "trigger": "detect",
-    "request": {
-      "files": [
-        {
-          "field": "file",
-          "filename": "hymn.docx",
-          "content": "D G A7 D\nBm G A7 D",
-          "raw": false
-        }
-      ],
-      "form": {}
-    },
-    "fields": [
-      "file"
-    ],
-    "response": {
-      "status": 200,
-      "json": {
-        "key": "D",
-        "alternate": null,
-        "ambiguous": false,
-        "chords": 8,
-        "distinct": 4,
-        "german": false
-      }
-    },
-    "ui": {
-      "detected": "Detected: D"
-    }
-  },
-  {
-    "description": "detect-key rejects a corrupt .docx with an error payload",
-    "endpoint": "/detect-key",
-    "trigger": "detect",
-    "request": {
-      "files": [
-        {
-          "field": "file",
-          "filename": "broken.docx",
-          "content": "not a real docx",
-          "raw": true
-        }
-      ],
-      "form": {}
-    },
-    "fields": [
-      "file"
-    ],
-    "response": {
-      "status": 400,
-      "json": {
-        "error": "Could not read the file as a valid .docx document."
-      }
-    },
-    "ui": {
-      "detection_ignored": true
-    }
-  },
-  {
     "description": "transpose returns the sheet with key-aware headers",
     "endpoint": "/transpose",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -110,7 +48,6 @@
   {
     "description": "transpose rejects an invalid key with an error payload",
     "endpoint": "/transpose",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -145,7 +82,6 @@
   {
     "description": "transpose reports an unreachable PDF service",
     "endpoint": "/transpose",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -183,7 +119,6 @@
   {
     "description": "transpose applies preview edits to the downloaded .docx",
     "endpoint": "/transpose",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -230,7 +165,6 @@
   {
     "description": "transpose turns added preview lines into line breaks in the .docx",
     "endpoint": "/transpose",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -277,7 +211,6 @@
   {
     "description": "transpose rejects malformed preview edits",
     "endpoint": "/transpose",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -315,7 +248,6 @@
   {
     "description": "transpose-text returns the transposed text download",
     "endpoint": "/transpose-text",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -363,7 +295,6 @@
   {
     "description": "transpose-text handles ChordPro files",
     "endpoint": "/transpose-text",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -408,7 +339,6 @@
   {
     "description": "transpose-text applies preview edits to the downloaded text",
     "endpoint": "/transpose-text",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -452,7 +382,6 @@
   {
     "description": "binder merges several sheets into one PDF",
     "endpoint": "/binder",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -497,7 +426,6 @@
   {
     "description": "binder sends the note names picked in the key picker",
     "endpoint": "/binder",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -544,7 +472,6 @@
   {
     "description": "binder rejects an invalid key with an error payload",
     "endpoint": "/binder",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -584,7 +511,6 @@
   {
     "description": "binder names the file it cannot read",
     "endpoint": "/binder",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -629,7 +555,6 @@
   {
     "description": "transpose-text keeps Unicode accidentals in the body and change header",
     "endpoint": "/transpose-text",
-    "trigger": "submit",
     "request": {
       "files": [
         {
@@ -676,7 +601,6 @@
   {
     "description": "transpose-text applies a forced English notation override",
     "endpoint": "/transpose-text",
-    "trigger": "submit",
     "request": {
       "files": [
         {

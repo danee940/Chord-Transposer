@@ -9,6 +9,9 @@ All notable changes to Chord Transposer are recorded here. The format follows
 
 ### Changed
 
+- Key detection for an uploaded `.docx` runs in the browser from the same
+  extraction as the preview, reading headers, footers, notes and text boxes as
+  the server did, so a selected file is no longer uploaded twice.
 - The Python core is a package, `src/transpose/`, with one module per concern;
   the CLI is now `python -m transpose`.
 - The upload and paste panels are wired from small controller modules
@@ -30,6 +33,7 @@ All notable changes to Chord Transposer are recorded here. The format follows
 
 ### Removed
 
+- The `/detect-key` endpoint and its contract cases; nothing calls it any more.
 - The unreferenced `og-preview.png` at the repository root.
 
 ## [1.0.0] - 2026-11-07

@@ -4,7 +4,7 @@
 // the real Flask app by src/test_api_contract.py. This side drives the real
 // upload frontend (initUpload) with a mocked fetch: it asserts that the
 // frontend sends exactly the recorded request (endpoint and form fields) and
-// renders the recorded response correctly (detection badge, change table,
+// renders the recorded response correctly (change table,
 // error messages, download filename). Changing either side without updating
 // the fixture fails one of the two suites, so the API cannot silently drift.
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
@@ -24,10 +24,9 @@ interface FileSpec {
 interface ContractCase {
   description: string;
   endpoint: string;
-  trigger: "detect" | "submit";
   request: {
     files: FileSpec[];
-    form: Record<string, string>;
+    form: Record<string, string | undefined>;
   };
   fields: string[];
   response: {
@@ -39,8 +38,6 @@ interface ContractCase {
   };
   backend_only?: boolean;
   ui: {
-    detected?: string;
-    detection_ignored?: boolean;
     preview?: string;
     edit_preview?: string;
     heading?: string;
@@ -54,7 +51,7 @@ interface ContractCase {
 
 const CASES = (cases as ContractCase[]).filter((contractCase) => !contractCase.backend_only);
 
-function setupDom(form: Record<string, string>): void {
+function setupDom(form: Record<string, string | undefined>): void {
   const keyOptions = ["C", form["current_key"] ?? "C", form["target_key"] ?? "D"]
     .filter((value, index, all) => all.indexOf(value) === index)
     .map((value) => `<option value="${value}">${value}</option>`)
@@ -119,53 +116,47 @@ function mockResponse(spec: ContractCase["response"]) {
   };
 }
 
-async function trigger(contractCase: ContractCase): Promise<void> {
+async function submitCase(contractCase: ContractCase): Promise<void> {
   setFiles(contractCase.request.files.map(makeFile));
   const fileInput = requireElement<HTMLInputElement>("file");
   fileInput.dispatchEvent(new Event("change"));
-  if (contractCase.trigger === "submit") {
-    const form = contractCase.request.form;
-    const currentKey = form["current_key"];
-    const targetKey = form["target_key"];
-    if (currentKey !== undefined) {
-      requireElement<HTMLSelectElement>("current_key").value = currentKey;
-    }
-    if (targetKey !== undefined) {
-      requireElement<HTMLSelectElement>("target_key").value = targetKey;
-      requireElement<HTMLSelectElement>("target_key").dispatchEvent(new Event("change"));
-    }
-    const notation = form["notation"];
-    if (notation !== undefined) {
-      requireElement("key_picker")
-        .querySelector<HTMLButtonElement>(`button[data-notation="${notation}"]`)!
-        .click();
-    }
-    if (form["format"] === "pdf") {
-      document.querySelector<HTMLInputElement>('input[value="docx"]')!.checked = false;
-      document.querySelector<HTMLInputElement>('input[value="pdf"]')!.checked = true;
-    }
-    const previewText = requireElement<HTMLTextAreaElement>("upload_preview_text");
-    if (contractCase.ui.preview !== undefined) {
-      await vi.waitFor(() => expect(previewText.value).toBe(contractCase.ui.preview));
-    }
-    if (contractCase.ui.edit_preview !== undefined) {
-      previewText.value = contractCase.ui.edit_preview;
-      previewText.dispatchEvent(new Event("input"));
-    }
-    requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
-    await vi.waitFor(() =>
-      expect(requireElement("spinner").classList.contains("hidden")).toBe(true)
-    );
-  } else {
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+  const form = contractCase.request.form;
+  const currentKey = form["current_key"];
+  const targetKey = form["target_key"];
+  if (currentKey !== undefined) {
+    requireElement<HTMLSelectElement>("current_key").value = currentKey;
   }
+  if (targetKey !== undefined) {
+    requireElement<HTMLSelectElement>("target_key").value = targetKey;
+    requireElement<HTMLSelectElement>("target_key").dispatchEvent(new Event("change"));
+  }
+  const notation = form["notation"];
+  if (notation !== undefined) {
+    requireElement("key_picker")
+      .querySelector<HTMLButtonElement>(`button[data-notation="${notation}"]`)!
+      .click();
+  }
+  if (form["format"] === "pdf") {
+    document.querySelector<HTMLInputElement>('input[value="docx"]')!.checked = false;
+    document.querySelector<HTMLInputElement>('input[value="pdf"]')!.checked = true;
+  }
+  const previewText = requireElement<HTMLTextAreaElement>("upload_preview_text");
+  if (contractCase.ui.preview !== undefined) {
+    await vi.waitFor(() => expect(previewText.value).toBe(contractCase.ui.preview));
+  }
+  if (contractCase.ui.edit_preview !== undefined) {
+    previewText.value = contractCase.ui.edit_preview;
+    previewText.dispatchEvent(new Event("input"));
+  }
+  requireElement<HTMLFormElement>("form").dispatchEvent(new Event("submit"));
+  await vi.waitFor(() => expect(requireElement("spinner").classList.contains("hidden")).toBe(true));
 }
 
 function assertRequest(contractCase: ContractCase, fetchMock: Mock): void {
-  // Selecting a single .docx also fires the automatic /detect-key request, so
-  // assert on the one call that targets the case's endpoint.
-  const calls = fetchMock.mock.calls.filter(([url]) => url === contractCase.endpoint);
+  // Key detection runs in the browser, so submitting is the only request made.
+  const calls = fetchMock.mock.calls;
   expect(calls).toHaveLength(1);
+  expect(calls[0]![0]).toBe(contractCase.endpoint);
   expect(calls[0]![1].method).toBe("POST");
 
   const body = calls[0]![1].body as FormData;
@@ -192,12 +183,6 @@ function assertRequest(contractCase: ContractCase, fetchMock: Mock): void {
 function assertUi(contractCase: ContractCase, downloads: string[]): void {
   const ui = contractCase.ui;
   const message = requireElement("message");
-  if (ui.detected !== undefined) {
-    expect(requireElement("upload_detected_label").textContent).toBe(ui.detected);
-  }
-  if (ui.detection_ignored === true) {
-    expect(requireElement("upload_detected_wrap").classList.contains("hidden")).toBe(true);
-  }
   if (ui.error !== undefined) {
     expect(message.textContent).toBe(ui.error);
   }
@@ -249,7 +234,7 @@ describe("API contract", () => {
       fetchMock.mockResolvedValue(mockResponse(contractCase.response));
       initUpload();
 
-      await trigger(contractCase);
+      await submitCase(contractCase);
       await vi.waitFor(() => assertUi(contractCase, downloads));
       assertRequest(contractCase, fetchMock);
     }
@@ -257,11 +242,6 @@ describe("API contract", () => {
 
   it("covers every endpoint the frontend calls", () => {
     const endpoints = new Set(CASES.map((contractCase) => contractCase.endpoint));
-    expect([...endpoints].sort()).toEqual([
-      "/binder",
-      "/detect-key",
-      "/transpose",
-      "/transpose-text",
-    ]);
+    expect([...endpoints].sort()).toEqual(["/binder", "/transpose", "/transpose-text"]);
   });
 });

@@ -213,16 +213,10 @@ landing-page query the site cannot answer today.
       `_changes_header` helper the text route uses. Extract an upload reader
       and a single error-response helper, and update
       `api_contract_cases.json` for any message that changes.
-- [ ] **Browser-side key detection for uploads (S)**: `upload.ts` already
-      extracts a dropped `.docx` with `extractDocxParagraphs` for the preview,
-      yet still posts the file to `/detect-key` for the key guess, so every
-      selection uploads the file twice. `detectKey` is exported from
-      `src/js/transpose/`; run it on the extracted paragraphs as the text
-      branch already does, then retire `/detect-key` and its contract cases.
 - [ ] **Upload hardening (S)**: per-IP rate limiting on `/transpose`,
-      `/transpose-text`, `/binder` and `/detect-key` (until it is retired), and
-      clearer errors for oversized or corrupt files. Every one of them parses
-      untrusted zip/XML input without authentication.
+      `/transpose-text` and `/binder`, and clearer errors for oversized or
+      corrupt files. Every one of them parses untrusted zip/XML input without
+      authentication.
 - [ ] **Security headers (S)**: no response sets `Content-Security-Policy`,
       `X-Content-Type-Options`, `Referrer-Policy` or `Permissions-Policy`. The
       inline theme script in `_head.html` and the JSON-LD blocks need a hash
