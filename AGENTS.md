@@ -117,6 +117,44 @@ npm run test:js
   from `src/js/dom.ts`, which throw a named error when the markup is missing an
   element, so new panels should use them instead of raw `getElementById`.
 
+### Panel modules
+
+`upload.ts` and `paste.ts` are wiring only: they look up elements, build the
+controllers below, and connect events. Put new behaviour in the controller that
+owns it, not back into the `init` function.
+
+| Panel | Module | Holds |
+| --- | --- | --- |
+| Upload | `upload-files.ts` | extension checks, `validateFile`, output-format labels |
+| Upload | `upload-download.ts` | `errorDetails`, `parseDownloadFilename`, `downloadBlob`, `changePairs` |
+| Upload | `upload-notice.ts` | the message area: errors, results, the chord-change table |
+| Upload | `upload-dropzone.ts` | the file input, drag-and-drop, the prompt text |
+| Upload | `upload-preview.ts` | the preview state machine: source paragraphs, held edits, rebasing on a key change, `collectEdits` |
+| Upload | `upload-requests.ts` | `buildBinderRequest` / `buildSingleRequest` and their form fields |
+| Paste | `paste-result.ts` | `computeResult` and the status, stage-title and change summaries (no DOM) |
+| Paste | `paste-prefs.ts` | mapping the panel state to and from `prefs.ts` |
+| Paste | `paste-output.ts` | the output pane, status line, change pills, capo hint, stage button |
+| Paste | `paste-controls.ts` | mode, semitone, notation and output-format toggles, and the `[` / `]` shortcuts |
+
+Two paste callbacks differ on purpose: `onChange` re-runs the transposition
+*and* saves preferences, while `onFormatChange` only re-runs it, because the
+ChordPro output format is deliberately not persisted.
+
+- Tests run under Vitest (`jsdom`) with V8 coverage, configured in
+  `vite.config.ts`. Coverage is enforced at 100% for statements, branches,
+  functions and lines. Cover every new branch with a test rather than adding
+  unreachable defensive guards.
+- Every module under `src/js/` has a matching `*.test.ts`. When adding a new
+  module or behaviour, add or extend the corresponding test so the thresholds
+  stay green. Coverage counts the right-hand side of `??` and `||` and every
+  early-return guard as a branch, so unreachable fallbacks show up as misses.
+- Fix all test and coverage failures. Never leave the suite red. If a change
+  lowers coverage, add or update tests to restore it.
+- CI runs all three in a separate `frontend` job (`.github/workflows/ci.yml`)
+  alongside the Python `checks` job.
+- `npm run typecheck` also covers the end-to-end suite through
+  `tsconfig.e2e.json` (`e2e/` and `playwright.config.ts`).
+
 ## Mandatory: run the end-to-end suite after any user-facing change
 
 After ANY change to templates, `src/js/`, `src/app.py` endpoints or
