@@ -30,6 +30,7 @@ from transpose import (
     convert_docx_to_pdf,
     detect_key_from_docx_bytes,
     is_chordpro_text,
+    pdf_service_status,
     transpose_chordpro_text,
     transpose_document_bytes,
     transpose_text,
@@ -239,8 +240,13 @@ def retired_key_pair(slug: str) -> ResponseReturnValue:
 
 @app.route("/health")
 def health() -> Response:
-    """Return a lightweight liveness response for container health checks."""
-    return jsonify({"status": "ok"})
+    """Return the liveness response for container health checks.
+
+    ``status`` is always ``ok`` while the app can answer; ``pdf`` reports whether
+    the Gotenberg service behind PDF downloads is reachable, so an unhealthy PDF
+    service shows up in the deploy dashboard without restarting the app.
+    """
+    return jsonify({"status": "ok", "pdf": pdf_service_status()})
 
 
 @app.route("/robots.txt")

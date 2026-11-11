@@ -108,7 +108,12 @@ from .notation import (
     prefers_flats,
     transpose_note,
 )
-from .pdf import DEFAULT_GOTENBERG_URL, PDF_CONVERSION_TIMEOUT_SECONDS, convert_docx_to_pdf
+from .pdf import (
+    DEFAULT_GOTENBERG_URL,
+    PDF_CONVERSION_TIMEOUT_SECONDS,
+    convert_docx_to_pdf,
+    pdf_service_status,
+)
 from .text import transpose_line_text, transpose_text, transpose_text_by_semitones
 
 __all__ = [
@@ -187,6 +192,7 @@ __all__ = [
     "note_to_nashville_degree",
     "parse_chord_core",
     "parse_key",
+    "pdf_service_status",
     "prefers_flats",
     "process_paragraph",
     "redistribute_to_runs",

@@ -44,7 +44,10 @@ runs two services:
    address, e.g. `http://gotenberg.railway.internal:3000`.
 4. Generate a public domain for the app service. Railway terminates HTTPS.
 
-The `/health` endpoint is used as the deploy healthcheck.
+The `/health` endpoint is used as the deploy healthcheck. It always answers
+`{"status": "ok"}` while the app is up and adds `"pdf": "up"` or `"down"` for the
+Gotenberg service, probed at most every 30 seconds, so a broken PDF service is
+visible without failing the deploy.
 
 ## Frontend assets
 

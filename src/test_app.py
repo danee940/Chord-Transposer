@@ -9,9 +9,11 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 from typing import Any, NoReturn
+from unittest.mock import MagicMock
 from urllib.parse import quote_plus, unquote
 
 import pytest
+import requests
 from docx import Document
 from flask.testing import FlaskClient
 from pypdf import PdfReader, PdfWriter
@@ -20,7 +22,7 @@ import app as app_module
 import seo
 import transpose as t
 from app import app
-from transpose import detect
+from transpose import detect, pdf
 
 DOCX_MIMETYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -266,10 +268,56 @@ def test_js_bundle_falls_back_when_entry_malformed(monkeypatch: pytest.MonkeyPat
     assert app_module._resolve_js_bundle() == app_module.JS_BUNDLE_FALLBACK
 
 
-def test_health(client: FlaskClient) -> None:
+@pytest.fixture
+def fresh_pdf_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pdf, "_probe_cache", pdf._ProbeCache())
+
+
+def test_health_reports_a_reachable_pdf_service(
+    client: FlaskClient, monkeypatch: pytest.MonkeyPatch, fresh_pdf_probe: None
+) -> None:
+    get = MagicMock(return_value=MagicMock(status_code=200))
+    monkeypatch.setattr(pdf.requests, "get", get)
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.get_json() == {"status": "ok"}
+    assert response.get_json() == {"status": "ok", "pdf": "up"}
+    get.assert_called_once_with(
+        "http://localhost:3000/health", timeout=pdf.PDF_HEALTH_TIMEOUT_SECONDS
+    )
+
+
+def test_health_stays_ok_when_the_pdf_service_is_unreachable(
+    client: FlaskClient, monkeypatch: pytest.MonkeyPatch, fresh_pdf_probe: None
+) -> None:
+    monkeypatch.setattr(pdf.requests, "get", MagicMock(side_effect=requests.ConnectionError()))
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok", "pdf": "down"}
+
+
+def test_health_reports_a_failing_pdf_service_as_down(
+    client: FlaskClient, monkeypatch: pytest.MonkeyPatch, fresh_pdf_probe: None
+) -> None:
+    monkeypatch.setattr(pdf.requests, "get", MagicMock(return_value=MagicMock(status_code=503)))
+    assert client.get("/health").get_json()["pdf"] == "down"
+
+
+def test_health_probes_the_pdf_service_at_most_once_per_cache_window(
+    client: FlaskClient, monkeypatch: pytest.MonkeyPatch, fresh_pdf_probe: None
+) -> None:
+    get = MagicMock(return_value=MagicMock(status_code=200))
+    monkeypatch.setattr(pdf.requests, "get", get)
+    clock = [1000.0]
+    monkeypatch.setattr(pdf.time, "monotonic", lambda: clock[0])
+
+    client.get("/health")
+    client.get("/health")
+    assert get.call_count == 1
+
+    clock[0] += pdf.PDF_HEALTH_CACHE_SECONDS
+    get.return_value = MagicMock(status_code=500)
+    assert client.get("/health").get_json()["pdf"] == "down"
+    assert get.call_count == 2
 
 
 def test_robots_txt(client: FlaskClient) -> None:
