@@ -2,6 +2,7 @@
 
 import os
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 import requests
@@ -13,25 +14,24 @@ PDF_CONVERSION_TIMEOUT_SECONDS = 120
 PDF_HEALTH_TIMEOUT_SECONDS = 2
 PDF_HEALTH_CACHE_SECONDS = 30
 
+DOCX_MIMETYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+MERGED_PART_NAME_DIGITS = 4
+
+UploadPart = tuple[str, tuple[str, bytes, str]]
+
 
 def _gotenberg_url() -> str:
     """Return the base URL of the Gotenberg conversion service."""
     return (os.environ.get("GOTENBERG_URL") or DEFAULT_GOTENBERG_URL).rstrip("/")
 
 
-def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
-    """Convert .docx bytes to PDF bytes via the Gotenberg conversion service."""
+def _convert(files: Sequence[UploadPart], data: Mapping[str, str]) -> bytes:
+    """Post documents to Gotenberg's LibreOffice route and return the PDF it produces."""
     endpoint = f"{_gotenberg_url()}/forms/libreoffice/convert"
-    files = {
-        "files": (
-            "sheet.docx",
-            docx_bytes,
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-    }
-
     try:
-        response = requests.post(endpoint, files=files, timeout=PDF_CONVERSION_TIMEOUT_SECONDS)
+        response = requests.post(
+            endpoint, files=files, data=data, timeout=PDF_CONVERSION_TIMEOUT_SECONDS
+        )
     except requests.Timeout as exc:
         raise PdfConversionError("PDF conversion timed out.") from exc
     except requests.RequestException as exc:
@@ -41,6 +41,29 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
         raise PdfConversionError("The PDF conversion service failed to convert the document.")
 
     return response.content
+
+
+def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
+    """Convert .docx bytes to PDF bytes via the Gotenberg conversion service."""
+    return _convert([("files", ("sheet.docx", docx_bytes, DOCX_MIMETYPE))], {})
+
+
+def merged_part_name(position: int) -> str:
+    """Return the file name that keeps a binder part at ``position`` in Gotenberg's merge order.
+
+    Gotenberg merges in file-name order, not upload order, so parts are named by
+    their zero-padded position.
+    """
+    return f"{position:0{MERGED_PART_NAME_DIGITS}d}.docx"
+
+
+def convert_docx_files_to_pdf(documents: Sequence[bytes]) -> bytes:
+    """Convert several .docx documents into one PDF, in order, with a single Gotenberg request."""
+    files: list[UploadPart] = [
+        ("files", (merged_part_name(position), data, DOCX_MIMETYPE))
+        for position, data in enumerate(documents, start=1)
+    ]
+    return _convert(files, {"merge": "true"})
 
 
 @dataclass

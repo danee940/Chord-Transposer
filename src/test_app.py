@@ -28,11 +28,20 @@ DOCX_MIMETYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.
 
 
 def _one_page_pdf() -> bytes:
+    return _pages_pdf(1)
+
+
+def _pages_pdf(count: int) -> bytes:
     writer = PdfWriter()
-    writer.add_blank_page(width=200, height=200)
+    for _ in range(count):
+        writer.add_blank_page(width=200, height=200)
     buffer = BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
+
+
+def _fake_binder_pdf(documents: list[bytes]) -> bytes:
+    return _pages_pdf(len(documents))
 
 
 @pytest.fixture
@@ -189,7 +198,7 @@ def test_binder_honours_the_notation_override(
         return original(file_bytes, current_key, target_key, None, german)
 
     monkeypatch.setattr(app_module, "transpose_document_bytes", spy)
-    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda _: _one_page_pdf())
+    monkeypatch.setattr(app_module, "convert_docx_files_to_pdf", _fake_binder_pdf)
     data = {
         "files": [(BytesIO(_docx_bytes("B Es")), "a.docx")],
         "current_key": "B",
@@ -977,7 +986,7 @@ def test_binder_names_a_file_that_is_not_docx(client: FlaskClient) -> None:
 def test_binder_names_an_unreadable_file(
     client: FlaskClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda docx_bytes: _one_page_pdf())
+    monkeypatch.setattr(app_module, "convert_docx_files_to_pdf", _fake_binder_pdf)
     data = {
         "files": [(BytesIO(_make_chord_docx()), "a.docx"), (BytesIO(b"not a zip"), "broken.docx")],
         "current_key": "C",
@@ -1004,7 +1013,7 @@ def test_binder_total_too_large(client: FlaskClient, monkeypatch: pytest.MonkeyP
 
 
 def test_binder_invalid_key(client: FlaskClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda docx_bytes: _one_page_pdf())
+    monkeypatch.setattr(app_module, "convert_docx_files_to_pdf", _fake_binder_pdf)
     data = {
         "files": [(BytesIO(_make_chord_docx()), "a.docx")],
         "current_key": "X",
@@ -1018,10 +1027,10 @@ def test_binder_invalid_key(client: FlaskClient, monkeypatch: pytest.MonkeyPatch
 def test_binder_pdf_conversion_failure(
     client: FlaskClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def _raise(_docx_bytes: bytes) -> NoReturn:
+    def _raise(_documents: list[bytes]) -> NoReturn:
         raise app_module.PdfConversionError("Could not reach the PDF conversion service.")
 
-    monkeypatch.setattr(app_module, "convert_docx_to_pdf", _raise)
+    monkeypatch.setattr(app_module, "convert_docx_files_to_pdf", _raise)
     data = {
         "files": [(BytesIO(_make_chord_docx()), "a.docx")],
         "current_key": "C",
@@ -1033,7 +1042,7 @@ def test_binder_pdf_conversion_failure(
 
 
 def test_binder_success_merges_pages(client: FlaskClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda docx_bytes: _one_page_pdf())
+    monkeypatch.setattr(app_module, "convert_docx_files_to_pdf", _fake_binder_pdf)
     data = {
         "files": [
             (BytesIO(_make_chord_docx("C G")), "a.docx"),

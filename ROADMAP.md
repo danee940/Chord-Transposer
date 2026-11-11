@@ -219,12 +219,6 @@ landing-page query the site cannot answer today.
       selection uploads the file twice. `detectKey` is exported from
       `src/js/transpose/`; run it on the extracted paragraphs as the text
       branch already does, then retire `/detect-key` and its contract cases.
-- [ ] **Binder conversion in one Gotenberg request (S)**: `/binder` converts up
-      to 20 songs one after another, each a LibreOffice round-trip with a 120 s
-      timeout, inside a 150 s gunicorn worker timeout, so large binders can
-      time out. Send all transposed files in one request with Gotenberg's
-      `merge` field, which also drops the `pypdf` dependency; or convert
-      concurrently if per-song errors must stay attributable by `index`.
 - [ ] **Upload hardening (S)**: per-IP rate limiting on `/transpose`,
       `/transpose-text`, `/binder` and `/detect-key` (until it is retired), and
       clearer errors for oversized or corrupt files. Every one of them parses
@@ -233,20 +227,12 @@ landing-page query the site cannot answer today.
       `X-Content-Type-Options`, `Referrer-Policy` or `Permissions-Policy`. The
       inline theme script in `_head.html` and the JSON-LD blocks need a hash
       or nonce in the CSP; everything else is same-origin.
-- [ ] **Health check that reports the PDF service (S)**: `/health` returns ok
-      while Gotenberg is unreachable, so a deploy looks healthy while every
-      `.pdf` download fails with 503. Add a cached Gotenberg probe to the
-      response without failing the liveness check.
 - [ ] **Quieter request logging (S)**: `log_request_start` and
       `log_request_end` log every request at INFO on top of gunicorn's access
       log, three lines per request. Keep one, or demote the Flask pair to
       DEBUG.
 - [ ] **Installable PWA with offline paste mode (M)**: a web app manifest and
       service worker, so the in-browser transposer works without a connection.
-- [ ] **Dependency automation (S)**: Dependabot for uv, npm and GitHub Actions;
-      a CI step asserting that the Playwright container tag in `ci.yml` matches
-      the `@playwright/test` version in `package-lock.json`, which is paired by
-      hand today; and tagged releases with a `CHANGELOG.md`.
 - [ ] **Accessibility pass (S)**: keyboard navigation and screen-reader labels
       for the diagram popovers, key pickers and drop zone, with an axe-core
       check (`@axe-core/playwright`) in the page-health e2e spec so regressions
@@ -254,10 +240,6 @@ landing-page query the site cannot answer today.
 - [ ] **Visual regression snapshots (S)**: `toHaveScreenshot` on Chromium for
       the home page, both panels, stage view and the 404 page in light and dark
       themes, so the paper-and-ink redesign is protected against drift.
-- [ ] **Repository hygiene (S)**: `og-preview.png` (184 KB) is tracked at the
-      repo root with no reference anywhere since the redesign commit; remove it
-      or move it under `scripts/og-image/`.
-
 ## Reach
 
 - [ ] **Localised UI (L)**: Hungarian and German interface translations, with

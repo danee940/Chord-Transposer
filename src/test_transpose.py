@@ -1191,6 +1191,36 @@ class TestConvertDocxToPdf:
                 t.convert_docx_to_pdf(b"docx")
 
 
+class TestConvertDocxFilesToPdf:
+    def test_sends_every_document_in_one_merged_request(self) -> None:
+        response = MagicMock(status_code=200, content=b"%PDF-1.7 merged")
+        with patch("transpose.pdf.requests.post", return_value=response) as post:
+            result = t.convert_docx_files_to_pdf([b"one", b"two", b"three"])
+        assert result == b"%PDF-1.7 merged"
+        assert post.call_count == 1
+        assert post.call_args.kwargs["data"] == {"merge": "true"}
+        parts = post.call_args.kwargs["files"]
+        assert [field for field, _ in parts] == ["files", "files", "files"]
+        assert [payload for _, (_, payload, _) in parts] == [b"one", b"two", b"three"]
+
+    def test_names_parts_by_zero_padded_position_so_gotenberg_keeps_the_order(self) -> None:
+        response = MagicMock(status_code=200, content=b"%PDF")
+        with patch("transpose.pdf.requests.post", return_value=response) as post:
+            t.convert_docx_files_to_pdf([b"x"] * 12)
+        names = [name for _, (name, _, _) in post.call_args.kwargs["files"]]
+        assert names[:2] == ["0001.docx", "0002.docx"]
+        assert names[-1] == "0012.docx"
+        assert names == sorted(names)
+
+    def test_maps_failures_like_the_single_file_conversion(self) -> None:
+        with patch("transpose.pdf.requests.post", side_effect=requests.Timeout()):
+            with pytest.raises(t.PdfConversionError, match="timed out"):
+                t.convert_docx_files_to_pdf([b"docx"])
+        with patch("transpose.pdf.requests.post", return_value=MagicMock(status_code=500)):
+            with pytest.raises(t.PdfConversionError, match="failed"):
+                t.convert_docx_files_to_pdf([b"docx"])
+
+
 class TestGotenbergUrl:
     def test_defaults_to_localhost(self) -> None:
         with patch.dict("os.environ", {}, clear=True):

@@ -17,7 +17,6 @@ from docx.opc.exceptions import PackageNotFoundError
 from dotenv import load_dotenv
 from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_file
 from flask.typing import ResponseReturnValue
-from pypdf import PdfWriter
 from werkzeug.exceptions import NotFound
 
 import seo
@@ -27,6 +26,7 @@ from transpose import (
     ParagraphEdit,
     PdfConversionError,
     apply_line_edits,
+    convert_docx_files_to_pdf,
     convert_docx_to_pdf,
     detect_key_from_docx_bytes,
     is_chordpro_text,
@@ -439,17 +439,6 @@ def _text_to_docx_bytes(text: str) -> bytes:
     return buffer.getvalue()
 
 
-def _merge_pdfs(pdf_documents: Iterable[bytes]) -> bytes:
-    """Merge a sequence of PDF byte strings into a single PDF, preserving order."""
-    writer = PdfWriter()
-    for pdf_bytes in pdf_documents:
-        writer.append(BytesIO(pdf_bytes))
-    merged = BytesIO()
-    writer.write(merged)
-    writer.close()
-    return merged.getvalue()
-
-
 def _changes_header(changes: Iterable[tuple[str, str]]) -> str:
     """Format transposition changes as a compact, URL-safe response header value."""
     return ", ".join(f"{a}->{b}" for a, b in changes) if changes else "none"
@@ -533,7 +522,11 @@ def _binder_file_error(message: str, index: int) -> ResponseReturnValue:
 
 @app.route("/binder", methods=["POST"])
 def binder() -> ResponseReturnValue:
-    """Transpose several .docx files and return them merged into one PDF binder."""
+    """Transpose several .docx files and return them as one PDF binder.
+
+    Every file is transposed here so a bad one can be named by its position, then all
+    of them go to the PDF service in a single request that merges them in order.
+    """
     uploaded_files = [f for f in request.files.getlist("files") if f and f.filename]
     current_key = (request.form.get("current_key") or "").strip()
     target_key = (request.form.get("target_key") or "").strip()
@@ -565,7 +558,7 @@ def binder() -> ResponseReturnValue:
     to_label = target_key
     try:
         notation = _parse_notation(request.form.get("notation"))
-        pdf_documents: list[bytes] = []
+        transposed: list[bytes] = []
         for index, data in enumerate(documents):
             try:
                 docx_bytes, _, to_label, _ = transpose_document_bytes(
@@ -575,14 +568,15 @@ def binder() -> ResponseReturnValue:
                 return _binder_file_error(
                     f"Could not read {names[index]} as a valid .docx document.", index
                 )
-            pdf_documents.append(convert_docx_to_pdf(docx_bytes))
+            transposed.append(docx_bytes)
+        binder_pdf = convert_docx_files_to_pdf(transposed)
     except InvalidKeyError as exc:
         return jsonify({"error": str(exc)}), 400
     except PdfConversionError as exc:
         return jsonify({"error": str(exc)}), 503
 
     return send_file(
-        BytesIO(_merge_pdfs(pdf_documents)),
+        BytesIO(binder_pdf),
         mimetype=PDF_MIMETYPE,
         as_attachment=True,
         download_name=f"chord_binder_{to_label}.pdf",

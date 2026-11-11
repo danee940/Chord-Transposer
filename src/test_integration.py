@@ -859,10 +859,11 @@ class TestChordProRoundTrip:
 # ---------------------------------------------------------------------------
 
 
-def _one_page_pdf() -> bytes:
-    """Return the bytes of a real, single-page PDF for deterministic merge tests."""
+def _pages_pdf(count: int) -> bytes:
+    """Return the bytes of a real PDF with ``count`` blank pages for deterministic binder tests."""
     writer = PdfWriter()
-    writer.add_blank_page(width=200, height=200)
+    for _ in range(count):
+        writer.add_blank_page(width=200, height=200)
     buffer = BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
@@ -877,8 +878,11 @@ def client() -> Iterator[FlaskClient]:
 
 @pytest.fixture
 def fake_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Replace Gotenberg conversion with a real one-page PDF so merges are offline-safe."""
-    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda _docx_bytes: _one_page_pdf())
+    """Replace both Gotenberg conversions with real blank PDFs, one page per document, offline."""
+    monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda _docx_bytes: _pages_pdf(1))
+    monkeypatch.setattr(
+        app_module, "convert_docx_files_to_pdf", lambda documents: _pages_pdf(len(documents))
+    )
 
 
 def _binder_upload(*docx_files: tuple[bytes, str]) -> dict[str, Any]:
@@ -918,11 +922,11 @@ class TestPdfBinder:
     ) -> None:
         seen: list[str] = []
 
-        def _record(docx_bytes: bytes) -> bytes:
-            seen.append(Document(BytesIO(docx_bytes)).paragraphs[0].text)
-            return _one_page_pdf()
+        def _record(documents: list[bytes]) -> bytes:
+            seen.extend(Document(BytesIO(data)).paragraphs[0].text for data in documents)
+            return _pages_pdf(len(documents))
 
-        monkeypatch.setattr(app_module, "convert_docx_to_pdf", _record)
+        monkeypatch.setattr(app_module, "convert_docx_files_to_pdf", _record)
         files = [
             (_make_docx("C"), "first.docx"),
             (_make_docx("D"), "second.docx"),

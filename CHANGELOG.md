@@ -16,9 +16,17 @@ All notable changes to Chord Transposer are recorded here. The format follows
 
 ### Added
 
+- `/health` reports whether the PDF service is reachable (`"pdf": "up"|"down"`)
+  without ever failing the app's own liveness check.
 - Dependabot keeps uv, npm, GitHub Actions and Docker dependencies current, and
   CI fails when the hand-pinned Playwright image or uv version drifts from the
   versions installed from the lock files.
+
+### Fixed
+
+- The PDF binder converts and merges all songs in one Gotenberg request instead
+  of one round-trip per song, so large binders no longer risk the worker
+  timeout; `pypdf` is no longer a runtime dependency.
 
 ### Removed
 

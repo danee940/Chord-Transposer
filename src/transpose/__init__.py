@@ -111,6 +111,7 @@ from .notation import (
 from .pdf import (
     DEFAULT_GOTENBERG_URL,
     PDF_CONVERSION_TIMEOUT_SECONDS,
+    convert_docx_files_to_pdf,
     convert_docx_to_pdf,
     pdf_service_status,
 )
@@ -172,6 +173,7 @@ __all__ = [
     "chord_to_nashville",
     "chordpro_to_plain",
     "choose_spelling",
+    "convert_docx_files_to_pdf",
     "convert_docx_to_pdf",
     "correction_for",
     "detect_german",

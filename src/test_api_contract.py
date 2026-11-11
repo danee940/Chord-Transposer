@@ -65,6 +65,9 @@ def _apply_backend_stubs(case: dict[str, Any], monkeypatch: pytest.MonkeyPatch) 
     backend = case.get("backend", {})
     if backend.get("pdf_stub"):
         monkeypatch.setattr(app_module, "convert_docx_to_pdf", lambda _docx: _one_page_pdf())
+        monkeypatch.setattr(
+            app_module, "convert_docx_files_to_pdf", lambda documents: _one_page_pdf()
+        )
     if backend.get("gotenberg_down"):
         monkeypatch.setenv("GOTENBERG_URL", "http://127.0.0.1:9")
 

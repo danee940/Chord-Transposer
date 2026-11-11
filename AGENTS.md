@@ -172,9 +172,12 @@ npm run test:e2e -- --project=chromium    # one project while iterating
   directly: it provides the page objects, a clipboard recorder, and fails any
   test whose page throws an uncaught error.
 - `playwright.config.ts` starts the app under gunicorn and a fake Gotenberg
-  (`e2e/support/fake_gotenberg.py`) that turns each uploaded .docx into a text
-  PDF, so PDF and binder downloads are asserted on their content. A paragraph
-  equal to `pdfConversionFailureMarker` makes it fail the conversion.
+  (`e2e/support/fake_gotenberg.py`) that turns each uploaded .docx into a page
+  of text, so PDF and binder downloads are asserted on their content. Like the
+  real service it only combines several files when `merge=true` is sent and
+  orders the pages by *file name*, which is why `/binder` names its parts by
+  zero-padded position. A paragraph equal to `pdfConversionFailureMarker`
+  makes it fail the conversion.
 - Ports are derived from a hash of the checkout path
   (`e2e/support/port.ts`), so parallel worktrees never share a server. Set
   `E2E_PORT` to override (the fake Gotenberg uses the next port) and
