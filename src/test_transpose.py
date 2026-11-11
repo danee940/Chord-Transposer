@@ -18,6 +18,7 @@ from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
 import transpose as t
+from transpose import cli, detect, document, pdf
 
 # ---------------------------------------------------------------------------
 # parse_key
@@ -580,10 +581,10 @@ class TestRedistributeToRuns:
 
 class TestFirstOwner:
     def test_returns_first(self) -> None:
-        assert t._first_owner([3, 1, 2]) == 3
+        assert document._first_owner([3, 1, 2]) == 3
 
     def test_defaults_to_zero_when_empty(self) -> None:
-        assert t._first_owner([]) == 0
+        assert document._first_owner([]) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -817,20 +818,20 @@ class TestNotationOverride:
 
 class TestFindInputFile:
     def test_returns_none_when_no_docx(self, tmp_path: Path) -> None:
-        with patch.object(t, "INPUT_DIR", tmp_path):
-            assert t.find_input_file() is None
+        with patch.object(cli, "INPUT_DIR", tmp_path):
+            assert cli.find_input_file() is None
 
     def test_returns_docx_file(self, tmp_path: Path) -> None:
         docx_file = tmp_path / "song.docx"
         docx_file.touch()
-        with patch.object(t, "INPUT_DIR", tmp_path):
-            assert t.find_input_file() == docx_file
+        with patch.object(cli, "INPUT_DIR", tmp_path):
+            assert cli.find_input_file() == docx_file
 
     def test_skips_temp_files(self, tmp_path: Path) -> None:
         temp_file = tmp_path / "~$song.docx"
         temp_file.touch()
-        with patch.object(t, "INPUT_DIR", tmp_path):
-            assert t.find_input_file() is None
+        with patch.object(cli, "INPUT_DIR", tmp_path):
+            assert cli.find_input_file() is None
 
 
 # ---------------------------------------------------------------------------
@@ -841,16 +842,16 @@ class TestFindInputFile:
 class TestPromptKey:
     def test_valid_input_returns_parsed_key(self) -> None:
         with patch("builtins.input", return_value="Am"):
-            result = t._prompt_key("Key: ")
+            result = cli._prompt_key("Key: ")
         assert result == ("A", True)
 
     def test_invalid_input_exits(self) -> None:
         with patch("builtins.input", return_value="X"), pytest.raises(SystemExit):
-            t._prompt_key("Key: ")
+            cli._prompt_key("Key: ")
 
     def test_invalid_input_prints_message(self, capsys: pytest.CaptureFixture[str]) -> None:
         with patch("builtins.input", return_value="X"), pytest.raises(SystemExit):
-            t._prompt_key("Key: ")
+            cli._prompt_key("Key: ")
         assert "not a valid key" in capsys.readouterr().out
 
 
@@ -868,8 +869,8 @@ class TestSaveAndReport:
         input_file.touch()
         output_dir = tmp_path / "output"
 
-        with patch.object(t, "OUTPUT_DIR", output_dir):
-            t._save_and_report(doc, input_file, "C", "D", {("C", "D"), ("G", "A")})
+        with patch.object(cli, "OUTPUT_DIR", output_dir):
+            cli._save_and_report(doc, input_file, "C", "D", {("C", "D"), ("G", "A")})
 
         captured = capsys.readouterr().out
         assert "C" in captured
@@ -882,8 +883,8 @@ class TestSaveAndReport:
         input_file.touch()
         output_dir = tmp_path / "output"
 
-        with patch.object(t, "OUTPUT_DIR", output_dir):
-            t._save_and_report(doc, input_file, "C", "C", set())
+        with patch.object(cli, "OUTPUT_DIR", output_dir):
+            cli._save_and_report(doc, input_file, "C", "C", set())
 
         assert "No chords were changed" in capsys.readouterr().out
 
@@ -898,7 +899,7 @@ class TestTransposeDocument:
         doc = Document()
         doc.add_paragraph("C G Am F")
 
-        changes = t._transpose_document(doc, 2, t.SHARP_SPELLING, False)
+        changes = document._transpose_document(doc, 2, t.SHARP_SPELLING, False)
         assert isinstance(changes, set)
         assert len(changes) > 0
 
@@ -915,8 +916,8 @@ class TestMain:
         return doc
 
     def test_exits_when_no_input_file(self, tmp_path: Path) -> None:
-        with patch.object(t, "INPUT_DIR", tmp_path), pytest.raises(SystemExit):
-            t.main()
+        with patch.object(cli, "INPUT_DIR", tmp_path), pytest.raises(SystemExit):
+            cli.main()
 
     def test_full_run(self, tmp_path: Path) -> None:
         input_dir = tmp_path / "input"
@@ -928,12 +929,12 @@ class TestMain:
         document = self._make_document()
 
         with (
-            patch.object(t, "INPUT_DIR", input_dir),
-            patch.object(t, "OUTPUT_DIR", output_dir),
-            patch("transpose.Document", return_value=document),
+            patch.object(cli, "INPUT_DIR", input_dir),
+            patch.object(cli, "OUTPUT_DIR", output_dir),
+            patch("transpose.cli.Document", return_value=document),
             patch("builtins.input", side_effect=["C", "D"]),
         ):
-            t.main()
+            cli.main()
 
         saved = Document(str(output_dir / "song_D.docx"))
         assert saved.paragraphs[0].text == "D A Bm G"
@@ -1126,7 +1127,7 @@ class TestChordLineWithOwnersPunctuation:
 class TestTransposeTokenWithOwnersDirect:
     def test_non_root_token_returns_unchanged(self) -> None:
         owners = [0, 0]
-        result, result_owners = t._transpose_token_with_owners(
+        result, result_owners = document._transpose_token_with_owners(
             "3x", owners, 2, t.SHARP_SPELLING, False
         )
         assert result == "3x"
@@ -1134,7 +1135,7 @@ class TestTransposeTokenWithOwnersDirect:
 
     def test_punctuated_non_chord_returns_unchanged(self) -> None:
         owners = [0, 0, 0, 0, 0]
-        result, result_owners = t._transpose_token_with_owners(
+        result, result_owners = document._transpose_token_with_owners(
             "(the)", owners, 2, t.SHARP_SPELLING, False
         )
         assert result == "(the)"
@@ -1158,7 +1159,7 @@ class TestTransposeLineTextNonChord:
 class TestConvertDocxToPdf:
     def test_returns_pdf_bytes_on_success(self) -> None:
         response = MagicMock(status_code=200, content=b"%PDF-1.7")
-        with patch("transpose.requests.post", return_value=response) as post:
+        with patch("transpose.pdf.requests.post", return_value=response) as post:
             result = t.convert_docx_to_pdf(b"docx")
         assert result == b"%PDF-1.7"
         endpoint = post.call_args.args[0]
@@ -1168,24 +1169,24 @@ class TestConvertDocxToPdf:
         response = MagicMock(status_code=200, content=b"%PDF-1.7")
         with (
             patch.dict("os.environ", {"GOTENBERG_URL": "http://gotenberg:3000/"}),
-            patch("transpose.requests.post", return_value=response) as post,
+            patch("transpose.pdf.requests.post", return_value=response) as post,
         ):
             t.convert_docx_to_pdf(b"docx")
         assert post.call_args.args[0] == "http://gotenberg:3000/forms/libreoffice/convert"
 
     def test_raises_on_timeout(self) -> None:
-        with patch("transpose.requests.post", side_effect=requests.Timeout()):
+        with patch("transpose.pdf.requests.post", side_effect=requests.Timeout()):
             with pytest.raises(t.PdfConversionError, match="timed out"):
                 t.convert_docx_to_pdf(b"docx")
 
     def test_raises_on_connection_error(self) -> None:
-        with patch("transpose.requests.post", side_effect=requests.ConnectionError()):
+        with patch("transpose.pdf.requests.post", side_effect=requests.ConnectionError()):
             with pytest.raises(t.PdfConversionError, match="reach"):
                 t.convert_docx_to_pdf(b"docx")
 
     def test_raises_on_non_200_response(self) -> None:
         response = MagicMock(status_code=500, content=b"error")
-        with patch("transpose.requests.post", return_value=response):
+        with patch("transpose.pdf.requests.post", return_value=response):
             with pytest.raises(t.PdfConversionError, match="failed"):
                 t.convert_docx_to_pdf(b"docx")
 
@@ -1193,11 +1194,11 @@ class TestConvertDocxToPdf:
 class TestGotenbergUrl:
     def test_defaults_to_localhost(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
-            assert t._gotenberg_url() == "http://localhost:3000"
+            assert pdf._gotenberg_url() == "http://localhost:3000"
 
     def test_reads_env_and_strips_trailing_slash(self) -> None:
         with patch.dict("os.environ", {"GOTENBERG_URL": "http://gotenberg:3000/"}):
-            assert t._gotenberg_url() == "http://gotenberg:3000"
+            assert pdf._gotenberg_url() == "http://gotenberg:3000"
 
 
 class TestTransposeText:
@@ -1504,7 +1505,7 @@ class TestChordQuality:
         ],
     )
     def test_classifies(self, remainder: str, expected: str) -> None:
-        assert t._chord_quality(remainder) == expected
+        assert detect._chord_quality(remainder) == expected
 
 
 class TestDetectKey:
@@ -1613,7 +1614,7 @@ class TestUnknownRoots:
 # ---------------------------------------------------------------------------
 
 
-def _run_texts(paragraph: t.Paragraph) -> list[str]:
+def _run_texts(paragraph: Paragraph) -> list[str]:
     return [run.text for run in paragraph.runs]
 
 

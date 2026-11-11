@@ -43,6 +43,7 @@ pythonpath = ["src"]
 
 [tool.coverage.run]
 source = ["transpose", "app", "seo"]
+omit = ["*/transpose/__main__.py"]
 
 [tool.coverage.report]
 exclude_also = ['if __name__ == "__main__":']

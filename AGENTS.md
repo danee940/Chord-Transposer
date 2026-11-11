@@ -1,13 +1,41 @@
 # Chord Transposer — Agent Rules
 
 Small Flask app that transposes `.docx` chord sheets between musical keys.
-Core logic lives in `src/transpose.py`; the web layer is `src/app.py`, and the
+Core logic lives in the `src/transpose/` package; the web layer is `src/app.py`, and the
 SEO landing pages, structured data, and sitemap are built in `src/seo.py`. The
 UI is composed from partial templates under `src/templates/` (`index.html`,
 `landing.html`, and the `_*.html` partials), with a prebuilt Tailwind stylesheet
 and a Vite-bundled TypeScript frontend under `src/js/` (no runtime CDN). The
 transpose core is mirrored in TypeScript under `src/js/transpose/` and kept in
 parity with the Python implementation via a shared case harness.
+
+## The `transpose` package
+
+`src/transpose/` is layered so each module only imports from the ones above it;
+keep it that way, and add new code to the module that owns the concern rather
+than to `__init__.py`.
+
+| Module | Holds |
+| --- | --- |
+| `errors.py` | `InvalidKeyError`, `PdfConversionError` |
+| `notation.py` | note tables, `parse_key`, key-aware `key_spelling`, `transpose_note` |
+| `chords.py` | the chord grammar (`CHORD_TOKEN_RE`), `parse_chord_core`, `map_chord_roots`, `is_chord_line` |
+| `edits.py` | `ParagraphEdit` and applying preview corrections to text |
+| `text.py` | plain-text sheets (`transpose_text`, `transpose_text_by_semitones`) |
+| `chordpro.py` | ChordPro sheets and `CHORDPRO_BRACKET_RE` |
+| `nashville.py` | Nashville number conversion |
+| `detect.py` | key detection scoring and `detect_key` |
+| `document.py` | `.docx` runs, stories, `replace_paragraph_text`, `transpose_document_bytes` |
+| `pdf.py` | Gotenberg conversion (`convert_docx_to_pdf`) |
+| `cli.py` | the `python -m transpose` entry point, `INPUT_DIR` / `OUTPUT_DIR` |
+
+`__init__.py` re-exports the public API behind `__all__`, so `app.py`, `seo.py`
+and the tests keep importing from `transpose` directly. Because a façade import
+is a separate binding, patch a dependency where it is *used*, not on the
+package: `patch("transpose.pdf.requests.post")` and
+`patch("transpose.cli.Document")`, and `patch.object(cli, "OUTPUT_DIR", ...)`.
+Private helpers are reached through their own module (`detect._chord_quality`,
+`document._first_owner`).
 
 ## Mandatory: run all Python checks after any change
 
@@ -23,7 +51,7 @@ uv run pytest
 ```
 
 - `pytest` is configured (in `pyproject.toml`) to run with coverage and to
-  fail if combined coverage of `transpose.py`, `app.py`, and `seo.py` drops
+  fail if combined coverage of the `transpose` package, `app.py`, and `seo.py` drops
   below 95%.
 - `testpaths` includes five test files: `src/test_transpose.py`,
   `src/test_app.py`, `src/test_integration.py`, `src/test_parity.py`, and
@@ -46,7 +74,7 @@ uv run pytest
   as `fonttools` belong in the `dev` dependency group so editors and pyright
   resolve them.
 - `src/test_integration.py` contains end-to-end integration tests using real
-  `.docx` bytes. When adding new behaviour to `src/transpose.py` or
+  `.docx` bytes. When adding new behaviour to `src/transpose/` or
   `src/app.py`, consider whether a corresponding integration test is needed
   there.
 - `src/test_parity.py` replays `src/testdata/transpose_cases.json` through the
@@ -84,25 +112,10 @@ npm run test:js
   `src/js/transpose/chords.ts`; `mapChordRoots` rewrites the root and bass of a
   symbol for both transposition and Nashville numbering. Note lookups throw
   `UnknownNoteError` for names outside the tables, so the chord grammar (shared
-  with `src/transpose.py`) must only admit roots the tables know.
+  with `src/transpose/chords.py`) must only admit roots the tables know.
 - Required DOM elements are fetched with `requireElement` / `requireSelector`
   from `src/js/dom.ts`, which throw a named error when the markup is missing an
   element, so new panels should use them instead of raw `getElementById`.
-
-- Tests run under Vitest (`jsdom`) with V8 coverage, configured in
-  `vite.config.ts`. Coverage is enforced at 100% for statements, branches,
-  functions and lines. Cover every new branch with a test rather than adding
-  unreachable defensive guards.
-- Every module under `src/js/` has a matching `*.test.ts`. When adding a new
-  module or behaviour, add or extend the corresponding test so the thresholds
-  stay green. Coverage counts the right-hand side of `??` and `||` and every
-  early-return guard as a branch, so unreachable fallbacks show up as misses.
-- Fix all test and coverage failures. Never leave the suite red. If a change
-  lowers coverage, add or update tests to restore it.
-- CI runs all three in a separate `frontend` job (`.github/workflows/ci.yml`)
-  alongside the Python `checks` job.
-- `npm run typecheck` also covers the end-to-end suite through
-  `tsconfig.e2e.json` (`e2e/` and `playwright.config.ts`).
 
 ## Mandatory: run the end-to-end suite after any user-facing change
 
@@ -162,7 +175,7 @@ npm run test:e2e -- --project=chromium    # one project while iterating
 
 ## JS/Python transpose parity
 
-- `src/transpose.py` and `src/js/transpose/` are two implementations of the same
+- `src/transpose/` and `src/js/transpose/` are two implementations of the same
   core and must stay in lockstep. `src/testdata/transpose_cases.json` is the
   shared case harness: `src/test_parity.py` replays it through Python and
   `src/js/transpose/parity.test.ts` replays it through TypeScript.

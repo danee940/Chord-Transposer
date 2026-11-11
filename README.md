@@ -19,7 +19,7 @@ Open `http://localhost:5000`, upload a `.docx` chord sheet and pick the current 
 ### CLI
 
 ```bash
-uv run src/transpose.py
+PYTHONPATH=src uv run python -m transpose
 ```
 
 Processes all `.docx` files in `input/` and saves results to `output/`.
@@ -90,7 +90,7 @@ uv run pytest
 Add or upgrade Python dependencies with `uv add <package>` (`--dev` for tooling) or
 `uv lock --upgrade`, and commit the updated `uv.lock`.
 
-Combined coverage of `transpose.py`, `app.py`, and `seo.py` must stay at or
+Combined coverage of the `transpose` package, `app.py`, and `seo.py` must stay at or
 above 95%.
 
 Frontend modules under `src/js/` are strict TypeScript with their own format

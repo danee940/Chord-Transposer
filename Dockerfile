@@ -15,7 +15,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev --no-cache
 
-COPY src/app.py src/transpose.py src/seo.py src/gunicorn.conf.py ./
+COPY src/app.py src/seo.py src/gunicorn.conf.py ./
+COPY src/transpose ./transpose
 COPY src/templates ./templates
 COPY src/static ./static
 

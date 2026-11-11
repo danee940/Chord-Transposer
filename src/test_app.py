@@ -20,6 +20,7 @@ import app as app_module
 import seo
 import transpose as t
 from app import app
+from transpose import detect
 
 DOCX_MIMETYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -94,7 +95,7 @@ def test_every_detectable_key_can_be_preselected() -> None:
     for german in (False, True):
         for minor in (False, True):
             for semitone in range(12):
-                label = t._spell_detected_key(semitone, minor, german)
+                label = detect._spell_detected_key(semitone, minor, german)
                 assert label in offered, f"{label} is detectable but not selectable"
 
 
