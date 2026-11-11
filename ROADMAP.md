@@ -3,87 +3,161 @@
 Planned work for Chord Transposer, live at [chordtransposer.app](https://chordtransposer.app/).
 Items are grouped by theme and roughly ordered by priority within each group.
 Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈ 3+ days.
+Finished items are removed from this file rather than ticked; `git log` is the
+record of what shipped.
 
 ## Transposition engine
 
-- [x] **Automatic key detection (M)**: guess the current key from the chords in
-      a pasted text or uploaded file and preselect it, instead of making the user
-      pick it. Implement in both `src/transpose.py` and `src/js/transpose/`, with
-      shared cases in `src/testdata/transpose_cases.json`.
-- [x] **German keys in the key dropdowns (S)**: `detect_key` / `detectKey` now
-      report a `german` flag, and the pitch-class picker in `src/js/key-picker.ts`
-      switches to German labels (`H`, `Hm`, `Es`, `Cis`, `Ais`/`B`) when a sheet
-      uses them, translating the chosen keys so the pitch is kept. The hidden
-      selects carry `GERMAN_KEY_OPTIONS` from `src/app.py`, so a detected `H` is
-      preselected and the semitone distance reads `B` as B♭. A quiet A–B / A–H
-      switch inside the picker panel lets the reader correct the detected
-      notation; the choice is remembered and sent to the transposer as the
-      `notation` field, so it also converts a sheet between the two systems.
-- [x] **Key-aware enharmonic spelling (M)**: spell chords correctly for the
-      target key (for example `F#` vs `Gb`, `Cb` in `Gb` major) rather than
-      choosing between two fixed sharp and flat spellings.
-- [x] **Broader chord grammar (S)**: `6/9` (including over a bass note), `alt`,
-      `Δ`/`∆` and Unicode `♯`/`♭` in both roots and qualities are parsed in both
-      cores, with Unicode accidentals kept in the output when the sheet uses
-      them. Chord symbols are now split by one shared `parse_chord_core` /
-      `parseChordCore`, and every symbol has parity cases.
-- [x] **Docx coverage gaps (M)**: transpose chords inside text boxes, shapes,
-      footnotes, and first-page and even-page headers and footers. Every story
-      part (body, all header and footer variants, footnotes, endnotes) is now
-      walked down to nested paragraphs, so content controls and nested tables
-      are covered too, and a header shared by several sections is transposed
-      once.
+- [ ] **Bar lines and repeat markers (S)**: lines such as `| C | G | Am | F |`,
+      `C G Am F x2` and `Am F C G (2x)` are left untouched, because `|` is not
+      in `PUNCTUATION` and `x2` / `2x` read as lyric words, so `is_chord_line`
+      rejects the whole line. Treat bar lines (`|`, `||`, `|:`, `:|`), repeat
+      marks (`x2`, `2x`, `%`) and rhythm slashes (`/ / / /`) as decorations in
+      `_is_decoration` and its TypeScript twin, with shared parity cases.
+- [ ] **Inline chords in lyric lines (M)**: `(G) Amazing grace, how (C) sweet
+      the (G) sound` is skipped as lyrics because one lyric word disqualifies
+      the line. Transpose bracketed chord tokens inside lyric lines when the
+      line holds at least two of them, so hymnals and songbooks that print
+      chords between the words work without converting to ChordPro. Needs a
+      false-positive guard for lines like `(A) side note`.
+- [ ] **Semitone and Nashville modes for uploads (M)**: the paste panel
+      transposes by key, by semitones or to Nashville numbers; the upload panel
+      only transposes by key. Both cores already have
+      `transpose_text_by_semitones` and `text_to_nashville`;
+      `transpose_document_bytes` needs a semitone entry point and a Nashville
+      writer for `.docx`, plus a mode switch in `_panel_upload.html` and new
+      contract cases.
 
 ## Input and output formats
 
+- [ ] **Monospace text-to-PDF output (S)**: `_text_to_docx_bytes` in
+      `src/app.py` builds the intermediate document in Word's default
+      proportional font, so `.pdf` downloads of `.txt` / `.cho` uploads lose the
+      chord-over-lyric alignment the sheet depends on. Give the paragraphs a
+      monospace style (Liberation Mono is available in the Gotenberg image),
+      set page margins and keep blank lines as paragraphs. Every text-based
+      export below reuses this renderer, so it comes first.
+- [ ] **`.docx` output for text uploads (S)**: the same helper already produces
+      a Word document; offer `.docx` as a format for `.txt` / `.pro` / `.cho`
+      uploads (and later for PDF imports) so a plain sheet can be taken into
+      Word for further editing.
+- [ ] **PDF import, in-place rewrite (M)**: accept `.pdf` chord sheets and give
+      back a `.pdf` with only the chord strings rewritten, leaving every other
+      byte on the page untouched, so the formatting is never disturbed rather
+      than reconstructed. Measured as workable with `pypdf` alone, already a
+      dependency: a realistic LibreOffice-style export stores each run as its
+      own positioned string, so swapping `C` for `D` inside it keeps fonts,
+      sizes, colours, images and margins identical. Needs pypdf's content-stream
+      parser rather than a regex, because real exports use hex `TJ` kerning
+      arrays (`[<43>] TJ`), CID/subset font decoding through `ToUnicode`, and a
+      glyph-availability check so a sheet that never printed `#` does not render
+      `F#` as a missing box. Refuse anything it cannot rewrite cleanly instead
+      of guessing, and add fixture PDFs from Word, LibreOffice, Google Docs and
+      Ultimate Guitar to the integration and e2e suites.
+- [ ] **PDF text extraction for preview and text exports (S, with the item
+      above)**: `pypdf`'s layout extraction mode reproduced a chord sheet with
+      its columns intact in one call, so the same upload can feed key
+      detection, the editable preview, and `.txt` / `.cho` / plain `.docx`
+      downloads. Show a "layout read from PDF" note in the preview, and reject
+      scanned PDFs with a clear "no text layer" message.
+- [ ] **ChordPro export from chord-over-lyric sheets (M)**: convert a chord line
+      and the lyric line under it into inline `[G]` markup by column position,
+      the inverse of the existing `chordpro_to_plain`, so pasted and `.docx`
+      sheets can be downloaded as `.cho`.
 - [ ] **OpenDocument (.odt) support (M)**: accept LibreOffice chord sheets,
       keeping their formatting the same way `.docx` does.
-- [ ] **ChordPro export (S)**: download a pasted or `.docx` sheet as `.cho`.
-- [ ] **Printable chord sheet layout (M)**: print-friendly CSS and a PDF export
-      for pasted text with chord-over-lyrics alignment kept.
+- [ ] **Printable chord sheet layout (M)**: `tailwind.input.css` has no
+      `@media print` rules, so printing the page prints the whole UI. Add a
+      print stylesheet for the output pane and stage view with
+      chord-over-lyrics alignment kept, and a PDF export for pasted text
+      through the text route.
 - [ ] **Binder improvements (M)**: per-song target keys, a table of contents
       page, and reordering songs in the multi-file PDF binder.
 
+### PDF import: decision notes
+
+Question: should readers be able to upload a PDF and download the transposed
+result as `.docx` or `.pdf`, with the formatting kept?
+
+**Answer, measured rather than assumed.** PDF in, PDF out: yes, and the
+formatting is genuinely intact. PDF in, formatted `.docx` out: no. Offer the
+text of a PDF as a plain `.docx`, but do not promise its formatting.
+
+**Why PDF is different.** A `.docx` stores paragraphs and runs, so chords are
+rewritten in place and every other property survives untouched. A PDF stores
+positioned glyphs: no paragraphs, no lines, fonts usually embedded as subsets
+holding only the glyphs the page used, and the gap between chords is often
+absolute positioning rather than space characters. Scanned PDFs hold no text at
+all. Anything that turns a PDF back into a document model is guessing.
+
+**Options, with what testing showed.**
+
+1. *In-place rewrite (recommended).* Overwrite only the chord strings in the
+   content stream. Verified end to end with `pypdf` 6.21.4 (BSD, already a
+   dependency) on a hand-built sheet: the four chord operators changed, the
+   lyric line and every coordinate stayed byte-identical, and the result
+   re-extracted as `D A Bm G`. No new dependency and no licence question.
+   Kept: everything except the chord text itself. Risks: subset fonts missing
+   a needed accidental glyph, and a longer chord overrunning into its
+   neighbour, which is mild on chord sheets because each chord is
+   independently positioned and usually widely spaced.
+2. *Text-layer extraction.* `pypdf`'s layout mode returned the chord sheet with
+   columns aligned in a single call, which covers preview, key detection and
+   text downloads. Kept: text, line order, column alignment. Lost: all
+   typography. Fails cleanly on scanned PDFs. Pairs with option 1 rather than
+   competing with it.
+3. *PDF to `.docx` conversion, then the existing `.docx` pipeline.* Tested and
+   rejected. pdf2docx 0.5.13 (MIT, but hard-depending on AGPL PyMuPDF) was run
+   over a LibreOffice-style export of this project's own
+   `input/Amazing_Grace_C.docx`, then pushed through the real pipeline:
+
+   | Document | Paragraphs | Soft breaks | Tabs | Chord lines found | Chords transposed |
+   | --- | --- | --- | --- | --- | --- |
+   | Original `.docx` | 32 | 1 | 0 | 11 | 8 |
+   | pdf2docx, defaults | 6 | 22 | 13 | 0 | 0 |
+   | pdf2docx, tuned | 6 | 22 | 13 | 0 | 0 |
+
+   The converter merged each whole verse into one paragraph with line breaks
+   inside it, so `is_chord_line` sees lyrics and skips the lot; it replaced
+   leading spaces with tab characters, so chord columns depend on Word tab
+   stops instead of character positions; and it fused adjacent lines, gluing
+   `Verse 2` onto the end of the chorus lyric. Retrying with every
+   paragraph-splitting setting at maximum changed nothing. The alignment
+   information is destroyed before any of this project's code runs, so no
+   downstream fix recovers it. Commercial engines (Adobe, Smallpdf, iLovePDF)
+   use the same gaps-to-tabs strategy, charge per page, and would mean sending
+   reader files to a third party against the FAQ's promise.
+4. *OCR for scanned PDFs* (ocrmypdf / Tesseract). A heavy server dependency
+   with error-prone chord recognition (`B` vs `8`, `#` vs `♯`). Out of scope
+   unless demand appears.
+
+**What can be guaranteed.** With option 1, for born-digital PDFs the rewriter
+accepts: untouched content is byte-for-byte identical and chord tokens keep
+their position and size, with font matching best-effort. With option 2: complete
+text, line order and column alignment, nothing typographic. Both verified
+against a fixture corpus in `src/test_integration.py` and the e2e suite.
+
+**Verdict.** Worth doing, leading with the in-place rewrite. PDF is the most
+common chord-sheet format in the wild and "transpose pdf chord sheet" is a
+landing-page query the site cannot answer today.
+
 ## User interface
 
-- [x] **Theme toggle (S)**: a light / dark / system switch in the masthead,
-      saved in the browser and applied before first paint; the stage view has
-      its own light/dark flip.
-- [x] **Upload preview before download (M)**: show the transposed sheet and the
-      list of chord changes for uploaded files, as the paste view already does,
-      instead of downloading straight away. Single uploads (.docx and text) now
-      get a live, editable preview whose edits are carried into the download;
-      the binder flow is unchanged.
-- [x] **Binder file list (M)**: show the chosen files with their names and
-      sizes when several `.docx` files are dropped, with move up / down and
-      remove buttons, so the binder's song order can be checked and changed.
-- [ ] **Highlight changed chords (S)**: transposed chords in the output pane are
-      now drawn in the accent colour so they stand out from the lyrics; still
-      missing is a matching highlight on hover in the input pane.
-- [x] **Visual key picker (M)**: a key grid or circle-of-fifths picker with
-      major and minor rows to replace the long dropdowns, and showing the
-      semitone distance and interval between the current and desired key. Both
-      panels use the piano-keyboard picker in `src/js/key-picker.ts`, with each
-      black key split into its two spellings so `F#` and `Gb` stay separately
-      selectable.
+- [ ] **Highlight changed chords on hover (S)**: transposed chords in the output
+      pane are drawn in the accent colour; hovering one should highlight the
+      matching chord in the input pane, and vice versa.
 - [ ] **Download pasted results (S)**: add `.txt` and `.cho` download buttons
-      next to **Copy**, plus a "Copied" confirmation on the copy button.
+      next to **Copy** (the "Copied" confirmation already exists), reusing the
+      text routes for `.pdf` and `.docx` once those formats land.
 - [ ] **Remember upload settings (S)**: store the upload panel's keys and output
-      format in `prefs.js` too, as the paste panel already does.
-- [ ] **Mobile layout pass (M)**: phones now show one sheet at a time with a
+      format in `prefs.ts` too; today only the paste panel reads and writes
+      preferences.
+- [ ] **Mobile layout pass (M)**: phones show one sheet at a time with a
       "Your chords / Transposed" switch, and the semitone controls have 44px
       tap targets. Still open: a sticky action bar for Copy and Stage view.
-- [x] **Clearer upload errors (S)**: show which file in a multi-file drop
-      failed and why, inline next to that file instead of one message for all.
-      Covers client-side checks and files the server cannot read.
 
 ## SEO
 
-- [x] **Redirect removed key-pair pages (S)**: old `/transpose/<from>-to-<to>`
-      URLs now return 404. Send them to the home page with a 301, preselecting
-      the two keys, so any links and crawl history they had are kept.
-- [x] **Branded 404 page (S)**: replace Flask's default "404 Not Found" with a
-      page in the site's style that links to the transposer and landing pages.
 - [ ] **Redirect URL variants (S)**: trailing-slash and uppercase versions of
       landing URLs (e.g. `/guitar-chord-transposer/`) currently 404, losing any
       links that generate them. 301 slash and case variants to the canonical
@@ -95,8 +169,9 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       Core Web Vitals budget.
 - [ ] **Landing pages for existing features (M)**: dedicated pages for the capo
       finder, Nashville number converter, ChordPro transposer and German
-      H-notation transposer. These features exist but have no page of their own,
-      and their long-tail queries are easier to rank for than "chord transposer".
+      H-notation transposer, plus a PDF chord transposer page once PDF import
+      ships. These features exist but have no page of their own, and their
+      long-tail queries are easier to rank for than "chord transposer".
 - [ ] **How-to guides (M)**: short articles that answer informational queries,
       such as how to transpose chords, transposing up or down a half step, and
       how a capo changes the key, each linking to the tool.
@@ -104,11 +179,6 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       stored, but no page substantiates who runs the site or how uploads are
       handled. Short `/privacy` and `/about` pages add E-E-A-T trust signals
       and give directories something to link besides the home page.
-- [x] **Lean structured data (S)**: keep `WebApplication` and `BreadcrumbList`,
-      and review `FAQPage` and `HowTo` in `src/seo.py`, which Google no longer
-      shows as rich results for most sites.
-- [x] **Sitemap `lastmod` (S)**: add last-modified dates to `/sitemap.xml` so
-      crawlers can see when pages change.
 - [ ] **Cache headers for root-served assets (S)**: `/og-image.png` (107 KB),
       `/favicon.ico`, and `/favicon.svg` are served by custom routes outside
       `/static/`, so they miss the `immutable` cache header in `src/app.py`
@@ -130,39 +200,67 @@ Sizes are rough estimates: **S** ≈ half a day, **M** ≈ 1–2 days, **L** ≈
       shapes, and left-handed fretboards.
 - [ ] **Shareable links (S)**: encode the key, target key and options in the
       URL so a transposed result can be shared or bookmarked.
-- [ ] **Stage mode polish (S)**: done: chords highlighted apart from the
-      lyrics, a key heading, stanza-aware two-column layout, a screen wake lock
-      and `+` / `−` size shortcuts. Still open: foot-pedal support and paging
-      through several songs.
+- [ ] **Stage mode polish (S)**: foot-pedal support (page-turner pedals send
+      arrow or page keys) and paging through several songs.
 
 ## Platform and quality
 
+- [ ] **One upload parser in `src/app.py` (S)**: `/detect-key`, `/transpose`,
+      `/transpose-text` and `/binder` each repeat the file, extension, key, size
+      and format checks with slightly different wording, `/transpose` has no
+      10 MB per-file check at all (only the 40 MB `MAX_CONTENT_LENGTH`
+      applies), and it formats its change header inline next to the
+      `_changes_header` helper the text route uses. Extract an upload reader
+      and a single error-response helper, and update
+      `api_contract_cases.json` for any message that changes.
+- [ ] **Browser-side key detection for uploads (S)**: `upload.ts` already
+      extracts a dropped `.docx` with `extractDocxParagraphs` for the preview,
+      yet still posts the file to `/detect-key` for the key guess, so every
+      selection uploads the file twice. `detectKey` is exported from
+      `src/js/transpose/`; run it on the extracted paragraphs as the text
+      branch already does, then retire `/detect-key` and its contract cases.
+- [ ] **Binder conversion in one Gotenberg request (S)**: `/binder` converts up
+      to 20 songs one after another, each a LibreOffice round-trip with a 120 s
+      timeout, inside a 150 s gunicorn worker timeout, so large binders can
+      time out. Send all transposed files in one request with Gotenberg's
+      `merge` field, which also drops the `pypdf` dependency; or convert
+      concurrently if per-song errors must stay attributable by `index`.
+- [ ] **Upload hardening (S)**: per-IP rate limiting on `/transpose`,
+      `/transpose-text`, `/binder` and `/detect-key` (until it is retired), and
+      clearer errors for oversized or corrupt files. Every one of them parses
+      untrusted zip/XML input without authentication.
+- [ ] **Security headers (S)**: no response sets `Content-Security-Policy`,
+      `X-Content-Type-Options`, `Referrer-Policy` or `Permissions-Policy`. The
+      inline theme script in `_head.html` and the JSON-LD blocks need a hash
+      or nonce in the CSP; everything else is same-origin.
+- [ ] **Health check that reports the PDF service (S)**: `/health` returns ok
+      while Gotenberg is unreachable, so a deploy looks healthy while every
+      `.pdf` download fails with 503. Add a cached Gotenberg probe to the
+      response without failing the liveness check.
+- [ ] **Quieter request logging (S)**: `log_request_start` and
+      `log_request_end` log every request at INFO on top of gunicorn's access
+      log, three lines per request. Keep one, or demote the Flask pair to
+      DEBUG.
 - [ ] **Installable PWA with offline paste mode (M)**: a web app manifest and
       service worker, so the in-browser transposer works without a connection.
-- [ ] **Browser end-to-end tests (M)**: Playwright tests for the paste, upload,
-      and binder flows, run in CI.
-- [ ] **Upload hardening (S)**: per-IP rate limiting on the upload endpoints and
-      clearer errors for oversized or corrupt files. Cover `/detect-key` too:
-      it is a second unauthenticated endpoint that parses untrusted .docx
-      (zip/XML) input, called automatically on every single-file selection.
-- [ ] **Single-upload key detection (M)**: a selected .docx is currently
-      uploaded twice — once to `/detect-key` for the key guess and again on
-      submit. When the "Upload preview before download" item lands with
-      client-side .docx text extraction, run detection in the browser and
-      retire `/detect-key`.
-- [ ] **Dependency automation (S)**: Dependabot for pip, npm and GitHub
-      Actions, plus tagged releases with a `CHANGELOG.md`.
+- [ ] **Dependency automation (S)**: Dependabot for uv, npm and GitHub Actions;
+      a CI step asserting that the Playwright container tag in `ci.yml` matches
+      the `@playwright/test` version in `package-lock.json`, which is paired by
+      hand today; and tagged releases with a `CHANGELOG.md`.
 - [ ] **Accessibility pass (S)**: keyboard navigation and screen-reader labels
-      for the diagram popovers, key pickers and drop zone.
-- [x] **TypeScript frontend (L)**: rewrite the browser code under `src/js/`
-      (about 23 modules and their Vitest tests, including the transpose port in
-      `src/js/transpose/`) in strict TypeScript. Add a `tsc --noEmit` type check
-      to the `frontend` CI job, update the Vite and Vitest globs, and keep the
-      parity cases passing unchanged. The Python backend stays as it is.
+      for the diagram popovers, key pickers and drop zone, with an axe-core
+      check (`@axe-core/playwright`) in the page-health e2e spec so regressions
+      fail CI.
+- [ ] **Visual regression snapshots (S)**: `toHaveScreenshot` on Chromium for
+      the home page, both panels, stage view and the 404 page in light and dark
+      themes, so the paper-and-ink redesign is protected against drift.
+- [ ] **Repository hygiene (S)**: `og-preview.png` (184 KB) is tracked at the
+      repo root with no reference anywhere since the redesign commit; remove it
+      or move it under `scripts/og-image/`.
 
 ## Reach
 
 - [ ] **Localised UI (L)**: Hungarian and German interface translations, with
       matching `hreflang` landing pages in `src/seo.py`.
 - [ ] **Contributor docs (S)**: a `CONTRIBUTING.md` covering the Python and JS
-      check suites and the parity harness.
+      check suites, the parity and API-contract harnesses, and the e2e setup.
