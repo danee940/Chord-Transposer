@@ -35,6 +35,9 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+      - name: Hand-pinned versions agree (Playwright image, uv)
+        run: uv run python scripts/check_pinned_versions.py
+
   frontend:
     runs-on: ubuntu-latest
     steps:
